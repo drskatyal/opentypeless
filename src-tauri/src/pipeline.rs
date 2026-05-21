@@ -162,7 +162,7 @@ pub struct PipelineHandle {
 }
 
 impl PipelineHandle {
-    pub fn new(app_handle: tauri::AppHandle) -> Self {
+    pub fn new(app_handle: tauri::AppHandle, shared_client: reqwest::Client) -> Self {
         Self {
             app_handle,
             state: Arc::new(AtomicU8::new(PipelineState::Idle.as_u8())),
@@ -176,7 +176,7 @@ impl PipelineHandle {
             preloaded_dictionary: Arc::new(Mutex::new(None)),
             preloaded_selected_text: Arc::new(Mutex::new(None)),
             recording_start: Arc::new(Mutex::new(None)),
-            shared_client: reqwest::Client::new(),
+            shared_client,
             pipeline_lock: tokio::sync::Mutex::new(()),
         }
     }

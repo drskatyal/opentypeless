@@ -167,6 +167,7 @@ async fn test_stt_connection(
     api_key: String,
     provider: String,
     token_store: tauri::State<'_, SessionTokenStore>,
+    client: tauri::State<'_, reqwest::Client>,
 ) -> Result<bool, String> {
     if provider.is_empty() {
         return Ok(false);
@@ -183,7 +184,6 @@ async fn test_stt_connection(
             return Ok(false);
         }
         let api_base = api_base_url();
-        let client = reqwest::Client::new();
         let resp = client
             .get(format!("{}/api/subscription/status", api_base))
             .header("Authorization", format!("Bearer {}", token))
@@ -204,7 +204,6 @@ async fn test_stt_connection(
 
     match provider.as_str() {
         "deepgram" => {
-            let client = reqwest::Client::new();
             let resp = client
                 .get("https://api.deepgram.com/v1/projects")
                 .header("Authorization", format!("Token {}", api_key))
@@ -215,7 +214,6 @@ async fn test_stt_connection(
             Ok(resp.status().is_success())
         }
         "assemblyai" => {
-            let client = reqwest::Client::new();
             let resp = client
                 .get("https://api.assemblyai.com/v2/transcript?limit=1")
                 .header("Authorization", api_key)
@@ -265,7 +263,6 @@ async fn test_stt_connection(
                 form = form.text(key.to_string(), value.to_string());
             }
 
-            let client = reqwest::Client::new();
             let resp = client
                 .post(endpoint)
                 .header("Authorization", format!("Bearer {}", api_key))
@@ -287,6 +284,7 @@ async fn test_llm_connection(
     base_url: String,
     model: String,
     token_store: tauri::State<'_, SessionTokenStore>,
+    client: tauri::State<'_, reqwest::Client>,
 ) -> Result<bool, String> {
     if provider.is_empty() {
         return Ok(false);
@@ -303,7 +301,6 @@ async fn test_llm_connection(
             return Ok(false);
         }
         let api_base = api_base_url();
-        let client = reqwest::Client::new();
         let resp = client
             .get(format!("{}/api/subscription/status", api_base))
             .header("Authorization", format!("Bearer {}", token))
@@ -328,7 +325,6 @@ async fn test_llm_connection(
         return Err("Base URL must use http or https scheme".to_string());
     }
 
-    let client = reqwest::Client::new();
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
     let body = serde_json::json!({
         "model": model,
@@ -405,6 +401,7 @@ async fn bench_stt_connection(
     api_key: String,
     provider: String,
     token_store: tauri::State<'_, SessionTokenStore>,
+    client: tauri::State<'_, reqwest::Client>,
 ) -> Result<u32, String> {
     if provider.is_empty() {
         return Err("No provider specified".to_string());
@@ -420,7 +417,6 @@ async fn bench_stt_connection(
             return Err("Not signed in".to_string());
         }
         let api_base = api_base_url();
-        let client = reqwest::Client::new();
         let t0 = std::time::Instant::now();
         let resp = client
             .get(format!("{}/api/subscription/status", api_base))
@@ -446,7 +442,6 @@ async fn bench_stt_connection(
 
     match provider.as_str() {
         "deepgram" => {
-            let client = reqwest::Client::new();
             let t0 = std::time::Instant::now();
             let resp = client
                 .get("https://api.deepgram.com/v1/projects")
@@ -462,7 +457,6 @@ async fn bench_stt_connection(
             Ok(elapsed)
         }
         "assemblyai" => {
-            let client = reqwest::Client::new();
             let t0 = std::time::Instant::now();
             let resp = client
                 .get("https://api.assemblyai.com/v2/transcript?limit=1")
@@ -516,7 +510,6 @@ async fn bench_stt_connection(
                 form = form.text(key.to_string(), value.to_string());
             }
 
-            let client = reqwest::Client::new();
             let t0 = std::time::Instant::now();
             let resp = client
                 .post(endpoint)
@@ -543,6 +536,7 @@ async fn bench_llm_connection(
     base_url: String,
     model: String,
     token_store: tauri::State<'_, SessionTokenStore>,
+    client: tauri::State<'_, reqwest::Client>,
 ) -> Result<u32, String> {
     if provider.is_empty() {
         return Err("No provider specified".to_string());
@@ -558,7 +552,6 @@ async fn bench_llm_connection(
             return Err("Not signed in".to_string());
         }
         let api_base = api_base_url();
-        let client = reqwest::Client::new();
         let body = serde_json::json!({
             "messages": [{"role": "user", "content": "hi"}],
             "stream": false
@@ -589,7 +582,6 @@ async fn bench_llm_connection(
         return Err("Base URL must use http or https scheme".to_string());
     }
 
-    let client = reqwest::Client::new();
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
     let body = serde_json::json!({
         "model": model,
@@ -1103,7 +1095,15 @@ pub fn run() {
                 .map_err(|e| anyhow::anyhow!("Failed to init history store: {}", e))?;
             let dictionary_store = storage::DictionaryStore::new(db_path)
                 .map_err(|e| anyhow::anyhow!("Failed to init dictionary store: {}", e))?;
-            let pipeline_handle = pipeline::PipelineHandle::new(app_handle.clone());
+
+            let shared_client = reqwest::Client::builder()
+                .pool_max_idle_per_host(2)
+                .pool_idle_timeout(std::time::Duration::from_secs(30))
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .expect("Failed to create HTTP client");
+
+            let pipeline_handle = pipeline::PipelineHandle::new(app_handle.clone(), shared_client.clone());
 
             // Load initial config to get hotkey
             let initial_config =
@@ -1113,6 +1113,7 @@ pub fn run() {
             app.manage(config_manager);
             app.manage(history_store);
             app.manage(dictionary_store);
+            app.manage(shared_client);
             app.manage(pipeline_handle);
             app.manage(HotkeyModeCache(Arc::new(Mutex::new(
                 initial_config.hotkey_mode.clone(),
