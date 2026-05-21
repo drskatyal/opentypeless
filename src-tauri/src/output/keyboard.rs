@@ -9,6 +9,30 @@ const TYPE_CHUNK_SIZE: usize = 200;
 /// Delay between typing chunks.
 const TYPE_CHUNK_DELAY_MS: u64 = 5;
 
+/// Check if keyboard simulation is reliable on this platform.
+/// Returns Ok(()) if fine, or Err with a reason string for the caller.
+pub fn check_keyboard_available() -> std::result::Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
+        if session == "wayland" {
+            return Err("wayland_unsupported".to_string());
+        }
+        if session == "x11" || session.is_empty() {
+            if std::process::Command::new("which")
+                .arg("xdotool")
+                .output()
+                .map(|o| !o.status.success())
+                .unwrap_or(true)
+            {
+                return Err("xdotool_missing".to_string());
+            }
+        }
+    }
+    let _ = (); // suppress unused warning on non-Linux
+    Ok(())
+}
+
 pub struct KeyboardOutput;
 
 impl Default for KeyboardOutput {

@@ -906,17 +906,42 @@ impl PipelineHandle {
             OutputMode::Clipboard
         };
 
-        // On macOS, keyboard output uses CGEventPost via enigo which requires
-        // Accessibility permission. Clipboard mode uses osascript which does not.
         if mode == OutputMode::Keyboard && !is_accessibility_trusted() {
             anyhow::bail!("ACCESSIBILITY_REQUIRED");
         }
 
-        let output = output::create_output(mode);
-        output.type_text(text).await?;
+        // Linux: check keyboard availability before attempting
+        if mode == OutputMode::Keyboard {
+            if let Err(reason) = output::keyboard::check_keyboard_available() {
+                if reason == "wayland_unsupported" {
+                    tracing::warn!("Keyboard output not supported on Wayland, falling back to clipboard");
+                    let ue = crate::error::UserError {
+                        code: "output_wayland_unsupported".to_string(),
+                        details: None,
+                        retry_count: 0,
+                    };
+                    let _ = self.app_handle.emit("pipeline:warning", &ue);
+                    // Retry with clipboard mode
+                    let clipboard_config = storage::AppConfig {
+                        output_mode: "clipboard".to_string(),
+                        ..config.clone()
+                    };
+                    return self.output_text(text, app_name, &clipboard_config).await;
+                }
+                tracing::warn!("xdotool not found, keyboard output may fail: {}", reason);
+            }
+        }
+
+        match output::output_with_fallback(text, mode).await {
+            Ok(Some(user_error)) => {
+                tracing::info!("Output fell back to clipboard");
+                let _ = self.app_handle.emit("pipeline:warning", &user_error);
+            }
+            Ok(None) => {}
+            Err(e) => anyhow::bail!("{}", e),
+        }
 
         let _ = self.app_handle.emit("pipeline:target_app", app_name);
-
         Ok(())
     }
 
