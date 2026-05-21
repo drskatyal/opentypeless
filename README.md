@@ -97,6 +97,53 @@ Download the latest version for your platform:
 | macOS (Intel) | `.dmg` |
 | Linux | `.AppImage` / `.deb` |
 
+## Installation Notes
+
+> **OpenTypeless is an unsigned open-source application.** You may see security warnings during installation — these are expected and safe to bypass.
+
+### Windows
+
+Windows SmartScreen may show "Windows protected your PC":
+
+1. Click **More info**
+2. Click **Run anyway**
+
+If you downloaded a `.msi` that shows a publisher validation error:
+1. Right-click the `.msi` file → **Properties**
+2. Check **Unblock** at the bottom → **Apply**
+3. Run the installer again
+
+### macOS
+
+macOS Gatekeeper may report the app is "damaged" because it lacks a Developer certificate:
+
+```bash
+xattr -cr /Applications/OpenTypeless.app
+```
+
+Then open the app normally.
+
+### Linux
+
+**Ubuntu/Debian** — install the `.deb` package:
+
+```bash
+sudo apt install ./OpenTypeless_x.x.x_amd64.deb
+```
+
+**AppImage** — make it executable and run:
+
+```bash
+chmod +x OpenTypeless_x.x.x_amd64.AppImage
+./OpenTypeless_x.x.x_amd64.AppImage
+```
+
+**NVIDIA + Wayland users:** The app auto-detects this configuration and applies a workaround. If it still crashes on startup, run:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 ./OpenTypeless
+```
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+
