@@ -6,11 +6,11 @@ use super::{SttConfig, SttProvider, TranscriptEvent};
 
 /// Configuration for a Whisper-compatible HTTP file-upload STT provider.
 pub struct WhisperCompatConfig {
-    pub provider_name: &'static str,
-    pub endpoint: &'static str,
-    pub model: &'static str,
+    pub provider_name: String,
+    pub endpoint: String,
+    pub model: String,
     /// Extra form text fields (e.g. GLM-ASR needs "stream"="false").
-    pub extra_fields: &'static [(&'static str, &'static str)],
+    pub extra_fields: Vec<(String, String)>,
 }
 
 /// Max audio buffer: ~24 MB PCM ≈ 12.5 min at 16kHz 16-bit mono.
@@ -149,8 +149,8 @@ impl SttProvider for WhisperCompatProvider {
             }
 
             // Provider-specific extra fields
-            for &(key, value) in self.provider_config.extra_fields {
-                form = form.text(key.to_string(), value.to_string());
+            for (key, value) in &self.provider_config.extra_fields {
+                form = form.text(key.clone(), value.clone());
             }
 
             let resp_result = self
@@ -243,6 +243,6 @@ impl SttProvider for WhisperCompatProvider {
     }
 
     fn name(&self) -> &str {
-        self.provider_config.provider_name
+        &self.provider_config.provider_name
     }
 }

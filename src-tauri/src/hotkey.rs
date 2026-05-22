@@ -1,7 +1,6 @@
 use crate::pipeline;
 use crate::storage;
 use crate::HotkeyModeCache;
-use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};

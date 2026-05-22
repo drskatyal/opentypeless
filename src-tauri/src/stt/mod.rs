@@ -73,10 +73,14 @@ pub fn create_provider(
                 .or_else(|| config::get_whisper_config("glm-asr"))
                 .expect("glm-asr config must always exist");
             let wc = WhisperCompatConfig {
-                provider_name: name,
-                endpoint: cfg.endpoint,
-                model: cfg.model,
-                extra_fields: cfg.extra_fields,
+                provider_name: name.to_string(),
+                endpoint: cfg.endpoint.to_string(),
+                model: cfg.model.to_string(),
+                extra_fields: cfg
+                    .extra_fields
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
             };
             match client {
                 Some(ref c) => Box::new(WhisperCompatProvider::with_client(wc, c.clone())),
