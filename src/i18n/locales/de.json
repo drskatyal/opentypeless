@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "AI-Spracheingabe",
-    "loading": "Laden...",
-    "failedToLoad": "Anwendungsdaten konnten nicht geladen werden.",
-    "retry": "Erneut versuchen"
+    "tagline": "AI-Spracheingabe"
   },
   "nav": {
     "home": "Startseite",
@@ -32,35 +28,9 @@
     "outputMode": "Ausgabemodus"
   },
   "onboarding": {
-    "welcomeTitle": "Willkommen bei OpenTypeless",
-    "welcomeSubtitle": "Ein paar schnelle Schritte, um mit der Spracheingabe zu beginnen",
-    "speechRecognition": "Spracherkennung",
-    "speechRecognitionDesc": "Konfigurieren Sie Ihren ASR-Dienst zur Umwandlung von Sprache in Text",
-    "aiPolish": "KI-Glättung",
-    "aiPolishDesc": "Konfigurieren Sie einen LLM-Dienst zur Glättung des transkribierten Textes",
-    "tryItOut": "Probieren Sie es aus",
-    "tryItOutDesc": "Halten Sie die Taste gedrückt und sagen Sie etwas, um die gesamte Pipeline zu testen",
-    "setupComplete": "Einrichtung abgeschlossen",
-    "skip": "Überspringen",
-    "back": "Zurück",
-    "next": "Weiter",
-    "getStarted": "Loslegen",
-    "close": "Schließen",
     "speakToWrite": "Sprechen Sie, um zu schreiben — verwandeln Sie Ihre Stimme in Echtzeit in geglätteten Text",
     "selectLanguage": "Wählen Sie Ihre Sprache",
     "selectLanguageDesc": "Wählen Sie die Sprache für die App-Oberfläche. Sie können sie später in den Einstellungen ändern.",
-    "allSet": "Alles fertig",
-    "startUsing": "Spracheingabe verwenden",
-    "hotkey": "Tastenkombination",
-    "hold": "Halten",
-    "press": "Drücken",
-    "toTalk": "zum Sprechen",
-    "toStartStop": "zum Starten/Stoppen",
-    "capsuleHint": "← Das ist Ihre Sprachkapsel",
-    "sttService": "Spracherkennungsdienst",
-    "aiPolishService": "KI-Glättungsdienst",
-    "apiKey": "API-Schlüssel",
-    "enterApiKey": "API-Schlüssel eingeben...",
     "test": {
       "stageRecord": "Aufnehmen",
       "stageStt": "Transkribieren",
@@ -82,14 +52,6 @@
       "demoPolished": "Hallo, können Sie mir hierbei helfen?",
       "result": "Ergebnis"
     },
-    "connectionSuccess": "Verbindung erfolgreich",
-    "connectionFailed": "Verbindung fehlgeschlagen, bitte überprüfen Sie Ihren API-Schlüssel",
-    "connectionFailedConfig": "Verbindung fehlgeschlagen, bitte überprüfen Sie Ihre Konfiguration",
-    "model": "Modell",
-    "fetchModels": "Verfügbare Modelle abrufen",
-    "modelsAvailable": "{{count}} Modelle verfügbar",
-    "baseUrl": "Basis-URL",
-    "record": "Aufnehmen",
     "stt": {
       "serviceLabel": "Spracherkennungsdienst",
       "apiKeyLabel": "API-Schlüssel",
@@ -111,9 +73,6 @@
       "connectionOk": "Verbindung erfolgreich",
       "connectionFail": "Verbindung fehlgeschlagen"
     },
-    "output": "Ausgabe",
-    "releaseToStop": "Loslassen, um Aufnahme zu stoppen",
-    "holdAndSay": "Halten und etwas sagen",
     "steps": {
       "welcome": "Willkommen",
       "welcomeSub": "Richten Sie OpenTypeless in wenigen Schritten ein",
@@ -138,10 +97,7 @@
       "email": "E-Mail",
       "emailPlaceholder": "ihre@email.com",
       "password": "Passwort",
-      "send": "Senden",
       "or": "oder",
-      "signInWith": "Anmelden mit",
-      "signUpWith": "Registrieren mit",
       "signedInAs": "Angemeldet als",
       "freePlan": "Kostenloser Tarif",
       "freePlanQuota": "Kontingent verbleibend",
@@ -203,12 +159,6 @@
     "cancelPolishing": "Glättung abbrechen",
     "done": "Fertig",
     "errorOccurred": "Ein Fehler ist aufgetreten",
-    "openMainWindow": "Hauptfenster öffnen",
-    "settings": "Einstellungen",
-    "history": "Verlauf",
-    "account": "Konto",
-    "upgrade": "Upgrade",
-    "exit": "Beenden",
     "accessibilityRequired": "Bedienungshilfen erforderlich — Einstellungen öffnen",
     "menu": {
       "openMainWindow": "Hauptfenster öffnen",
@@ -217,15 +167,7 @@
       "account": "Konto",
       "upgrade": "Upgrade",
       "exit": "Beenden"
-    },
-    "status": {
-      "recording": "Aufnahme",
-      "transcribing": "Transkribiere",
-      "thinking": "Denke nach",
-      "done": "Fertig"
-    },
-    "stopRecording": "Aufnahme stoppen",
-    "close": "Schließen"
+    }
   },
   "settings": {
     "title": "Einstellungen",
@@ -246,7 +188,6 @@
     "other": "Sonstiges",
     "launchAtStartup": "Beim Start starten",
     "startMinimized": "Minimiert im Infobereich starten",
-    "closeToTray": "In den Infobereich schließen",
     "language": "Sprache",
     "provider": "Anbieter",
     "cloudSttPro": "Cloud-STT (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "Berechtigung erteilt",
     "accessibilityRequired": "Erforderlich für Tastaturausgabe",
     "grantPermission": "Berechtigung erteilen",
-    "unsavedChanges": "Sie haben ungespeicherte Änderungen"
+    "unsavedChanges": "Sie haben ungespeicherte Änderungen",
+    "autoDetect": "Automatische Erkennung"
   },
   "dictionary": {
     "word": "Wort",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "LLM-Kontingent über 90 %. Erwägen Sie den Wechsel in den BYOK-Modus.",
     "quotaHours": "Stunden",
     "quotaTokens": "k Tokens",
-    "quotaUsage": "{{label}}-Nutzung: {{used}} von {{limit}} {{unit}}"
+    "quotaUsage": "{{label}}-Nutzung: {{used}} von {{limit}} {{unit}}",
+    "backToSignIn": "Zurück zur Anmeldung",
+    "freeCredit": "Freies Guthaben",
+    "resendVerification": "Bestätigungsmail erneut senden",
+    "sending": "Wird gesendet...",
+    "verificationResent": "Bestätigungsmail erneut gesendet!",
+    "verifyEmailTitle": "Überprüfen Sie Ihre E-Mail"
   },
   "error": {
     "somethingWentWrong": "Etwas ist schiefgelaufen",
     "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten.",
     "reload": "Neu laden"
   },
-  "errors": {
-    "stt_invalid_key": "Ungültiger API-Schlüssel, bitte überprüfen Sie die Einstellungen",
-    "stt_timeout": "Verbindungszeitüberschreitung, erneuter Versuch...",
-    "stt_failed": "Spracherkennung fehlgeschlagen, bitte überprüfen Sie Ihr Netzwerk",
-    "llm_failed": "Textglättung fehlgeschlagen, rohe Transkription gespeichert",
-    "output_fallback_clipboard": "In Zwischenablage kopiert, manuell einfügen",
-    "output_wayland_unsupported": "Tastaturausgabe unter Wayland nicht unterstützt, in Zwischenablagen-Modus gewechselt",
-    "output_xdotool_missing": "xdotool nicht gefunden, installieren Sie es für Tastaturausgabe: sudo apt install xdotool",
-    "boundary": {
-      "title": "Etwas ist schiefgelaufen",
-      "reload": "Neu laden"
-    }
-  },
-  "tray": {
-    "showWindow": "Fenster anzeigen",
-    "hideWindow": "Fenster ausblenden",
-    "startRecording": "Aufnahme starten",
-    "stopRecording": "Aufnahme stoppen",
-    "settings": "Einstellungen",
-    "history": "Verlauf",
-    "account": "Konto",
-    "about": "Über",
-    "quit": "Beenden"
-  },
   "common": {
-    "loading": "Laden...",
-    "retry": "Erneut versuchen",
     "save": "Speichern",
     "saving": "Speichere...",
-    "reset": "Zurücksetzen",
-    "cancel": "Abbrechen",
-    "test": "Testen",
-    "connectionOk": "Verbindung erfolgreich",
     "connectionFail": "Verbindung fehlgeschlagen"
   },
   "providers": {

@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "AI 음성 입력",
-    "loading": "로딩 중...",
-    "failedToLoad": "애플리케이션 데이터를 불러오지 못했습니다.",
-    "retry": "다시 시도"
+    "tagline": "AI 음성 입력"
   },
   "nav": {
     "home": "홈",
@@ -32,35 +28,9 @@
     "outputMode": "출력 모드"
   },
   "onboarding": {
-    "welcomeTitle": "OpenTypeless에 오신 것을 환영합니다",
-    "welcomeSubtitle": "음성 입력을 시작하기 위한 몇 가지 간단한 단계",
-    "speechRecognition": "음성 인식",
-    "speechRecognitionDesc": "ASR 서비스를 설정하여 음성을 텍스트로 변환하세요",
-    "aiPolish": "AI 다듬기",
-    "aiPolishDesc": "LLM 서비스를 설정하여 변환된 텍스트를 다듬으세요",
-    "tryItOut": "직접 해보기",
-    "tryItOutDesc": "버튼을 누른 채 말하여 전체 파이프라인을 테스트해 보세요",
-    "setupComplete": "설정 완료",
-    "skip": "건너뛰기",
-    "back": "이전",
-    "next": "다음",
-    "getStarted": "시작하기",
-    "close": "닫기",
     "speakToWrite": "말해서 글 쓰기 — 음성을 실시간으로 다듬어진 텍스트로 변환합니다",
     "selectLanguage": "언어 선택",
     "selectLanguageDesc": "앱 인터페이스 언어를 선택하세요. 나중에 설정에서 변경할 수 있습니다.",
-    "allSet": "준비 완료",
-    "startUsing": "음성 입력 시작하기",
-    "hotkey": "단축키",
-    "hold": "누른 채",
-    "press": "눌러서",
-    "toTalk": "말하세요",
-    "toStartStop": "시작/중지하세요",
-    "capsuleHint": "← 이것이 음성 캡슐입니다",
-    "sttService": "음성 인식 서비스",
-    "aiPolishService": "AI 다듬기 서비스",
-    "apiKey": "API 키",
-    "enterApiKey": "API 키를 입력하세요...",
     "test": {
       "stageRecord": "녹음",
       "stageStt": "변환",
@@ -82,14 +52,6 @@
       "demoRaw": "안녕하세요 음 이것 좀 도와주시겠어요",
       "demoPolished": "안녕하세요, 이것 좀 도와주시겠어요?"
     },
-    "connectionSuccess": "연결에 성공했습니다",
-    "connectionFailed": "연결에 실패했습니다. API 키를 확인해 주세요",
-    "connectionFailedConfig": "연결에 실패했습니다. 설정을 확인해 주세요",
-    "model": "모델",
-    "fetchModels": "사용 가능한 모델 불러오기",
-    "modelsAvailable": "{{count}}개 모델 사용 가능",
-    "baseUrl": "기본 URL",
-    "record": "녹음",
     "stt": {
       "serviceLabel": "음성 인식 서비스",
       "apiKeyLabel": "API 키",
@@ -111,9 +73,6 @@
       "connectionOk": "연결에 성공했습니다",
       "connectionFail": "연결에 실패했습니다"
     },
-    "output": "출력",
-    "releaseToStop": "놓으면 녹음이 중지됩니다",
-    "holdAndSay": "누른 채 무언가를 말하세요",
     "steps": {
       "welcome": "환영합니다",
       "welcomeSub": "몇 단계만으로 OpenTypeless를 설정하세요",
@@ -138,10 +97,7 @@
       "email": "이메일",
       "emailPlaceholder": "your@email.com",
       "password": "비밀번호",
-      "send": "보내기",
       "or": "또는",
-      "signInWith": "다음으로 로그인",
-      "signUpWith": "다음으로 가입",
       "signedInAs": "로그인됨:",
       "freePlan": "무료 플랜",
       "freePlanQuota": "남은 할당량",
@@ -203,12 +159,6 @@
     "cancelPolishing": "다듬기 취소",
     "done": "완료",
     "errorOccurred": "오류가 발생했습니다",
-    "openMainWindow": "메인 창 열기",
-    "settings": "설정",
-    "history": "기록",
-    "account": "계정",
-    "upgrade": "업그레이드",
-    "exit": "종료",
     "accessibilityRequired": "접근성 권한이 필요합니다 — 설정을 여세요",
     "menu": {
       "openMainWindow": "메인 창 열기",
@@ -217,15 +167,7 @@
       "account": "계정",
       "upgrade": "업그레이드",
       "exit": "종료"
-    },
-    "status": {
-      "recording": "녹음 중",
-      "transcribing": "변환 중",
-      "thinking": "생각 중",
-      "done": "완료"
-    },
-    "stopRecording": "녹음 중지",
-    "close": "닫기"
+    }
   },
   "settings": {
     "title": "설정",
@@ -246,7 +188,6 @@
     "other": "기타",
     "launchAtStartup": "시작 시 자동 실행",
     "startMinimized": "트레이로 최소화하여 시작",
-    "closeToTray": "시스템 트레이로 닫기",
     "language": "언어",
     "provider": "제공자",
     "cloudSttPro": "클라우드 STT (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "권한이 부여되었습니다",
     "accessibilityRequired": "키보드 출력에 필요합니다",
     "grantPermission": "권한 부여",
-    "unsavedChanges": "저장하지 않은 변경 사항이 있습니다"
+    "unsavedChanges": "저장하지 않은 변경 사항이 있습니다",
+    "autoDetect": "자동 감지"
   },
   "dictionary": {
     "word": "단어",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "LLM 할당량이 90%를 초과했습니다. BYOK 모드로 전환을 고려하세요.",
     "quotaHours": "시간",
     "quotaTokens": "천 토큰",
-    "quotaUsage": "{{label}} 사용량: {{used}} / {{limit}} {{unit}}"
+    "quotaUsage": "{{label}} 사용량: {{used}} / {{limit}} {{unit}}",
+    "backToSignIn": "로그인으로 돌아가기",
+    "freeCredit": "무료 크레딧",
+    "resendVerification": "인증 이메일 재전송",
+    "sending": "전송 중...",
+    "verificationResent": "인증 이메일이 전송되었습니다!",
+    "verifyEmailTitle": "이메일을 확인하세요"
   },
   "error": {
     "somethingWentWrong": "문제가 발생했습니다",
     "unexpectedError": "예기치 않은 오류가 발생했습니다.",
     "reload": "새로고침"
   },
-  "errors": {
-    "stt_invalid_key": "잘못된 API 키입니다. 설정을 확인해 주세요",
-    "stt_timeout": "연결 시간이 초과되었습니다. 다시 시도 중...",
-    "stt_failed": "음성 인식에 실패했습니다. 네트워크를 확인해 주세요",
-    "llm_failed": "텍스트 다듬기에 실패했습니다. 원본 변환 결과가 저장되었습니다",
-    "output_fallback_clipboard": "클립보드에 복사되었습니다. 직접 붙여넣으세요",
-    "output_wayland_unsupported": "Wayland에서는 키보드 출력이 지원되지 않아 클립보드 모드로 전환되었습니다",
-    "output_xdotool_missing": "xdotool을 찾을 수 없습니다. 키보드 출력을 위해 설치하세요: sudo apt install xdotool",
-    "boundary": {
-      "title": "문제가 발생했습니다",
-      "reload": "새로고침"
-    }
-  },
-  "tray": {
-    "showWindow": "창 보이기",
-    "hideWindow": "창 숨기기",
-    "startRecording": "녹음 시작",
-    "stopRecording": "녹음 중지",
-    "settings": "설정",
-    "history": "기록",
-    "account": "계정",
-    "about": "정보",
-    "quit": "종료"
-  },
   "common": {
-    "loading": "로딩 중...",
-    "retry": "다시 시도",
     "save": "저장",
     "saving": "저장 중...",
-    "reset": "초기화",
-    "cancel": "취소",
-    "test": "테스트",
-    "connectionOk": "연결에 성공했습니다",
     "connectionFail": "연결에 실패했습니다"
   },
   "providers": {

@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "Input vocale AI",
-    "loading": "Caricamento...",
-    "failedToLoad": "Caricamento dati applicazione non riuscito.",
-    "retry": "Riprova"
+    "tagline": "Input vocale AI"
   },
   "nav": {
     "home": "Home",
@@ -32,35 +28,9 @@
     "outputMode": "Modalità di output"
   },
   "onboarding": {
-    "welcomeTitle": "Benvenuto in OpenTypeless",
-    "welcomeSubtitle": "Qualche rapido passo per iniziare con l'input vocale",
-    "speechRecognition": "Riconoscimento vocale",
-    "speechRecognitionDesc": "Configura il tuo servizio ASR per convertire la voce in testo",
-    "aiPolish": "Rifinitura IA",
-    "aiPolishDesc": "Configura un servizio LLM per rifinire il testo trascritto",
-    "tryItOut": "Provalo",
-    "tryItOutDesc": "Tieni premuto il pulsante e dì qualcosa per testare l'intera pipeline",
-    "setupComplete": "Configurazione completata",
-    "skip": "Salta",
-    "back": "Indietro",
-    "next": "Avanti",
-    "getStarted": "Inizia",
-    "close": "Chiudi",
     "speakToWrite": "Parla per scrivere — trasforma la tua voce in testo rifinito in tempo reale",
     "selectLanguage": "Scegli la tua lingua",
     "selectLanguageDesc": "Seleziona la lingua per l'interfaccia dell'app. Puoi cambiarla in seguito nelle Impostazioni.",
-    "allSet": "Tutto pronto",
-    "startUsing": "Inizia a usare l'input vocale",
-    "hotkey": "Tasto rapido",
-    "hold": "Tieni premuto",
-    "press": "Premi",
-    "toTalk": "per parlare",
-    "toStartStop": "per avviare/fermare",
-    "capsuleHint": "← Questa è la tua capsula vocale",
-    "sttService": "Servizio di riconoscimento vocale",
-    "aiPolishService": "Servizio di rifinitura IA",
-    "apiKey": "Chiave API",
-    "enterApiKey": "Inserisci la chiave API...",
     "test": {
       "stageRecord": "Registra",
       "stageStt": "Trascrivi",
@@ -82,14 +52,6 @@
       "demoRaw": "ciao ehm puoi aiutarmi con questo",
       "demoPolished": "Ciao, puoi aiutarmi con questo?"
     },
-    "connectionSuccess": "Connessione riuscita",
-    "connectionFailed": "Connessione non riuscita, controlla la tua chiave API",
-    "connectionFailedConfig": "Connessione non riuscita, controlla la tua configurazione",
-    "model": "Modello",
-    "fetchModels": "Recupera modelli disponibili",
-    "modelsAvailable": "{{count}} modelli disponibili",
-    "baseUrl": "URL di base",
-    "record": "Registra",
     "stt": {
       "serviceLabel": "Servizio di riconoscimento vocale",
       "apiKeyLabel": "Chiave API",
@@ -111,9 +73,6 @@
       "connectionOk": "Connessione riuscita",
       "connectionFail": "Connessione non riuscita"
     },
-    "output": "Output",
-    "releaseToStop": "Rilascia per fermare la registrazione",
-    "holdAndSay": "Tieni premuto e dì qualcosa",
     "steps": {
       "welcome": "Benvenuto",
       "welcomeSub": "Configura OpenTypeless in pochi passi",
@@ -138,10 +97,7 @@
       "email": "Email",
       "emailPlaceholder": "la.tua@email.com",
       "password": "Password",
-      "send": "Invia",
       "or": "oppure",
-      "signInWith": "Accedi con",
-      "signUpWith": "Registrati con",
       "signedInAs": "Connesso come",
       "freePlan": "Piano Gratuito",
       "freePlanQuota": "quota rimanente",
@@ -203,12 +159,6 @@
     "cancelPolishing": "Annulla rifinitura",
     "done": "Fatto",
     "errorOccurred": "Si è verificato un errore",
-    "openMainWindow": "Apri finestra principale",
-    "settings": "Impostazioni",
-    "history": "Cronologia",
-    "account": "Account",
-    "upgrade": "Aggiorna",
-    "exit": "Esci",
     "accessibilityRequired": "Accessibilità necessaria — apri Impostazioni",
     "menu": {
       "openMainWindow": "Apri finestra principale",
@@ -217,15 +167,7 @@
       "account": "Account",
       "upgrade": "Aggiorna",
       "exit": "Esci"
-    },
-    "status": {
-      "recording": "Registrazione",
-      "transcribing": "Trascrizione",
-      "thinking": "Elaborazione",
-      "done": "Fatto"
-    },
-    "stopRecording": "Ferma registrazione",
-    "close": "Chiudi"
+    }
   },
   "settings": {
     "title": "Impostazioni",
@@ -246,7 +188,6 @@
     "other": "Altro",
     "launchAtStartup": "Avvia all'accensione",
     "startMinimized": "Avvia ridotto a icona nella barra",
-    "closeToTray": "Chiudi nella barra di sistema",
     "language": "Lingua",
     "provider": "Provider",
     "cloudSttPro": "STT Cloud (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "Autorizzazione concessa",
     "accessibilityRequired": "Necessaria per l'output da tastiera",
     "grantPermission": "Concedi autorizzazione",
-    "unsavedChanges": "Hai modifiche non salvate"
+    "unsavedChanges": "Hai modifiche non salvate",
+    "autoDetect": "Rilevamento automatico"
   },
   "dictionary": {
     "word": "Parola",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "La quota LLM supera il 90 %. Valuta di passare alla modalità BYOK.",
     "quotaHours": "ore",
     "quotaTokens": "k token",
-    "quotaUsage": "Utilizzo {{label}}: {{used}} di {{limit}} {{unit}}"
+    "quotaUsage": "Utilizzo {{label}}: {{used}} di {{limit}} {{unit}}",
+    "backToSignIn": "Torna al login",
+    "freeCredit": "Credito gratuito",
+    "resendVerification": "Invia di nuovo la verifica",
+    "sending": "Invio in corso...",
+    "verificationResent": "Email di verifica reinviata!",
+    "verifyEmailTitle": "Controlla la tua email"
   },
   "error": {
     "somethingWentWrong": "Qualcosa è andato storto",
     "unexpectedError": "Si è verificato un errore imprevisto.",
     "reload": "Ricarica"
   },
-  "errors": {
-    "stt_invalid_key": "Chiave API non valida, controlla le impostazioni",
-    "stt_timeout": "Connessione scaduta, nuovo tentativo in corso...",
-    "stt_failed": "Riconoscimento vocale non riuscito, controlla la tua rete",
-    "llm_failed": "Rifinitura del testo non riuscita, trascrizione grezza salvata",
-    "output_fallback_clipboard": "Copiato negli appunti, incolla manualmente",
-    "output_wayland_unsupported": "Output da tastiera non supportato su Wayland, modalità appunti attivata",
-    "output_xdotool_missing": "xdotool non trovato, installalo per l'output da tastiera: sudo apt install xdotool",
-    "boundary": {
-      "title": "Qualcosa è andato storto",
-      "reload": "Ricarica"
-    }
-  },
-  "tray": {
-    "showWindow": "Mostra finestra",
-    "hideWindow": "Nascondi finestra",
-    "startRecording": "Avvia registrazione",
-    "stopRecording": "Ferma registrazione",
-    "settings": "Impostazioni",
-    "history": "Cronologia",
-    "account": "Account",
-    "about": "Informazioni",
-    "quit": "Esci"
-  },
   "common": {
-    "loading": "Caricamento...",
-    "retry": "Riprova",
     "save": "Salva",
     "saving": "Salvataggio in corso...",
-    "reset": "Ripristina",
-    "cancel": "Annulla",
-    "test": "Test",
-    "connectionOk": "Connessione riuscita",
     "connectionFail": "Connessione non riuscita"
   },
   "providers": {

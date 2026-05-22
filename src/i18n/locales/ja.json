@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "AI音声入力",
-    "loading": "読み込み中...",
-    "failedToLoad": "アプリケーションデータの読み込みに失敗しました。",
-    "retry": "再試行"
+    "tagline": "AI音声入力"
   },
   "nav": {
     "home": "ホーム",
@@ -32,35 +28,9 @@
     "outputMode": "出力モード"
   },
   "onboarding": {
-    "welcomeTitle": "OpenTypelessへようこそ",
-    "welcomeSubtitle": "音声入力を始めるための簡単なステップ",
-    "speechRecognition": "音声認識",
-    "speechRecognitionDesc": "ASRサービスを設定して、音声をテキストに変換します",
-    "aiPolish": "AI整形",
-    "aiPolishDesc": "LLMサービスを設定して、文字起こしされたテキストを整形します",
-    "tryItOut": "試してみる",
-    "tryItOutDesc": "ボタンを長押しして、パイプライン全体をテストしましょう",
-    "setupComplete": "セットアップ完了",
-    "skip": "スキップ",
-    "back": "戻る",
-    "next": "次へ",
-    "getStarted": "始める",
-    "close": "閉じる",
     "speakToWrite": "話して書く — 音声をリアルタイムで整形されたテキストに変換します",
     "selectLanguage": "言語を選択",
     "selectLanguageDesc": "アプリのインターフェース言語を選択してください。後で設定から変更できます。",
-    "allSet": "準備完了",
-    "startUsing": "音声入力を使い始める",
-    "hotkey": "ホットキー",
-    "hold": "長押し",
-    "press": "押す",
-    "toTalk": "して話す",
-    "toStartStop": "して開始/停止",
-    "capsuleHint": "← これが音声カプセルです",
-    "sttService": "音声認識サービス",
-    "aiPolishService": "AI整形サービス",
-    "apiKey": "APIキー",
-    "enterApiKey": "APIキーを入力...",
     "test": {
       "stageRecord": "録音",
       "stageStt": "文字起こし",
@@ -82,14 +52,6 @@
       "demoRaw": "こんにちは えーと ちょっと手伝ってもらえますか",
       "demoPolished": "こんにちは、ちょっと手伝ってもらえますか？"
     },
-    "connectionSuccess": "接続に成功しました",
-    "connectionFailed": "接続に失敗しました。APIキーを確認してください",
-    "connectionFailedConfig": "接続に失敗しました。設定を確認してください",
-    "model": "モデル",
-    "fetchModels": "利用可能なモデルを取得",
-    "modelsAvailable": "{{count}}件のモデルが利用可能",
-    "baseUrl": "ベースURL",
-    "record": "録音",
     "stt": {
       "serviceLabel": "音声認識サービス",
       "apiKeyLabel": "APIキー",
@@ -111,9 +73,6 @@
       "connectionOk": "接続に成功しました",
       "connectionFail": "接続に失敗しました"
     },
-    "output": "出力",
-    "releaseToStop": "離すと録音停止",
-    "holdAndSay": "長押しして何か話しかけてください",
     "steps": {
       "welcome": "ようこそ",
       "welcomeSub": "いくつかのステップでOpenTypelessを設定しましょう",
@@ -138,10 +97,7 @@
       "email": "メールアドレス",
       "emailPlaceholder": "your@email.com",
       "password": "パスワード",
-      "send": "送信",
       "or": "または",
-      "signInWith": "サインイン方法",
-      "signUpWith": "サインアップ方法",
       "signedInAs": "サインイン中",
       "freePlan": "無料プラン",
       "freePlanQuota": "残り枠",
@@ -203,12 +159,6 @@
     "cancelPolishing": "整形をキャンセル",
     "done": "完了",
     "errorOccurred": "エラーが発生しました",
-    "openMainWindow": "メインウィンドウを開く",
-    "settings": "設定",
-    "history": "履歴",
-    "account": "アカウント",
-    "upgrade": "アップグレード",
-    "exit": "終了",
     "accessibilityRequired": "アクセシビリティが必要です — 設定を開いてください",
     "menu": {
       "openMainWindow": "メインウィンドウを開く",
@@ -217,15 +167,7 @@
       "account": "アカウント",
       "upgrade": "アップグレード",
       "exit": "終了"
-    },
-    "status": {
-      "recording": "録音中",
-      "transcribing": "文字起こし中",
-      "thinking": "思考中",
-      "done": "完了"
-    },
-    "stopRecording": "録音を停止",
-    "close": "閉じる"
+    }
   },
   "settings": {
     "title": "設定",
@@ -246,7 +188,6 @@
     "other": "その他",
     "launchAtStartup": "起動時に自動起動",
     "startMinimized": "トレイに最小化して起動",
-    "closeToTray": "システムトレイに閉じる",
     "language": "言語",
     "provider": "プロバイダー",
     "cloudSttPro": "クラウドSTT (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "権限が付与されました",
     "accessibilityRequired": "キーボード出力に必要です",
     "grantPermission": "権限を付与",
-    "unsavedChanges": "未保存の変更があります"
+    "unsavedChanges": "未保存の変更があります",
+    "autoDetect": "自動検出"
   },
   "dictionary": {
     "word": "単語",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "AIの使用量が90%を超えています。BYOKモードへの切り替えをご検討ください。",
     "quotaHours": "時間",
     "quotaTokens": "千トークン",
-    "quotaUsage": "{{label}}使用量: {{used}} / {{limit}} {{unit}}"
+    "quotaUsage": "{{label}}使用量: {{used}} / {{limit}} {{unit}}",
+    "backToSignIn": "ログインに戻る",
+    "freeCredit": "無料クレジット",
+    "resendVerification": "確認メールを再送信",
+    "sending": "送信中...",
+    "verificationResent": "確認メールを送信しました！",
+    "verifyEmailTitle": "メールを確認してください"
   },
   "error": {
     "somethingWentWrong": "問題が発生しました",
     "unexpectedError": "予期しないエラーが発生しました。",
     "reload": "再読み込み"
   },
-  "errors": {
-    "stt_invalid_key": "無効なAPIキーです。設定を確認してください",
-    "stt_timeout": "接続がタイムアウトしました。再試行中...",
-    "stt_failed": "音声認識に失敗しました。ネットワークを確認してください",
-    "llm_failed": "テキスト整形に失敗しました。原文の文字起こしが保存されました",
-    "output_fallback_clipboard": "クリップボードにコピーしました。手動で貼り付けてください",
-    "output_wayland_unsupported": "Waylandではキーボード出力に対応していません。クリップボードモードに切り替えました",
-    "output_xdotool_missing": "xdotoolが見つかりません。キーボード出力のためにインストールしてください：sudo apt install xdotool",
-    "boundary": {
-      "title": "問題が発生しました",
-      "reload": "再読み込み"
-    }
-  },
-  "tray": {
-    "showWindow": "ウィンドウを表示",
-    "hideWindow": "ウィンドウを非表示",
-    "startRecording": "録音を開始",
-    "stopRecording": "録音を停止",
-    "settings": "設定",
-    "history": "履歴",
-    "account": "アカウント",
-    "about": "バージョン情報",
-    "quit": "終了"
-  },
   "common": {
-    "loading": "読み込み中...",
-    "retry": "再試行",
     "save": "保存",
     "saving": "保存中...",
-    "reset": "リセット",
-    "cancel": "キャンセル",
-    "test": "テスト",
-    "connectionOk": "接続に成功しました",
     "connectionFail": "接続に失敗しました"
   },
   "providers": {

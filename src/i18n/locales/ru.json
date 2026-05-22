@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "Голосовой ввод с ИИ",
-    "loading": "Загрузка...",
-    "failedToLoad": "Не удалось загрузить данные приложения.",
-    "retry": "Повторить"
+    "tagline": "Голосовой ввод с ИИ"
   },
   "nav": {
     "home": "Главная",
@@ -32,35 +28,9 @@
     "outputMode": "Режим вывода"
   },
   "onboarding": {
-    "welcomeTitle": "Добро пожаловать в OpenTypeless",
-    "welcomeSubtitle": "Несколько быстрых шагов для начала работы с голосовым вводом",
-    "speechRecognition": "Распознавание речи",
-    "speechRecognitionDesc": "Настройте службу ASR для преобразования речи в текст",
-    "aiPolish": "Обработка ИИ",
-    "aiPolishDesc": "Настройте службу LLM для обработки распознанного текста",
-    "tryItOut": "Попробуйте",
-    "tryItOutDesc": "Удерживайте кнопку и скажите что-нибудь для проверки конвейера",
-    "setupComplete": "Настройка завершена",
-    "skip": "Пропустить",
-    "back": "Назад",
-    "next": "Далее",
-    "getStarted": "Начать",
-    "close": "Закрыть",
     "speakToWrite": "Говорите, чтобы писать — превращайте голос в обработанный текст в реальном времени",
     "selectLanguage": "Выберите язык",
     "selectLanguageDesc": "Выберите язык интерфейса приложения. Вы сможете изменить его позже в настройках.",
-    "allSet": "Всё готово",
-    "startUsing": "Начать использовать голосовой ввод",
-    "hotkey": "Горячая клавиша",
-    "hold": "Удерживать",
-    "press": "Нажать",
-    "toTalk": "чтобы говорить",
-    "toStartStop": "для старт/стоп",
-    "capsuleHint": "← Это ваша голосовая капсула",
-    "sttService": "Служба распознавания речи",
-    "aiPolishService": "Служба обработки ИИ",
-    "apiKey": "API-ключ",
-    "enterApiKey": "Введите API-ключ...",
     "test": {
       "stageRecord": "Запись",
       "stageStt": "Распознавание",
@@ -82,14 +52,6 @@
       "demoRaw": "здравствуйте эм не могли бы вы мне помочь с этим",
       "demoPolished": "Здравствуйте, не могли бы вы мне помочь с этим?"
     },
-    "connectionSuccess": "Подключение успешно",
-    "connectionFailed": "Не удалось подключиться, проверьте ваш API-ключ",
-    "connectionFailedConfig": "Не удалось подключиться, проверьте конфигурацию",
-    "model": "Модель",
-    "fetchModels": "Загрузить доступные модели",
-    "modelsAvailable": "Доступно моделей: {{count}}",
-    "baseUrl": "Базовый URL",
-    "record": "Запись",
     "stt": {
       "serviceLabel": "Служба распознавания речи",
       "apiKeyLabel": "API-ключ",
@@ -111,9 +73,6 @@
       "connectionOk": "Подключение успешно",
       "connectionFail": "Не удалось подключиться"
     },
-    "output": "Вывод",
-    "releaseToStop": "Отпустите, чтобы остановить запись",
-    "holdAndSay": "Удерживайте и скажите что-нибудь",
     "steps": {
       "welcome": "Добро пожаловать",
       "welcomeSub": "Настройте OpenTypeless за несколько шагов",
@@ -138,10 +97,7 @@
       "email": "Электронная почта",
       "emailPlaceholder": "your@email.com",
       "password": "Пароль",
-      "send": "Отправить",
       "or": "или",
-      "signInWith": "Войти через",
-      "signUpWith": "Зарегистрироваться через",
       "signedInAs": "Вы вошли как",
       "freePlan": "Бесплатный план",
       "freePlanQuota": "квота осталась",
@@ -203,12 +159,6 @@
     "cancelPolishing": "Отменить обработку ИИ",
     "done": "Готово",
     "errorOccurred": "Произошла ошибка",
-    "openMainWindow": "Открыть главное окно",
-    "settings": "Настройки",
-    "history": "История",
-    "account": "Аккаунт",
-    "upgrade": "Обновить",
-    "exit": "Выход",
     "accessibilityRequired": "Требуется доступность — откройте Настройки",
     "menu": {
       "openMainWindow": "Открыть главное окно",
@@ -217,15 +167,7 @@
       "account": "Аккаунт",
       "upgrade": "Обновить",
       "exit": "Выход"
-    },
-    "status": {
-      "recording": "Запись",
-      "transcribing": "Распознавание",
-      "thinking": "Обработка",
-      "done": "Готово"
-    },
-    "stopRecording": "Остановить запись",
-    "close": "Закрыть"
+    }
   },
   "settings": {
     "title": "Настройки",
@@ -246,7 +188,6 @@
     "other": "Прочее",
     "launchAtStartup": "Запускать при старте системы",
     "startMinimized": "Запускать свёрнутым в трей",
-    "closeToTray": "Сворачивать в системный трей при закрытии",
     "language": "Язык",
     "provider": "Провайдер",
     "cloudSttPro": "Облачный STT (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "Разрешение предоставлено",
     "accessibilityRequired": "Требуется для вывода с клавиатуры",
     "grantPermission": "Предоставить разрешение",
-    "unsavedChanges": "У вас есть несохранённые изменения"
+    "unsavedChanges": "У вас есть несохранённые изменения",
+    "autoDetect": "Автоопределение"
   },
   "dictionary": {
     "word": "Слово",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "Квота LLM превышает 90 %. Рассмотрите переход в режим BYOK.",
     "quotaHours": "часов",
     "quotaTokens": "к токенов",
-    "quotaUsage": "Использование {{label}}: {{used}} из {{limit}} {{unit}}"
+    "quotaUsage": "Использование {{label}}: {{used}} из {{limit}} {{unit}}",
+    "backToSignIn": "Вернуться к входу",
+    "freeCredit": "Бесплатный кредит",
+    "resendVerification": "Повторная отправка письма",
+    "sending": "Отправка...",
+    "verificationResent": "Письмо отправлено повторно!",
+    "verifyEmailTitle": "Проверьте вашу почту"
   },
   "error": {
     "somethingWentWrong": "Что-то пошло не так",
     "unexpectedError": "Произошла непредвиденная ошибка.",
     "reload": "Перезагрузить"
   },
-  "errors": {
-    "stt_invalid_key": "Неверный API-ключ, проверьте настройки",
-    "stt_timeout": "Тайм-аут соединения, повторная попытка...",
-    "stt_failed": "Распознавание речи не удалось, проверьте сеть",
-    "llm_failed": "Обработка текста не удалась, сохранена исходная транскрипция",
-    "output_fallback_clipboard": "Скопировано в буфер обмена, вставьте вручную",
-    "output_wayland_unsupported": "Вывод с клавиатуры не поддерживается на Wayland, переключено в режим буфера обмена",
-    "output_xdotool_missing": "xdotool не найден, установите его для вывода с клавиатуры: sudo apt install xdotool",
-    "boundary": {
-      "title": "Что-то пошло не так",
-      "reload": "Перезагрузить"
-    }
-  },
-  "tray": {
-    "showWindow": "Показать окно",
-    "hideWindow": "Скрыть окно",
-    "startRecording": "Начать запись",
-    "stopRecording": "Остановить запись",
-    "settings": "Настройки",
-    "history": "История",
-    "account": "Аккаунт",
-    "about": "О приложении",
-    "quit": "Выход"
-  },
   "common": {
-    "loading": "Загрузка...",
-    "retry": "Повторить",
     "save": "Сохранить",
     "saving": "Сохранение...",
-    "reset": "Сбросить",
-    "cancel": "Отмена",
-    "test": "Проверить",
-    "connectionOk": "Подключение успешно",
     "connectionFail": "Не удалось подключиться"
   },
   "providers": {

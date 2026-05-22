@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "Entrada de Voz com IA",
-    "loading": "Carregando...",
-    "failedToLoad": "Falha ao carregar dados do aplicativo.",
-    "retry": "Tentar novamente"
+    "tagline": "Entrada de Voz com IA"
   },
   "nav": {
     "home": "Início",
@@ -32,35 +28,9 @@
     "outputMode": "Modo de Saída"
   },
   "onboarding": {
-    "welcomeTitle": "Bem-vindo ao OpenTypeless",
-    "welcomeSubtitle": "Alguns passos rápidos para começar a usar a entrada por voz",
-    "speechRecognition": "Reconhecimento de Fala",
-    "speechRecognitionDesc": "Configure seu serviço de ASR para converter fala em texto",
-    "aiPolish": "Polimento por IA",
-    "aiPolishDesc": "Configure um serviço de LLM para polir o texto transcrito",
-    "tryItOut": "Experimente",
-    "tryItOutDesc": "Segure o botão e diga algo para testar o pipeline completo",
-    "setupComplete": "Configuração Concluída",
-    "skip": "Pular",
-    "back": "Voltar",
-    "next": "Próximo",
-    "getStarted": "Começar",
-    "close": "Fechar",
     "speakToWrite": "Fale para escrever — transforme sua voz em texto polido em tempo real",
     "selectLanguage": "Escolha seu idioma",
     "selectLanguageDesc": "Selecione o idioma da interface do aplicativo. Você pode alterá-lo depois nas Configurações.",
-    "allSet": "Tudo Pronto",
-    "startUsing": "Comece a usar a entrada por voz",
-    "hotkey": "Atalho",
-    "hold": "Segure",
-    "press": "Pressione",
-    "toTalk": "para falar",
-    "toStartStop": "para iniciar/parar",
-    "capsuleHint": "← Esta é sua cápsula de voz",
-    "sttService": "Serviço de Reconhecimento de Fala",
-    "aiPolishService": "Serviço de Polimento por IA",
-    "apiKey": "Chave de API",
-    "enterApiKey": "Insira a Chave de API...",
     "test": {
       "stageRecord": "Gravar",
       "stageStt": "Transcrever",
@@ -82,14 +52,6 @@
       "demoRaw": "olá hum pode me ajudar com isso",
       "demoPolished": "Olá, pode me ajudar com isso?"
     },
-    "connectionSuccess": "Conexão bem-sucedida",
-    "connectionFailed": "Conexão falhou, verifique sua Chave de API",
-    "connectionFailedConfig": "Conexão falhou, verifique sua configuração",
-    "model": "Modelo",
-    "fetchModels": "Buscar modelos disponíveis",
-    "modelsAvailable": "{{count}} modelos disponíveis",
-    "baseUrl": "URL Base",
-    "record": "Gravar",
     "stt": {
       "serviceLabel": "Serviço de Reconhecimento de Fala",
       "apiKeyLabel": "Chave de API",
@@ -111,9 +73,6 @@
       "connectionOk": "Conexão bem-sucedida",
       "connectionFail": "Conexão falhou"
     },
-    "output": "Saída",
-    "releaseToStop": "Solte para parar a gravação",
-    "holdAndSay": "Segure e diga algo",
     "steps": {
       "welcome": "Bem-vindo",
       "welcomeSub": "Configure o OpenTypeless em alguns passos",
@@ -138,10 +97,7 @@
       "email": "E-mail",
       "emailPlaceholder": "seu@email.com",
       "password": "Senha",
-      "send": "Enviar",
       "or": "ou",
-      "signInWith": "Entrar com",
-      "signUpWith": "Cadastrar com",
       "signedInAs": "Conectado como",
       "freePlan": "Plano Gratuito",
       "freePlanQuota": "cota restante",
@@ -203,12 +159,6 @@
     "cancelPolishing": "Cancelar polimento",
     "done": "Pronto",
     "errorOccurred": "Ocorreu um erro",
-    "openMainWindow": "Abrir Janela Principal",
-    "settings": "Configurações",
-    "history": "Histórico",
-    "account": "Conta",
-    "upgrade": "Atualizar",
-    "exit": "Sair",
     "accessibilityRequired": "Acessibilidade necessária — abra as Configurações",
     "menu": {
       "openMainWindow": "Abrir Janela Principal",
@@ -217,15 +167,7 @@
       "account": "Conta",
       "upgrade": "Atualizar",
       "exit": "Sair"
-    },
-    "status": {
-      "recording": "Gravando",
-      "transcribing": "Transcrevendo",
-      "thinking": "Pensando",
-      "done": "Pronto"
-    },
-    "stopRecording": "Parar gravação",
-    "close": "Fechar"
+    }
   },
   "settings": {
     "title": "Configurações",
@@ -246,7 +188,6 @@
     "other": "Outro",
     "launchAtStartup": "Iniciar com o Sistema",
     "startMinimized": "Iniciar minimizado na bandeja",
-    "closeToTray": "Fechar para a bandeja do sistema",
     "language": "Idioma",
     "provider": "Provedor",
     "cloudSttPro": "STT na Nuvem (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "Permissão concedida",
     "accessibilityRequired": "Necessária para saída de teclado",
     "grantPermission": "Conceder Permissão",
-    "unsavedChanges": "Você tem alterações não salvas"
+    "unsavedChanges": "Você tem alterações não salvas",
+    "autoDetect": "Detecção automática"
   },
   "dictionary": {
     "word": "Palavra",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "A cota de LLM ultrapassa 90 %. Considere mudar para o modo BYOK.",
     "quotaHours": "horas",
     "quotaTokens": "k tokens",
-    "quotaUsage": "Uso de {{label}}: {{used}} de {{limit}} {{unit}}"
+    "quotaUsage": "Uso de {{label}}: {{used}} de {{limit}} {{unit}}",
+    "backToSignIn": "Voltar para o login",
+    "freeCredit": "Crédito gratuito",
+    "resendVerification": "Reenviar email de verificação",
+    "sending": "Enviando...",
+    "verificationResent": "Email de verificação reenviado!",
+    "verifyEmailTitle": "Verifique seu email"
   },
   "error": {
     "somethingWentWrong": "Algo deu errado",
     "unexpectedError": "Ocorreu um erro inesperado.",
     "reload": "Recarregar"
   },
-  "errors": {
-    "stt_invalid_key": "Chave de API inválida, verifique as configurações",
-    "stt_timeout": "Tempo limite de conexão esgotado, tentando novamente...",
-    "stt_failed": "Reconhecimento de fala falhou, verifique sua rede",
-    "llm_failed": "Polimento de texto falhou, transcrição bruta salva",
-    "output_fallback_clipboard": "Copiado para a área de transferência, cole manualmente",
-    "output_wayland_unsupported": "Saída de teclado não suportada no Wayland, alternado para modo de área de transferência",
-    "output_xdotool_missing": "xdotool não encontrado, instale-o para saída de teclado: sudo apt install xdotool",
-    "boundary": {
-      "title": "Algo deu errado",
-      "reload": "Recarregar"
-    }
-  },
-  "tray": {
-    "showWindow": "Mostrar Janela",
-    "hideWindow": "Ocultar Janela",
-    "startRecording": "Iniciar Gravação",
-    "stopRecording": "Parar Gravação",
-    "settings": "Configurações",
-    "history": "Histórico",
-    "account": "Conta",
-    "about": "Sobre",
-    "quit": "Sair"
-  },
   "common": {
-    "loading": "Carregando...",
-    "retry": "Tentar novamente",
     "save": "Salvar",
     "saving": "Salvando...",
-    "reset": "Redefinir",
-    "cancel": "Cancelar",
-    "test": "Testar",
-    "connectionOk": "Conexão bem-sucedida",
     "connectionFail": "Conexão falhou"
   },
   "providers": {

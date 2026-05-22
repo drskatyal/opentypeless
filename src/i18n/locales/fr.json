@@ -1,11 +1,7 @@
 {
-  "_comment": "[auto-translated] AI-generated translation — needs human review",
   "app": {
     "name": "OpenTypeless",
-    "tagline": "Saisie vocale IA",
-    "loading": "Chargement...",
-    "failedToLoad": "Impossible de charger les données de l'application.",
-    "retry": "Réessayer"
+    "tagline": "Saisie vocale IA"
   },
   "nav": {
     "home": "Accueil",
@@ -32,35 +28,9 @@
     "outputMode": "Mode de sortie"
   },
   "onboarding": {
-    "welcomeTitle": "Bienvenue dans OpenTypeless",
-    "welcomeSubtitle": "Quelques étapes rapides pour commencer avec la saisie vocale",
-    "speechRecognition": "Reconnaissance vocale",
-    "speechRecognitionDesc": "Configurez votre service ASR pour convertir la parole en texte",
-    "aiPolish": "Amélioration IA",
-    "aiPolishDesc": "Configurez un service LLM pour améliorer le texte transcrit",
-    "tryItOut": "Essayez",
-    "tryItOutDesc": "Maintenez le bouton et dites quelque chose pour tester le pipeline complet",
-    "setupComplete": "Configuration terminée",
-    "skip": "Ignorer",
-    "back": "Retour",
-    "next": "Suivant",
-    "getStarted": "Commencer",
-    "close": "Fermer",
     "speakToWrite": "Parlez pour écrire — transformez votre voix en texte amélioré en temps réel",
     "selectLanguage": "Choisissez votre langue",
     "selectLanguageDesc": "Sélectionnez la langue de l'interface. Vous pourrez la modifier ultérieurement dans les Paramètres.",
-    "allSet": "Tout est prêt",
-    "startUsing": "Commencer à utiliser la saisie vocale",
-    "hotkey": "Raccourci clavier",
-    "hold": "Maintenir",
-    "press": "Appuyer",
-    "toTalk": "pour parler",
-    "toStartStop": "pour démarrer/arrêter",
-    "capsuleHint": "← Ceci est votre capsule vocale",
-    "sttService": "Service de reconnaissance vocale",
-    "aiPolishService": "Service d'amélioration IA",
-    "apiKey": "Clé API",
-    "enterApiKey": "Entrez la clé API...",
     "test": {
       "stageRecord": "Enregistrer",
       "stageStt": "Transcrire",
@@ -82,14 +52,6 @@
       "demoPolished": "Bonjour, pouvez-vous m'aider avec ça ?",
       "result": "Résultat"
     },
-    "connectionSuccess": "Connexion réussie",
-    "connectionFailed": "Échec de la connexion, veuillez vérifier votre clé API",
-    "connectionFailedConfig": "Échec de la connexion, veuillez vérifier votre configuration",
-    "model": "Modèle",
-    "fetchModels": "Récupérer les modèles disponibles",
-    "modelsAvailable": "{{count}} modèles disponibles",
-    "baseUrl": "URL de base",
-    "record": "Enregistrer",
     "stt": {
       "serviceLabel": "Service de reconnaissance vocale",
       "apiKeyLabel": "Clé API",
@@ -111,9 +73,6 @@
       "connectionOk": "Connexion réussie",
       "connectionFail": "Échec de la connexion"
     },
-    "output": "Sortie",
-    "releaseToStop": "Relâchez pour arrêter l'enregistrement",
-    "holdAndSay": "Maintenez et dites quelque chose",
     "steps": {
       "welcome": "Bienvenue",
       "welcomeSub": "Configurez OpenTypeless en quelques étapes",
@@ -138,10 +97,7 @@
       "email": "E-mail",
       "emailPlaceholder": "votre@email.com",
       "password": "Mot de passe",
-      "send": "Envoyer",
       "or": "ou",
-      "signInWith": "Se connecter avec",
-      "signUpWith": "S'inscrire avec",
       "signedInAs": "Connecté en tant que",
       "freePlan": "Plan Gratuit",
       "freePlanQuota": "quota restant",
@@ -203,12 +159,6 @@
     "cancelPolishing": "Annuler l'amélioration",
     "done": "Terminé",
     "errorOccurred": "Une erreur s'est produite",
-    "openMainWindow": "Ouvrir la fenêtre principale",
-    "settings": "Paramètres",
-    "history": "Historique",
-    "account": "Compte",
-    "upgrade": "Passer à Pro",
-    "exit": "Quitter",
     "accessibilityRequired": "Accessibilité requise — ouvrez les Paramètres",
     "menu": {
       "openMainWindow": "Ouvrir la fenêtre principale",
@@ -217,15 +167,7 @@
       "account": "Compte",
       "upgrade": "Passer à Pro",
       "exit": "Quitter"
-    },
-    "status": {
-      "recording": "Enregistrement",
-      "transcribing": "Transcription",
-      "thinking": "Réflexion",
-      "done": "Terminé"
-    },
-    "stopRecording": "Arrêter l'enregistrement",
-    "close": "Fermer"
+    }
   },
   "settings": {
     "title": "Paramètres",
@@ -246,7 +188,6 @@
     "other": "Autre",
     "launchAtStartup": "Lancer au démarrage",
     "startMinimized": "Démarrer minimisé dans la barre système",
-    "closeToTray": "Fermer vers la barre système",
     "language": "Langue",
     "provider": "Fournisseur",
     "cloudSttPro": "STT Cloud (Pro)",
@@ -287,7 +228,8 @@
     "accessibilityGranted": "Autorisation accordée",
     "accessibilityRequired": "Requise pour la sortie clavier",
     "grantPermission": "Accorder l'autorisation",
-    "unsavedChanges": "Vous avez des modifications non enregistrées"
+    "unsavedChanges": "Vous avez des modifications non enregistrées",
+    "autoDetect": "Détection automatique"
   },
   "dictionary": {
     "word": "Mot",
@@ -393,46 +335,22 @@
     "llmQuotaWarning": "Le quota LLM dépasse 90 %. Pensez à passer en mode BYOK.",
     "quotaHours": "heures",
     "quotaTokens": "k tokens",
-    "quotaUsage": "Utilisation {{label}} : {{used}} sur {{limit}} {{unit}}"
+    "quotaUsage": "Utilisation {{label}} : {{used}} sur {{limit}} {{unit}}",
+    "backToSignIn": "Retour à la connexion",
+    "freeCredit": "Crédit gratuit",
+    "resendVerification": "Renvoyer l'email de vérification",
+    "sending": "Envoi en cours...",
+    "verificationResent": "Email de vérification renvoyé !",
+    "verifyEmailTitle": "Vérifiez votre email"
   },
   "error": {
     "somethingWentWrong": "Un problème est survenu",
     "unexpectedError": "Une erreur inattendue s'est produite.",
     "reload": "Recharger"
   },
-  "errors": {
-    "stt_invalid_key": "Clé API invalide, veuillez vérifier les paramètres",
-    "stt_timeout": "Délai de connexion dépassé, nouvelle tentative...",
-    "stt_failed": "La reconnaissance vocale a échoué, veuillez vérifier votre réseau",
-    "llm_failed": "L'amélioration du texte a échoué, transcription brute enregistrée",
-    "output_fallback_clipboard": "Copié dans le presse-papiers, collez manuellement",
-    "output_wayland_unsupported": "Sortie clavier non prise en charge sous Wayland, basculé en mode presse-papiers",
-    "output_xdotool_missing": "xdotool introuvable, installez-le pour la sortie clavier : sudo apt install xdotool",
-    "boundary": {
-      "title": "Un problème est survenu",
-      "reload": "Recharger"
-    }
-  },
-  "tray": {
-    "showWindow": "Afficher la fenêtre",
-    "hideWindow": "Masquer la fenêtre",
-    "startRecording": "Démarrer l'enregistrement",
-    "stopRecording": "Arrêter l'enregistrement",
-    "settings": "Paramètres",
-    "history": "Historique",
-    "account": "Compte",
-    "about": "À propos",
-    "quit": "Quitter"
-  },
   "common": {
-    "loading": "Chargement...",
-    "retry": "Réessayer",
     "save": "Enregistrer",
     "saving": "Enregistrement...",
-    "reset": "Réinitialiser",
-    "cancel": "Annuler",
-    "test": "Tester",
-    "connectionOk": "Connexion réussie",
     "connectionFail": "Échec de la connexion"
   },
   "providers": {
