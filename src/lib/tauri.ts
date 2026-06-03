@@ -23,6 +23,10 @@ export async function updateConfig(config: AppConfig): Promise<void> {
   return invoke('update_config', { config })
 }
 
+export async function setCapsuleAutoHide(enabled: boolean): Promise<void> {
+  return invoke('set_capsule_auto_hide', { enabled })
+}
+
 // Connection test
 export async function testSttConnection(
   apiKey: string,

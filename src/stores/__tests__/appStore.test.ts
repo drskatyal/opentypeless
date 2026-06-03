@@ -112,6 +112,39 @@ describe('appStore', () => {
   })
 
   describe('savedConfig / resetConfig', () => {
+    it('applyPersistedConfigPatch updates config and savedConfig for patched fields', () => {
+      const saved = { ...getState().config, capsule_auto_hide: false }
+      getState().setSavedConfig(saved)
+      getState().applyPersistedConfigPatch({ capsule_auto_hide: true })
+
+      expect(getState().config.capsule_auto_hide).toBe(true)
+      expect(getState().savedConfig?.capsule_auto_hide).toBe(true)
+    })
+
+    it('applyPersistedConfigPatch preserves unrelated dirty fields', () => {
+      const saved = { ...getState().config, theme: 'system' as const, capsule_auto_hide: false }
+      getState().setSavedConfig(saved)
+      getState().updateConfig({ theme: 'dark' })
+
+      getState().applyPersistedConfigPatch({ capsule_auto_hide: true })
+
+      expect(getState().config.theme).toBe('dark')
+      expect(getState().savedConfig?.theme).toBe('system')
+      expect(getState().config.capsule_auto_hide).toBe(true)
+      expect(getState().savedConfig?.capsule_auto_hide).toBe(true)
+    })
+
+    it('applyPersistedConfigPatch lets persisted patch win for the same dirty field', () => {
+      const saved = { ...getState().config, capsule_auto_hide: false }
+      getState().setSavedConfig(saved)
+      getState().updateConfig({ capsule_auto_hide: true })
+
+      getState().applyPersistedConfigPatch({ capsule_auto_hide: false })
+
+      expect(getState().config.capsule_auto_hide).toBe(false)
+      expect(getState().savedConfig?.capsule_auto_hide).toBe(false)
+    })
+
     it('resetConfig restores to savedConfig', () => {
       const saved = { ...getState().config }
       getState().setSavedConfig(saved)

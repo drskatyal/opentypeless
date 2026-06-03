@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
+import i18n from '../i18n'
 import { useAppStore } from '../stores/appStore'
-import type { PipelineState } from '../stores/appStore'
+import type { AppConfig, PipelineState } from '../stores/appStore'
 import { getHistory } from '../lib/tauri'
 import { toast } from '../components/Toast'
 
@@ -18,6 +19,7 @@ export function useTauriEvents() {
     setPipelineError,
     setAccessibilityTrusted,
     setHistory,
+    applyPersistedConfigPatch,
   } = useAppStore()
 
   useEffect(() => {
@@ -80,6 +82,13 @@ export function useTauriEvents() {
       const message = t(`errors.${payload.code}`, { details: payload.details ?? '' })
       toast(message, 'info')
     })
+    addListener<Partial<AppConfig>>('config:patch', (patch) => {
+      applyPersistedConfigPatch(patch)
+      if (patch.ui_language) {
+        i18n.changeLanguage(patch.ui_language)
+        localStorage.setItem('ui_language', patch.ui_language)
+      }
+    })
 
     addListener<void>('tray:settings', () => {
       window.location.hash = '#/settings'
@@ -108,6 +117,7 @@ export function useTauriEvents() {
     setPipelineError,
     setAccessibilityTrusted,
     setHistory,
+    applyPersistedConfigPatch,
     t,
   ])
 }

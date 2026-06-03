@@ -99,6 +99,7 @@ interface AppState {
   config: AppConfig
   setConfig: (config: AppConfig) => void
   updateConfig: (partial: Partial<AppConfig>) => void
+  applyPersistedConfigPatch: (patch: Partial<AppConfig>) => void
 
   // History
   history: HistoryEntry[]
@@ -211,6 +212,11 @@ export const useAppStore = create<AppState>((set) => ({
   config: defaultConfig,
   setConfig: (config) => set({ config }),
   updateConfig: (partial) => set((s) => ({ config: { ...s.config, ...partial } })),
+  applyPersistedConfigPatch: (patch) =>
+    set((s) => ({
+      config: { ...s.config, ...patch },
+      savedConfig: s.savedConfig ? { ...s.savedConfig, ...patch } : s.savedConfig,
+    })),
 
   history: [],
   setHistory: (history) => set({ history }),
