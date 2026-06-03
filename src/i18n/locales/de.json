@@ -170,6 +170,8 @@
     "errorOccurred": "Ein Fehler ist aufgetreten",
     "accessibilityRequired": "Bedienungshilfen erforderlich — Einstellungen öffnen",
     "menu": {
+      "hideWhenIdle": "Kapsel im Leerlauf ausblenden",
+      "keepVisible": "Kapsel sichtbar lassen",
       "openMainWindow": "Hauptfenster öffnen",
       "settings": "Einstellungen",
       "history": "Verlauf",

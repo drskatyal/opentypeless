@@ -170,6 +170,8 @@
     "errorOccurred": "Произошла ошибка",
     "accessibilityRequired": "Требуется доступность — откройте Настройки",
     "menu": {
+      "hideWhenIdle": "Скрывать капсулу в простое",
+      "keepVisible": "Оставлять капсулу видимой",
       "openMainWindow": "Открыть главное окно",
       "settings": "Настройки",
       "history": "История",

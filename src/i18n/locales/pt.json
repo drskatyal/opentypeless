@@ -170,6 +170,8 @@
     "errorOccurred": "Ocorreu um erro",
     "accessibilityRequired": "Acessibilidade necessária — abra as Configurações",
     "menu": {
+      "hideWhenIdle": "Ocultar cápsula em repouso",
+      "keepVisible": "Manter cápsula visível",
       "openMainWindow": "Abrir Janela Principal",
       "settings": "Configurações",
       "history": "Histórico",

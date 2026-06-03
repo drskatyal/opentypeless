@@ -170,6 +170,8 @@
     "errorOccurred": "Si è verificato un errore",
     "accessibilityRequired": "Accessibilità necessaria — apri Impostazioni",
     "menu": {
+      "hideWhenIdle": "Nascondi capsula quando inattiva",
+      "keepVisible": "Mantieni capsula visibile",
       "openMainWindow": "Apri finestra principale",
       "settings": "Impostazioni",
       "history": "Cronologia",

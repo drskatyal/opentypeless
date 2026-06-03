@@ -170,6 +170,8 @@
     "errorOccurred": "发生错误",
     "accessibilityRequired": "需要辅助功能权限 — 请打开设置",
     "menu": {
+      "hideWhenIdle": "空闲时隐藏胶囊",
+      "keepVisible": "保持胶囊可见",
       "openMainWindow": "打开主窗口",
       "settings": "设置",
       "history": "历史记录",

@@ -170,6 +170,8 @@
     "errorOccurred": "エラーが発生しました",
     "accessibilityRequired": "アクセシビリティが必要です — 設定を開いてください",
     "menu": {
+      "hideWhenIdle": "待機中はカプセルを非表示",
+      "keepVisible": "カプセルを表示したままにする",
       "openMainWindow": "メインウィンドウを開く",
       "settings": "設定",
       "history": "履歴",

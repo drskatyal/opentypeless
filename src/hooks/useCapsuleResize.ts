@@ -6,6 +6,26 @@ interface CapsuleSize {
   height: number
 }
 
+export interface CapsuleVisibilityInput {
+  capsuleAutoHide: boolean
+  contextMenuOpen: boolean
+  capsuleExpanded: boolean
+  hasError: boolean
+  pipelineState: PipelineState
+}
+
+export function getCapsuleVisibility({
+  capsuleAutoHide,
+  contextMenuOpen,
+  capsuleExpanded,
+  hasError,
+  pipelineState,
+}: CapsuleVisibilityInput): boolean {
+  return (
+    !capsuleAutoHide || contextMenuOpen || capsuleExpanded || hasError || pipelineState !== 'idle'
+  )
+}
+
 function getSizeForState(
   state: PipelineState,
   expanded: boolean,
@@ -39,8 +59,6 @@ export function useCapsuleResize() {
   const capsuleAutoHide = useAppStore((s) => s.config.capsule_auto_hide)
   const initialized = useRef(false)
   const prevWindowSize = useRef<{ width: number; height: number } | null>(null)
-  const prevState = useRef<PipelineState>('idle')
-  const prevAutoHide = useRef(false)
 
   const hasError = pipelineError !== null
 
@@ -48,33 +66,17 @@ export function useCapsuleResize() {
     const size = getSizeForState(pipelineState, capsuleExpanded, hasError, contextMenuOpen)
     const windowWidth = size.width + 24
     const windowHeight = size.height + 24
+    const shouldShow = getCapsuleVisibility({
+      capsuleAutoHide,
+      contextMenuOpen,
+      capsuleExpanded,
+      hasError,
+      pipelineState,
+    })
 
     import('@tauri-apps/api/window')
       .then(async ({ getCurrentWindow, LogicalSize, LogicalPosition, currentMonitor }) => {
         const win = getCurrentWindow()
-
-        // Auto-hide: show window when leaving idle, hide when entering idle
-        const becameIdle = prevState.current !== 'idle' && pipelineState === 'idle'
-        const leftIdle = prevState.current === 'idle' && pipelineState !== 'idle'
-        prevState.current = pipelineState
-
-        if (capsuleAutoHide && !contextMenuOpen && !capsuleExpanded) {
-          if (leftIdle) {
-            // Show window when transitioning from idle to active
-            await win.show().catch(() => {})
-          } else if (becameIdle && initialized.current) {
-            // Hide window when returning to idle (after initial mount)
-            await win.hide().catch(() => {})
-            prevAutoHide.current = capsuleAutoHide
-            return
-          }
-        }
-
-        // If auto-hide was just disabled and we're idle, show the capsule
-        if (prevAutoHide.current && !capsuleAutoHide && pipelineState === 'idle') {
-          await win.show().catch(() => {})
-        }
-        prevAutoHide.current = capsuleAutoHide
 
         if (!initialized.current) {
           // First mount: position at bottom-center of screen, then show
@@ -88,15 +90,13 @@ export function useCapsuleResize() {
               const y = Math.round(sh - windowHeight - 80)
               await win.setPosition(new LogicalPosition(x, y)).catch(() => {})
             }
-            // If auto-hide is on, don't show on first mount (will show when recording starts)
-            if (!capsuleAutoHide) {
-              await win.show().catch(() => {})
-            }
           } catch {
             /* ignore – monitor info unavailable */
-            if (!capsuleAutoHide) {
-              await win.show().catch(() => {})
-            }
+          }
+          if (shouldShow) {
+            await win.show().catch(() => {})
+          } else {
+            await win.hide().catch(() => {})
           }
           initialized.current = true
           prevWindowSize.current = { width: windowWidth, height: windowHeight }
@@ -130,6 +130,12 @@ export function useCapsuleResize() {
         // Signal that the window has finished resizing for context menu
         if (contextMenuOpen) {
           setContextMenuReady(true)
+        }
+
+        if (shouldShow) {
+          await win.show().catch(() => {})
+        } else {
+          await win.hide().catch(() => {})
         }
       })
       .catch(() => {})

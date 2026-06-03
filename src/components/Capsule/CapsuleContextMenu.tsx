@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { Settings, History, LogOut, CircleUser, Crown, AppWindow } from 'lucide-react'
+import { Settings, History, LogOut, CircleUser, Crown, AppWindow, Eye, EyeOff } from 'lucide-react'
+import { setCapsuleAutoHide } from '../../lib/tauri'
+import { useAppStore } from '../../stores/appStore'
 
 interface Props {
   onClose: () => void
@@ -7,6 +9,7 @@ interface Props {
 
 export function CapsuleContextMenu({ onClose }: Props) {
   const { t } = useTranslation()
+  const capsuleAutoHide = useAppStore((s) => s.config.capsule_auto_hide)
 
   const openMainWindow = async (hash: string) => {
     try {
@@ -33,6 +36,14 @@ export function CapsuleContextMenu({ onClose }: Props) {
       },
     },
     { type: 'separator' as const },
+    {
+      icon: capsuleAutoHide ? Eye : EyeOff,
+      label: capsuleAutoHide ? t('capsule.menu.keepVisible') : t('capsule.menu.hideWhenIdle'),
+      onClick: async () => {
+        await setCapsuleAutoHide(!capsuleAutoHide)
+        onClose()
+      },
+    },
     {
       icon: Settings,
       label: t('capsule.menu.settings'),

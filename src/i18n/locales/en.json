@@ -170,6 +170,8 @@
     "errorOccurred": "An error occurred",
     "accessibilityRequired": "Accessibility needed — open Settings",
     "menu": {
+      "hideWhenIdle": "Hide capsule when idle",
+      "keepVisible": "Keep capsule visible",
       "openMainWindow": "Open Main Window",
       "settings": "Settings",
       "history": "History",

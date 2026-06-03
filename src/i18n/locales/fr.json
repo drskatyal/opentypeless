@@ -170,6 +170,8 @@
     "errorOccurred": "Une erreur s'est produite",
     "accessibilityRequired": "Accessibilité requise — ouvrez les Paramètres",
     "menu": {
+      "hideWhenIdle": "Masquer la capsule au repos",
+      "keepVisible": "Garder la capsule visible",
       "openMainWindow": "Ouvrir la fenêtre principale",
       "settings": "Paramètres",
       "history": "Historique",

@@ -170,6 +170,8 @@
     "errorOccurred": "오류가 발생했습니다",
     "accessibilityRequired": "접근성 권한이 필요합니다 — 설정을 여세요",
     "menu": {
+      "hideWhenIdle": "유휴 시 캡슐 숨기기",
+      "keepVisible": "캡슐 항상 표시",
       "openMainWindow": "메인 창 열기",
       "settings": "설정",
       "history": "기록",
