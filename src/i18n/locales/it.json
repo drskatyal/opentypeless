@@ -18,7 +18,10 @@
     "stt_failed": "Il riconoscimento vocale non è riuscito. {{details}}",
     "stt_quota_exceeded": "La quota di riconoscimento vocale cloud è esaurita. Passa a Pro o usa la modalità BYOK.",
     "stt_no_speech_detected": "Nessun parlato rilevato. Riprova.",
-    "output_fallback_clipboard": "L'output del testo non è riuscito. Il risultato è stato copiato negli appunti. {{details}}"
+    "output_fallback_clipboard": "L'output del testo non è riuscito. Il risultato è stato copiato negli appunti. {{details}}",
+    "output_wayland_unsupported": "L'output da tastiera non è supportato su Wayland. Il risultato è stato copiato negli appunti.",
+    "llm_failed": "La rifinitura con IA non è riuscita. È stato generato il testo originale. {{details}}",
+    "llm_quota_exceeded": "La quota IA cloud è esaurita. Passa a Pro o usa la modalità BYOK."
   },
   "home": {
     "welcome": "Benvenuto in OpenTypeless",
@@ -308,6 +311,13 @@
     "signInFirst": "Accedi prima dalla pagina Account per abbonarti.",
     "subscribeToPro": "Abbonati a Pro",
     "month": "mese",
+    "benefits": {
+      "title": "Pro include",
+      "stt": "10 h di riconoscimento vocale cloud ogni mese",
+      "llm": "~5 M di token IA per rifinire e riscrivere",
+      "noApiKey": "Nessuna chiave API richiesta in modalità cloud",
+      "backupScenes": "Backup cloud e modelli di scene inclusi"
+    },
     "features": {
       "sttTitle": "STT Cloud",
       "sttDetail": "Riconoscimento vocale premium",

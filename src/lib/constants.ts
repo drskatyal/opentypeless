@@ -28,6 +28,12 @@ export const FREE_PLAN = {
 export const PRO_PLAN = {
   price: '$4.99',
   period: 'month',
+  benefits: [
+    { labelKey: 'upgrade.benefits.stt' },
+    { labelKey: 'upgrade.benefits.llm' },
+    { labelKey: 'upgrade.benefits.noApiKey' },
+    { labelKey: 'upgrade.benefits.backupScenes' },
+  ],
   features: [
     { labelKey: 'upgrade.features.sttTitle', detailKey: 'upgrade.features.sttDetail' },
     { labelKey: 'upgrade.features.llmTitle', detailKey: 'upgrade.features.llmDetail' },

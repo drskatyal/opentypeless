@@ -19,6 +19,9 @@ const requiredErrorKeys = [
   'stt_quota_exceeded',
   'stt_no_speech_detected',
   'output_fallback_clipboard',
+  'output_wayland_unsupported',
+  'llm_failed',
+  'llm_quota_exceeded',
 ] as const
 
 describe('localized error messages', () => {

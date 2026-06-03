@@ -18,7 +18,10 @@
     "stt_failed": "El reconocimiento de voz falló. {{details}}",
     "stt_quota_exceeded": "Se agotó la cuota de reconocimiento de voz en la nube. Actualiza a Pro o cambia al modo BYOK.",
     "stt_no_speech_detected": "No se detectó voz. Inténtalo de nuevo.",
-    "output_fallback_clipboard": "La salida de texto falló. El resultado se copió al portapapeles. {{details}}"
+    "output_fallback_clipboard": "La salida de texto falló. El resultado se copió al portapapeles. {{details}}",
+    "output_wayland_unsupported": "Wayland no admite la salida por teclado. El resultado se copió al portapapeles.",
+    "llm_failed": "Falló el pulido con IA. Se emitió el texto original en su lugar. {{details}}",
+    "llm_quota_exceeded": "Se agotó la cuota de IA en la nube. Actualiza a Pro o cambia al modo BYOK."
   },
   "home": {
     "welcome": "Bienvenido a OpenTypeless",
@@ -308,6 +311,13 @@
     "signInFirst": "Inicia sesión desde la página de Cuenta primero para suscribirte.",
     "subscribeToPro": "Suscribirse a Pro",
     "month": "mes",
+    "benefits": {
+      "title": "Pro incluye",
+      "stt": "10 h de reconocimiento de voz en la nube cada mes",
+      "llm": "~5 M de tokens de IA para pulir y reescribir",
+      "noApiKey": "No se requieren claves API en modo nube",
+      "backupScenes": "Respaldo en la nube y plantillas de escenas incluidos"
+    },
     "features": {
       "sttTitle": "STT en la nube",
       "sttDetail": "Reconocimiento de voz premium",

@@ -18,7 +18,10 @@
     "stt_failed": "Die Spracherkennung ist fehlgeschlagen. {{details}}",
     "stt_quota_exceeded": "Das Kontingent für Cloud-Spracherkennung ist aufgebraucht. Wechseln Sie zu Pro oder in den BYOK-Modus.",
     "stt_no_speech_detected": "Keine Sprache erkannt. Bitte versuchen Sie es erneut.",
-    "output_fallback_clipboard": "Die Textausgabe ist fehlgeschlagen. Das Ergebnis wurde stattdessen in die Zwischenablage kopiert. {{details}}"
+    "output_fallback_clipboard": "Die Textausgabe ist fehlgeschlagen. Das Ergebnis wurde stattdessen in die Zwischenablage kopiert. {{details}}",
+    "output_wayland_unsupported": "Tastaturausgabe wird unter Wayland nicht unterstützt. Das Ergebnis wurde in die Zwischenablage kopiert.",
+    "llm_failed": "Die KI-Glättung ist fehlgeschlagen. Stattdessen wurde der Originaltext ausgegeben. {{details}}",
+    "llm_quota_exceeded": "Das Cloud-KI-Kontingent ist aufgebraucht. Wechseln Sie zu Pro oder in den BYOK-Modus."
   },
   "home": {
     "welcome": "Willkommen bei OpenTypeless",
@@ -308,6 +311,13 @@
     "signInFirst": "Melden Sie sich zuerst auf der Konto-Seite an, um zu abonnieren.",
     "subscribeToPro": "Pro abonnieren",
     "month": "Monat",
+    "benefits": {
+      "title": "Pro enthält",
+      "stt": "10 Std. Cloud-Spracherkennung pro Monat",
+      "llm": "~5 Mio. KI-Token zum Polieren und Umschreiben",
+      "noApiKey": "Keine API-Schlüssel im Cloud-Modus erforderlich",
+      "backupScenes": "Cloud-Backup und Szenenvorlagen enthalten"
+    },
     "features": {
       "sttTitle": "Cloud-STT",
       "sttDetail": "Premium-Spracherkennung",

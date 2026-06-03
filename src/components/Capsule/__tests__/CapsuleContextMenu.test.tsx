@@ -34,12 +34,16 @@ afterEach(() => {
 
 describe('CapsuleContextMenu', () => {
   it('shows hide action when auto-hide is disabled', () => {
+    useAppStore.getState().updateConfig({ capsule_auto_hide: false })
+
     render(<CapsuleContextMenu onClose={vi.fn()} />)
 
     expect(screen.getByRole('menuitem', { name: /hide capsule when idle/i })).toBeInTheDocument()
   })
 
   it('calls partial capsule visibility command', async () => {
+    useAppStore.getState().updateConfig({ capsule_auto_hide: false })
+
     const onClose = vi.fn()
     render(<CapsuleContextMenu onClose={onClose} />)
 

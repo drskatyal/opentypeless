@@ -31,6 +31,7 @@ describe('appStore', () => {
       expect(config.output_mode).toBe('keyboard')
       expect(config.polish_enabled).toBe(true)
       expect(config.stt_custom_api_key).toBe('')
+      expect(config.capsule_auto_hide).toBe(true)
     })
 
     it('setConfig replaces entire config', () => {

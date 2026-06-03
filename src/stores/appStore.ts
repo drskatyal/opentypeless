@@ -188,7 +188,7 @@ const defaultConfig: AppConfig = {
   start_minimized: false,
   max_recording_seconds: 30,
   ui_language: 'en',
-  capsule_auto_hide: false,
+  capsule_auto_hide: true,
 }
 
 export const useAppStore = create<AppState>((set) => ({

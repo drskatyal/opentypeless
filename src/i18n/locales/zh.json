@@ -18,7 +18,10 @@
     "stt_failed": "语音识别失败。{{details}}",
     "stt_quota_exceeded": "云端语音识别额度已用完。请升级到 Pro 或切换到 BYOK 模式。",
     "stt_no_speech_detected": "未检测到语音，请重试。",
-    "output_fallback_clipboard": "文本输出失败，结果已改为复制到剪贴板。{{details}}"
+    "output_fallback_clipboard": "文本输出失败，结果已改为复制到剪贴板。{{details}}",
+    "output_wayland_unsupported": "Wayland 暂不支持键盘输出，结果已改为复制到剪贴板。",
+    "llm_failed": "AI 润色失败，已改为输出原始文本。{{details}}",
+    "llm_quota_exceeded": "云端 AI 额度已用完。请升级到 Pro 或切换到 BYOK 模式。"
   },
   "home": {
     "welcome": "欢迎使用 OpenTypeless",
@@ -308,6 +311,13 @@
     "signInFirst": "请先在账户页面登录后再订阅。",
     "subscribeToPro": "订阅 Pro",
     "month": "月",
+    "benefits": {
+      "title": "Pro 包含",
+      "stt": "每月 10 小时云端语音识别",
+      "llm": "约 500 万 AI token 用于润色和改写",
+      "noApiKey": "云端模式无需 API Key",
+      "backupScenes": "包含云端备份和场景模板"
+    },
     "features": {
       "sttTitle": "云端 STT",
       "sttDetail": "高品质语音识别",

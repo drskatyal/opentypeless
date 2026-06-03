@@ -25,32 +25,55 @@ fn contains_quota_marker(value: &str) -> bool {
         || value.contains("byok")
 }
 
+fn forbidden_error_message(value: &serde_json::Value) -> Option<String> {
+    value
+        .get("error")
+        .and_then(|v| v.as_str())
+        .or_else(|| value.get("message").and_then(|v| v.as_str()))
+        .or_else(|| {
+            value
+                .get("error")
+                .and_then(|v| v.get("message"))
+                .and_then(|v| v.as_str())
+        })
+        .map(String::from)
+}
+
+fn quota_message_from_value(value: &serde_json::Value) -> Option<String> {
+    for field in ["code", "error_code", "type"] {
+        if value
+            .get(field)
+            .and_then(|v| v.as_str())
+            .is_some_and(contains_quota_marker)
+        {
+            return Some(
+                forbidden_error_message(value)
+                    .unwrap_or_else(|| "Cloud STT quota exceeded".to_string()),
+            );
+        }
+    }
+
+    for field in ["error", "message"] {
+        if let Some(item) = value.get(field) {
+            if let Some(message) = item.as_str() {
+                if contains_quota_marker(message) {
+                    return Some(message.to_string());
+                }
+            } else if let Some(message) = quota_message_from_value(item) {
+                return Some(message);
+            }
+        }
+    }
+
+    None
+}
+
 fn cloud_stt_forbidden_error(body: &str) -> AppError {
     let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
 
     if let Some(value) = parsed.as_ref() {
-        for field in ["code", "error_code", "type"] {
-            if value
-                .get(field)
-                .and_then(|v| v.as_str())
-                .is_some_and(contains_quota_marker)
-            {
-                let details = value
-                    .get("error")
-                    .or_else(|| value.get("message"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Cloud STT quota exceeded")
-                    .to_string();
-                return AppError::Quota(details);
-            }
-        }
-
-        for field in ["error", "message"] {
-            if let Some(message) = value.get(field).and_then(|v| v.as_str()) {
-                if contains_quota_marker(message) {
-                    return AppError::Quota(message.to_string());
-                }
-            }
+        if let Some(message) = quota_message_from_value(value) {
+            return AppError::Quota(message);
         }
     }
 
@@ -231,6 +254,14 @@ mod tests {
     fn forbidden_error_uses_quota_message() {
         let err = cloud_stt_forbidden_error(
             r#"{"error":"STT quota exceeded. Please switch to BYOK mode."}"#,
+        );
+        assert!(matches!(err, AppError::Quota(_)));
+    }
+
+    #[test]
+    fn forbidden_error_uses_nested_quota_message() {
+        let err = cloud_stt_forbidden_error(
+            r#"{"error":{"code":"stt_quota_exceeded","message":"STT quota exceeded"}}"#,
         );
         assert!(matches!(err, AppError::Quota(_)));
     }

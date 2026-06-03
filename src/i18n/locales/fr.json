@@ -18,7 +18,10 @@
     "stt_failed": "La reconnaissance vocale a échoué. {{details}}",
     "stt_quota_exceeded": "Le quota de reconnaissance vocale cloud est dépassé. Passez à Pro ou utilisez le mode BYOK.",
     "stt_no_speech_detected": "Aucune parole détectée. Veuillez réessayer.",
-    "output_fallback_clipboard": "La sortie de texte a échoué. Le résultat a été copié dans le presse-papiers. {{details}}"
+    "output_fallback_clipboard": "La sortie de texte a échoué. Le résultat a été copié dans le presse-papiers. {{details}}",
+    "output_wayland_unsupported": "La sortie clavier n'est pas prise en charge sur Wayland. Le résultat a été copié dans le presse-papiers.",
+    "llm_failed": "Le polissage IA a échoué. Le texte original a été sorti à la place. {{details}}",
+    "llm_quota_exceeded": "Le quota IA cloud est dépassé. Passez à Pro ou utilisez le mode BYOK."
   },
   "home": {
     "welcome": "Bienvenue dans OpenTypeless",
@@ -308,6 +311,13 @@
     "signInFirst": "Connectez-vous d'abord depuis la page Compte pour vous abonner.",
     "subscribeToPro": "S'abonner à Pro",
     "month": "mois",
+    "benefits": {
+      "title": "Pro inclut",
+      "stt": "10 h de reconnaissance vocale cloud par mois",
+      "llm": "~5 M de jetons IA pour polir et réécrire",
+      "noApiKey": "Aucune clé API requise en mode cloud",
+      "backupScenes": "Sauvegarde cloud et modèles de scènes inclus"
+    },
     "features": {
       "sttTitle": "STT Cloud",
       "sttDetail": "Reconnaissance vocale premium",

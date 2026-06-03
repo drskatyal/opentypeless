@@ -18,7 +18,10 @@
     "stt_failed": "음성 인식에 실패했습니다. {{details}}",
     "stt_quota_exceeded": "클라우드 음성 인식 할당량을 모두 사용했습니다. Pro로 업그레이드하거나 BYOK 모드로 전환해 주세요.",
     "stt_no_speech_detected": "음성이 감지되지 않았습니다. 다시 시도해 주세요.",
-    "output_fallback_clipboard": "텍스트 출력에 실패했습니다. 대신 결과를 클립보드에 복사했습니다. {{details}}"
+    "output_fallback_clipboard": "텍스트 출력에 실패했습니다. 대신 결과를 클립보드에 복사했습니다. {{details}}",
+    "output_wayland_unsupported": "Wayland에서는 키보드 출력을 지원하지 않습니다. 결과를 클립보드에 복사했습니다.",
+    "llm_failed": "AI 다듬기에 실패했습니다. 대신 원문을 출력했습니다. {{details}}",
+    "llm_quota_exceeded": "클라우드 AI 할당량을 모두 사용했습니다. Pro로 업그레이드하거나 BYOK 모드로 전환해 주세요."
   },
   "home": {
     "welcome": "OpenTypeless에 오신 것을 환영합니다",
@@ -308,6 +311,13 @@
     "signInFirst": "구독하려면 먼저 계정 페이지에서 로그인하세요.",
     "subscribeToPro": "Pro 구독하기",
     "month": "월",
+    "benefits": {
+      "title": "Pro에 포함",
+      "stt": "매월 10시간 클라우드 음성 인식",
+      "llm": "교정과 다시 쓰기를 위한 약 500만 AI 토큰",
+      "noApiKey": "클라우드 모드에서 API 키 불필요",
+      "backupScenes": "클라우드 백업과 씬 템플릿 포함"
+    },
     "features": {
       "sttTitle": "클라우드 STT",
       "sttDetail": "프리미엄 음성 인식",

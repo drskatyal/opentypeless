@@ -165,6 +165,18 @@ fn no_speech_user_error() -> crate::error::UserError {
     }
 }
 
+fn llm_polish_user_error(error: &crate::error::AppError) -> crate::error::UserError {
+    if matches!(error, crate::error::AppError::LlmQuota(_)) {
+        return error.to_user_error();
+    }
+
+    crate::error::UserError {
+        code: "llm_failed".to_string(),
+        details: Some(error.to_string()),
+        retry_count: 0,
+    }
+}
+
 fn take_matching_stt_error(
     stt_error: &Mutex<Option<(u64, crate::error::UserError)>>,
     session_id: u64,
@@ -1163,7 +1175,7 @@ impl PipelineHandle {
 
                     let _ = self
                         .app_handle
-                        .emit("pipeline:error", format!("LLM polishing failed: {e}"));
+                        .emit("pipeline:error", llm_polish_user_error(&e));
                     if let Err(e) = self.output_text(raw_text, &app_ctx.app_name, config).await {
                         tracing::error!("Output failed: {}", e);
                         let _ = self
@@ -1394,6 +1406,27 @@ mod tests {
         let err = no_speech_user_error();
         assert_eq!(err.code, "stt_no_speech_detected");
         assert_eq!(err.retry_count, 0);
+    }
+
+    #[test]
+    fn llm_polish_user_error_keeps_quota_code() {
+        let err = llm_polish_user_error(&crate::error::AppError::LlmQuota(
+            "quota exceeded".to_string(),
+        ));
+        assert_eq!(err.code, "llm_quota_exceeded");
+        assert_eq!(err.details.as_deref(), Some("quota exceeded"));
+    }
+
+    #[test]
+    fn llm_polish_user_error_uses_localizable_fallback_code() {
+        let err = llm_polish_user_error(&crate::error::AppError::Auth(
+            "Cloud LLM access denied".to_string(),
+        ));
+        assert_eq!(err.code, "llm_failed");
+        assert_eq!(
+            err.details.as_deref(),
+            Some("Auth error: Cloud LLM access denied")
+        );
     }
 
     #[test]

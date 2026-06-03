@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Crown, Loader2 } from 'lucide-react'
+import { Check, Cloud, Crown, KeyRound, Loader2, Mic, Sparkles } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { useAuthStore } from '../../stores/authStore'
 import { PRO_PLAN } from '../../lib/constants'
 import { createCheckout } from '../../lib/api'
+
+const benefitIcons = [Mic, Sparkles, KeyRound, Cloud]
 
 export function UpgradePage() {
   const { user, plan, sttSecondsUsed, sttSecondsLimit, llmTokensUsed, llmTokensLimit } =
@@ -62,6 +64,28 @@ export function UpgradePage() {
             </span>
           </p>
         </div>
+
+        {/* Pro benefits */}
+        <section className="px-4 py-3 border-b border-border bg-bg-primary/40">
+          <h2 className="text-[12px] font-semibold text-text-primary">
+            {t('upgrade.benefits.title')}
+          </h2>
+          <div className="mt-3 grid gap-2">
+            {PRO_PLAN.benefits.map((benefit, i) => {
+              const Icon = benefitIcons[i] ?? Check
+              return (
+                <div key={benefit.labelKey} className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+                    <Icon size={12} />
+                  </span>
+                  <span className="text-[13px] leading-5 text-text-primary">
+                    {t(benefit.labelKey)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
 
         {/* Features */}
         <div>

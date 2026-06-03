@@ -18,7 +18,10 @@
     "stt_failed": "Speech recognition failed. {{details}}",
     "stt_quota_exceeded": "Cloud speech quota exceeded. Upgrade to Pro or switch to BYOK mode.",
     "stt_no_speech_detected": "No speech detected. Please try again.",
-    "output_fallback_clipboard": "Text output failed. The result was copied to clipboard instead. {{details}}"
+    "output_fallback_clipboard": "Text output failed. The result was copied to clipboard instead. {{details}}",
+    "output_wayland_unsupported": "Keyboard output is not supported on Wayland. The result was copied to clipboard instead.",
+    "llm_failed": "AI polishing failed. The original text was output instead. {{details}}",
+    "llm_quota_exceeded": "Cloud AI quota exceeded. Upgrade to Pro or switch to BYOK mode."
   },
   "home": {
     "welcome": "Welcome to OpenTypeless",
@@ -308,6 +311,13 @@
     "signInFirst": "Sign in from the Account page first to subscribe.",
     "subscribeToPro": "Subscribe to Pro",
     "month": "month",
+    "benefits": {
+      "title": "Pro includes",
+      "stt": "10h cloud speech recognition every month",
+      "llm": "~5M AI tokens for polishing and rewriting",
+      "noApiKey": "No API keys required in cloud mode",
+      "backupScenes": "Cloud backup and scene templates included"
+    },
     "features": {
       "sttTitle": "Cloud STT",
       "sttDetail": "Premium speech recognition",

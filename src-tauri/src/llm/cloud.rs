@@ -30,6 +30,69 @@ impl CloudLlmProvider {
     }
 }
 
+fn contains_quota_marker(value: &str) -> bool {
+    let value = value.to_ascii_lowercase();
+    value.contains("quota")
+        || value.contains("limit exceeded")
+        || value.contains("usage exceeded")
+        || value.contains("byok")
+}
+
+fn forbidden_error_message(value: &serde_json::Value) -> Option<String> {
+    value
+        .get("error")
+        .and_then(|v| v.as_str())
+        .or_else(|| value.get("message").and_then(|v| v.as_str()))
+        .or_else(|| {
+            value
+                .get("error")
+                .and_then(|v| v.get("message"))
+                .and_then(|v| v.as_str())
+        })
+        .map(String::from)
+}
+
+fn quota_message_from_value(value: &serde_json::Value) -> Option<String> {
+    for field in ["code", "error_code", "type"] {
+        if value
+            .get(field)
+            .and_then(|v| v.as_str())
+            .is_some_and(contains_quota_marker)
+        {
+            return Some(
+                forbidden_error_message(value)
+                    .unwrap_or_else(|| "Cloud LLM quota exceeded".to_string()),
+            );
+        }
+    }
+
+    for field in ["error", "message"] {
+        if let Some(item) = value.get(field) {
+            if let Some(message) = item.as_str() {
+                if contains_quota_marker(message) {
+                    return Some(message.to_string());
+                }
+            } else if let Some(message) = quota_message_from_value(item) {
+                return Some(message);
+            }
+        }
+    }
+
+    None
+}
+
+fn cloud_llm_forbidden_error(body: &str) -> AppError {
+    let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
+
+    if let Some(value) = parsed.as_ref() {
+        if let Some(message) = quota_message_from_value(value) {
+            return AppError::LlmQuota(message);
+        }
+    }
+
+    AppError::Auth("Cloud LLM access denied".to_string())
+}
+
 #[async_trait]
 impl LlmProvider for CloudLlmProvider {
     async fn polish(
@@ -99,13 +162,8 @@ impl LlmProvider for CloudLlmProvider {
                         response = Some(resp);
                         break;
                     } else if status.as_u16() == 403 {
-                        // Quota errors are never retried
                         let text = resp.text().await.unwrap_or_default();
-                        let msg = serde_json::from_str::<serde_json::Value>(&text)
-                            .ok()
-                            .and_then(|v| v["error"].as_str().map(String::from))
-                            .unwrap_or_else(|| "LLM quota exceeded".to_string());
-                        return Err(AppError::Auth(msg));
+                        return Err(cloud_llm_forbidden_error(&text));
                     } else if status.as_u16() >= 500 && attempt < 2 {
                         let body_text = resp.text().await.unwrap_or_default();
                         tracing::warn!(
@@ -218,5 +276,26 @@ impl LlmProvider for CloudLlmProvider {
 
     fn name(&self) -> &str {
         "Cloud"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn forbidden_error_uses_llm_quota_code() {
+        let err = cloud_llm_forbidden_error(
+            r#"{"code":"llm_quota_exceeded","error":"LLM quota exceeded"}"#,
+        );
+        assert!(matches!(err, AppError::LlmQuota(_)));
+    }
+
+    #[test]
+    fn forbidden_error_uses_nested_llm_quota_message() {
+        let err = cloud_llm_forbidden_error(
+            r#"{"error":{"code":"llm_quota_exceeded","message":"LLM quota exceeded"}}"#,
+        );
+        assert!(matches!(err, AppError::LlmQuota(_)));
     }
 }

@@ -20,6 +20,7 @@ pub enum AppError {
     Api { status: u16, body: String },
     Auth(String),
     Quota(String),
+    LlmQuota(String),
     Output(String),
     Config(String),
 }
@@ -32,6 +33,7 @@ impl AppError {
             AppError::Api { status, .. } => *status >= 500,
             AppError::Auth(_) => false,
             AppError::Quota(_) => false,
+            AppError::LlmQuota(_) => false,
             AppError::Output(_) => false,
             AppError::Config(_) => false,
         }
@@ -50,6 +52,7 @@ impl AppError {
             }
             AppError::Auth(msg) => ("stt_invalid_key".to_string(), Some(msg.clone())),
             AppError::Quota(msg) => ("stt_quota_exceeded".to_string(), Some(msg.clone())),
+            AppError::LlmQuota(msg) => ("llm_quota_exceeded".to_string(), Some(msg.clone())),
             AppError::Output(msg) => ("output_fallback_clipboard".to_string(), Some(msg.clone())),
             AppError::Config(msg) => ("stt_failed".to_string(), Some(msg.clone())),
         };
@@ -75,6 +78,7 @@ impl std::fmt::Display for AppError {
             AppError::Api { status, body } => write!(f, "API error {}: {}", status, body),
             AppError::Auth(msg) => write!(f, "Auth error: {}", msg),
             AppError::Quota(msg) => write!(f, "Quota error: {}", msg),
+            AppError::LlmQuota(msg) => write!(f, "LLM quota error: {}", msg),
             AppError::Output(msg) => write!(f, "Output error: {}", msg),
             AppError::Config(msg) => write!(f, "Config error: {}", msg),
         }
@@ -225,6 +229,14 @@ mod tests {
         let err = AppError::Quota("quota exceeded".to_string());
         let ue = err.to_user_error();
         assert_eq!(ue.code, "stt_quota_exceeded");
+        assert_eq!(ue.details.as_deref(), Some("quota exceeded"));
+    }
+
+    #[test]
+    fn test_llm_quota_maps_to_llm_quota_code() {
+        let err = AppError::LlmQuota("quota exceeded".to_string());
+        let ue = err.to_user_error();
+        assert_eq!(ue.code, "llm_quota_exceeded");
         assert_eq!(ue.details.as_deref(), Some("quota exceeded"));
     }
 
