@@ -157,6 +157,28 @@ fn should_finalize_stt_task(
         && active_session_id.load(Ordering::SeqCst) == task_session_id
 }
 
+fn no_speech_user_error() -> crate::error::UserError {
+    crate::error::UserError {
+        code: "stt_no_speech_detected".to_string(),
+        details: None,
+        retry_count: 0,
+    }
+}
+
+fn take_matching_stt_error(
+    stt_error: &Mutex<Option<(u64, crate::error::UserError)>>,
+    session_id: u64,
+) -> Option<crate::error::UserError> {
+    let mut guard = stt_error.lock().unwrap_or_else(|e| e.into_inner());
+    if guard
+        .as_ref()
+        .is_some_and(|(latched_session_id, _)| *latched_session_id == session_id)
+    {
+        return guard.take().map(|(_, error)| error);
+    }
+    None
+}
+
 fn selected_text_from_clipboard_result(selected: Option<String>, sentinel: &str) -> Option<String> {
     match selected {
         Some(text) if !text.trim().is_empty() && text != sentinel => Some(text),
@@ -183,6 +205,7 @@ pub struct PipelineHandle {
     audio_volume: Arc<Mutex<f32>>,
     accumulated_text: Arc<Mutex<String>>,
     stt_session: Arc<Mutex<Option<SttTaskControl>>>,
+    stt_error: Arc<Mutex<Option<(u64, crate::error::UserError)>>>,
     active_stt_session_id: Arc<AtomicU64>,
     abort_flag: Arc<AtomicBool>,
     preloaded_config: Arc<Mutex<Option<storage::AppConfig>>>,
@@ -207,6 +230,7 @@ impl PipelineHandle {
             audio_volume: Arc::new(Mutex::new(0.0)),
             accumulated_text: Arc::new(Mutex::new(String::new())),
             stt_session: Arc::new(Mutex::new(None)),
+            stt_error: Arc::new(Mutex::new(None)),
             active_stt_session_id: Arc::new(AtomicU64::new(0)),
             abort_flag: Arc::new(AtomicBool::new(false)),
             preloaded_config: Arc::new(Mutex::new(None)),
@@ -279,6 +303,7 @@ impl PipelineHandle {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clear();
+        *self.stt_error.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         // Force state to Idle — emits pipeline:state event to sync frontend
         self.set_state(PipelineState::Idle);
@@ -384,6 +409,7 @@ impl PipelineHandle {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clear();
+        *self.stt_error.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         // P0-2: Load config BEFORE starting audio capture — fail fast on missing API key
         let config_data = self.load_config().await;
@@ -658,6 +684,7 @@ impl PipelineHandle {
         *self.stt_session.lock().unwrap_or_else(|e| e.into_inner()) = Some(stt_control.clone());
         let abort_flag_ref = self.abort_flag.clone();
         let active_session_id_ref = self.active_stt_session_id.clone();
+        let stt_error_ref = self.stt_error.clone();
 
         tokio::spawn(async move {
             // Forward audio to STT and receive transcripts
@@ -717,7 +744,10 @@ impl PipelineHandle {
                                             active_session_id_ref.as_ref(),
                                             stt_control.id,
                                         ) {
-                                            let _ = app_handle.emit("pipeline:error", format!("STT error: {e}"));
+                                            let user_error = e.to_user_error();
+                                            *stt_error_ref.lock().unwrap_or_else(|e| e.into_inner()) =
+                                                Some((stt_control.id, user_error.clone()));
+                                            let _ = app_handle.emit("pipeline:error", user_error);
                                         }
                                     }
                                     None => {}
@@ -758,7 +788,11 @@ impl PipelineHandle {
                                     active_session_id_ref.as_ref(),
                                     stt_control.id,
                                 ) {
-                                    let _ = app_handle.emit("pipeline:error", format!("STT error: {message}"));
+                                    let user_error =
+                                        crate::error::AppError::Config(message.clone()).to_user_error();
+                                    *stt_error_ref.lock().unwrap_or_else(|e| e.into_inner()) =
+                                        Some((stt_control.id, user_error.clone()));
+                                    let _ = app_handle.emit("pipeline:error", user_error);
                                 }
                                 // Break out of the loop — STT has failed, no point
                                 // continuing. Without break, the loop keeps running
@@ -767,6 +801,16 @@ impl PipelineHandle {
                             }
                             Err(e) => {
                                 tracing::error!("STT recv error: {}", e);
+                                if should_finalize_stt_task(
+                                    abort_flag_ref.as_ref(),
+                                    active_session_id_ref.as_ref(),
+                                    stt_control.id,
+                                ) {
+                                    let user_error = e.to_user_error();
+                                    *stt_error_ref.lock().unwrap_or_else(|e| e.into_inner()) =
+                                        Some((stt_control.id, user_error.clone()));
+                                    let _ = app_handle.emit("pipeline:error", user_error);
+                                }
                                 break;
                             }
                             _ => {}
@@ -998,6 +1042,10 @@ impl PipelineHandle {
                 tracing::info!("Ignoring stale or aborted STT task");
                 return Ok(None);
             }
+            if take_matching_stt_error(&self.stt_error, control.id).is_some() {
+                self.set_state(PipelineState::Idle);
+                return Ok(None);
+            }
         } else {
             tracing::warn!("No STT session was available to wait for");
         }
@@ -1017,7 +1065,7 @@ impl PipelineHandle {
         if raw_text.is_empty() {
             let _ = self
                 .app_handle
-                .emit("pipeline:error", "No speech detected. Please try again.");
+                .emit("pipeline:error", no_speech_user_error());
             self.set_state(PipelineState::Idle);
             return Ok(None);
         }
@@ -1308,6 +1356,44 @@ mod tests {
         let active_session_id = AtomicU64::new(7);
 
         assert!(should_finalize_stt_task(&abort_flag, &active_session_id, 7));
+    }
+
+    #[test]
+    fn session_error_latch_returns_matching_error() {
+        let latch = Mutex::new(Some((
+            7,
+            crate::error::UserError {
+                code: "stt_quota_exceeded".to_string(),
+                details: Some("quota".to_string()),
+                retry_count: 0,
+            },
+        )));
+
+        let err = take_matching_stt_error(&latch, 7).unwrap();
+        assert_eq!(err.code, "stt_quota_exceeded");
+        assert!(latch.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn session_error_latch_ignores_stale_error() {
+        let latch = Mutex::new(Some((
+            6,
+            crate::error::UserError {
+                code: "stt_quota_exceeded".to_string(),
+                details: Some("quota".to_string()),
+                retry_count: 0,
+            },
+        )));
+
+        assert!(take_matching_stt_error(&latch, 7).is_none());
+        assert!(latch.lock().unwrap().is_some());
+    }
+
+    #[test]
+    fn no_speech_user_error_has_localizable_code() {
+        let err = no_speech_user_error();
+        assert_eq!(err.code, "stt_no_speech_detected");
+        assert_eq!(err.retry_count, 0);
     }
 
     #[test]
