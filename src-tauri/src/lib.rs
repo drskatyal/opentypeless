@@ -199,8 +199,9 @@ pub fn run() {
             }
 
             // System tray
-            let tray_menu = tray::build_tray_menu(&app_handle, false, true)
-                .map_err(|e| anyhow::anyhow!("Failed to build tray menu: {}", e))?;
+            let tray_menu =
+                tray::build_tray_menu(&app_handle, false, true, initial_config.capsule_auto_hide)
+                    .map_err(|e| anyhow::anyhow!("Failed to build tray menu: {}", e))?;
 
             let tray = TrayIconBuilder::new()
                 .icon(
@@ -239,6 +240,26 @@ pub fn run() {
                                 if let Err(e) = pipeline.stop().await {
                                     tracing::error!("Tray stop recording failed: {}", e);
                                 }
+                            }
+                        });
+                    }
+                    "toggle_capsule_auto_hide" => {
+                        let handle = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let config_state = handle.state::<storage::ConfigManager>();
+                            let enabled = config_state
+                                .load()
+                                .await
+                                .map(|config| !config.capsule_auto_hide)
+                                .unwrap_or(true);
+                            if let Err(e) = commands::config::save_capsule_auto_hide(
+                                &handle,
+                                &config_state,
+                                enabled,
+                            )
+                            .await
+                            {
+                                tracing::error!("Tray capsule visibility toggle failed: {}", e);
                             }
                         });
                     }
@@ -406,6 +427,7 @@ pub fn run() {
             commands::misc::resume_hotkey,
             commands::misc::refresh_tray_labels,
             commands::config::set_auto_start,
+            commands::config::set_capsule_auto_hide,
             commands::config::set_session_token,
         ])
         .run(tauri::generate_context!())

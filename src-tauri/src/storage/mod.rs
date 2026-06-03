@@ -70,6 +70,26 @@ impl Default for AppConfig {
     }
 }
 
+impl AppConfig {
+    pub fn new_install_default() -> Self {
+        Self {
+            capsule_auto_hide: true,
+            ..Self::default()
+        }
+    }
+
+    pub fn from_stored_value(value: serde_json::Value) -> Result<Self, serde_json::Error> {
+        let has_capsule_auto_hide = value
+            .as_object()
+            .is_some_and(|object| object.contains_key("capsule_auto_hide"));
+        let mut config: Self = serde_json::from_value(value)?;
+        if !has_capsule_auto_hide {
+            config.capsule_auto_hide = false;
+        }
+        Ok(config)
+    }
+}
+
 // ─── ConfigManager (tauri-plugin-store backed) ───
 
 pub struct ConfigManager {
@@ -92,10 +112,11 @@ impl ConfigManager {
 
         let config = match self.app_handle.store("settings.json") {
             Ok(store) => match store.get("app_config") {
-                Some(val) => serde_json::from_value::<AppConfig>(val.clone()).unwrap_or_default(),
-                None => AppConfig::default(),
+                Some(val) => AppConfig::from_stored_value(val.clone())
+                    .unwrap_or_else(|_| AppConfig::new_install_default()),
+                None => AppConfig::new_install_default(),
             },
-            Err(_) => AppConfig::default(),
+            Err(_) => AppConfig::new_install_default(),
         };
 
         *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(config.clone());
@@ -310,5 +331,36 @@ mod tests {
         assert_eq!(config.stt_provider, "deepgram");
         assert_eq!(config.stt_api_key, "hosted-secret");
         assert_eq!(config.stt_custom_api_key, "");
+    }
+
+    #[test]
+    fn app_config_new_install_defaults_capsule_auto_hide_true() {
+        let config = AppConfig::new_install_default();
+        assert!(config.capsule_auto_hide);
+    }
+
+    #[test]
+    fn app_config_existing_missing_capsule_auto_hide_defaults_false() {
+        let value = serde_json::json!({
+            "stt_provider": "deepgram",
+            "stt_api_key": "hosted-secret"
+        });
+
+        let config = AppConfig::from_stored_value(value).unwrap();
+
+        assert_eq!(config.stt_provider, "deepgram");
+        assert_eq!(config.stt_api_key, "hosted-secret");
+        assert!(!config.capsule_auto_hide);
+    }
+
+    #[test]
+    fn app_config_existing_explicit_capsule_auto_hide_is_preserved() {
+        let value = serde_json::json!({
+            "capsule_auto_hide": true
+        });
+
+        let config = AppConfig::from_stored_value(value).unwrap();
+
+        assert!(config.capsule_auto_hide);
     }
 }
