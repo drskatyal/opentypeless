@@ -22,7 +22,8 @@ jobs:
           set -euo pipefail
 
           for attempt in $(seq 1 180); do
-            json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/tmp/release_api_error || true)"
+            releases="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" 2>/tmp/release_api_error || true)"
+            json="$(node -e "const releases=JSON.parse(process.argv[1] || '[]'); const release=releases.find((item) => item.tag_name === process.env.TAG); if (release) console.log(JSON.stringify(release));" "$releases")"
 
             if [ -n "$json" ]; then
               release_id="$(node -e "const j=JSON.parse(process.argv[1]); console.log(j.id)" "$json")"
@@ -42,7 +43,7 @@ jobs:
                 exit 0
               fi
             else
-              echo "Attempt $attempt: release $TAG not visible yet"
+              echo "Attempt $attempt: release $TAG not visible in release list yet"
               cat /tmp/release_api_error || true
             fi
 
