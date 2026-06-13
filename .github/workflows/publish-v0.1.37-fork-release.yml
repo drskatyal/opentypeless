@@ -1,0 +1,46 @@
+name: Publish v0.1.37 Fork Release
+
+on:
+  push:
+    branches: [codex/publish-v0.1.37-fork]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish fork draft release when assets are ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v0.1.37
+          EXPECTED_ASSETS: '9'
+        run: |
+          set -euo pipefail
+
+          for attempt in $(seq 1 180); do
+            json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>/tmp/release_api_error || true)"
+
+            if [ -n "$json" ]; then
+              release_id="$(node -e "const j=JSON.parse(process.argv[1]); console.log(j.id)" "$json")"
+              asset_count="$(node -e "const j=JSON.parse(process.argv[1]); console.log((j.assets || []).length)" "$json")"
+              draft="$(node -e "const j=JSON.parse(process.argv[1]); console.log(j.draft)" "$json")"
+
+              echo "Attempt $attempt: release=$release_id draft=$draft assets=$asset_count"
+
+              if [ "$asset_count" -ge "$EXPECTED_ASSETS" ]; then
+                gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" -F draft=false >/dev/null
+                echo "Published $TAG with $asset_count assets."
+                exit 0
+              fi
+            else
+              echo "Attempt $attempt: release $TAG not visible yet"
+              cat /tmp/release_api_error || true
+            fi
+
+            sleep 30
+          done
+
+          echo "Timed out waiting for $TAG assets" >&2
+          exit 1
