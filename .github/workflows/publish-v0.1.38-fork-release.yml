@@ -1,20 +1,22 @@
-name: Publish v0.1.37 Fork Release
+name: Publish v0.1.38 Fork Release
 
 on:
   push:
-    branches: [codex/publish-v0.1.37-fork]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   publish:
+    if: github.repository == 'toverwu-qaq/opentypeless'
     runs-on: ubuntu-latest
     steps:
       - name: Publish fork draft release when assets are ready
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v0.1.37
+          TAG: v0.1.38
           EXPECTED_ASSETS: '9'
         run: |
           set -euo pipefail
@@ -28,6 +30,11 @@ jobs:
               draft="$(node -e "const j=JSON.parse(process.argv[1]); console.log(j.draft)" "$json")"
 
               echo "Attempt $attempt: release=$release_id draft=$draft assets=$asset_count"
+
+              if [ "$draft" = "false" ]; then
+                echo "$TAG is already published."
+                exit 0
+              fi
 
               if [ "$asset_count" -ge "$EXPECTED_ASSETS" ]; then
                 gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" -F draft=false >/dev/null
