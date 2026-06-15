@@ -1,0 +1,53 @@
+name: Provider Request
+description: Request a new STT or LLM provider integration
+title: "[Provider]: "
+labels: ["enhancement", "provider"]
+body:
+  - type: dropdown
+    id: provider_type
+    attributes:
+      label: Provider Type
+      options:
+        - Speech-to-text (STT)
+        - LLM / AI polish
+        - Both STT and LLM
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: provider_name
+    attributes:
+      label: Provider Name
+      placeholder: e.g. OpenAI Realtime, Azure Speech, ElevenLabs, local faster-whisper
+    validations:
+      required: true
+  - type: input
+    id: provider_url
+    attributes:
+      label: Provider Website or API Docs
+      placeholder: https://...
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Why should OpenTypeless support it?
+      description: Tell us the workflow, language, price, latency, privacy, or regional reason this provider matters.
+      placeholder: I want this provider because...
+    validations:
+      required: true
+  - type: textarea
+    id: api_shape
+    attributes:
+      label: API compatibility notes
+      description: Is it OpenAI-compatible, Whisper-compatible, streaming, batch-only, local-only, or something else?
+      placeholder: The API looks compatible with...
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked that this provider is not already supported.
+          required: true
+        - label: I can help test this provider if support is added.
+          required: false

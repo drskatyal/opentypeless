@@ -1,23 +1,26 @@
 name: Bug Report
 description: Report a bug to help us improve OpenTypeless
+title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: textarea
     id: summary
     attributes:
-      label: Bug Description
-      description: A clear and concise description of the bug.
+      label: What happened?
+      description: Tell us what broke and what you were trying to do.
+      placeholder: I pressed the global hotkey in Slack, recorded a short message, and...
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: Minimal steps to reproduce the behavior.
+      description: Minimal steps that reproduce the behavior from a clean app launch.
       placeholder: |
-        1. Go to '...'
-        2. Click on '...'
-        3. See error
+        1. Open OpenTypeless
+        2. Select STT provider ...
+        3. Press the hotkey in ...
+        4. See ...
     validations:
       required: true
   - type: textarea
@@ -36,7 +39,7 @@ body:
     id: version
     attributes:
       label: OpenTypeless Version
-      placeholder: e.g. v0.1.0
+      placeholder: e.g. v0.1.39
     validations:
       required: true
   - type: dropdown
@@ -50,8 +53,17 @@ body:
         - macOS 14 (Sonoma)
         - Ubuntu 24.04
         - Other Linux
+        - Other
     validations:
       required: true
+  - type: input
+    id: app
+    attributes:
+      label: App where it happened
+      description: Which target app were you speaking into?
+      placeholder: e.g. VS Code, Chrome, Slack, Obsidian, Notes
+    validations:
+      required: false
   - type: dropdown
     id: stt_provider
     attributes:
@@ -63,11 +75,51 @@ body:
         - Groq Whisper
         - GLM-ASR
         - SiliconFlow
+        - Local / Custom Whisper
         - Cloud (Pro)
         - N/A
+    validations:
+      required: true
+  - type: dropdown
+    id: llm_provider
+    attributes:
+      label: LLM Provider
+      options:
+        - OpenAI
+        - DeepSeek
+        - Google Gemini
+        - Claude / OpenRouter
+        - Qwen
+        - Moonshot
+        - Groq
+        - Ollama
+        - Cloud (Pro)
+        - N/A
+        - Other
+    validations:
+      required: false
+  - type: dropdown
+    id: output_mode
+    attributes:
+      label: Output Mode
+      options:
+        - Keyboard simulation
+        - Clipboard paste
+        - Not sure
+    validations:
+      required: false
   - type: textarea
     id: logs
     attributes:
       label: Logs / Screenshots
       description: Paste relevant log output or attach screenshots.
       render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues for the same bug.
+          required: true
+        - label: I can reproduce this on the latest release.
+          required: false

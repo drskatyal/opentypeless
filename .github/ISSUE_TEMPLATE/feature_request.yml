@@ -1,27 +1,58 @@
 name: Feature Request
 description: Suggest an idea for OpenTypeless
+title: "[Feature]: "
 labels: ["enhancement"]
 body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of OpenTypeless would this improve?
+      options:
+        - Voice capture / hotkey
+        - Speech recognition provider
+        - AI polish / LLM provider
+        - Output into apps
+        - Dictionary
+        - Translation
+        - History
+        - Onboarding
+        - Settings
+        - Packaging / installation
+        - Other
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
-      label: Problem
-      description: What problem does this solve? Why is the current behavior insufficient?
+      label: Problem or workflow
+      description: What are you trying to do, and where does the current experience fall short?
+      placeholder: When I use OpenTypeless for ..., I currently have to ...
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
       label: Proposed Solution
-      description: Describe the desired behavior or API/UX.
+      description: Describe the behavior you would like to see.
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives Considered
+      description: Have you tried another workflow, provider, app, or tool?
   - type: textarea
     id: context
     attributes:
       label: Additional Context
       description: Screenshots, links to prior art, or other references.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues and discussions.
+          required: true
+        - label: I am willing to help test this feature if it lands.
+          required: false

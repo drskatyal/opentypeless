@@ -9,13 +9,12 @@
 <h1 align="center">OpenTypeless</h1>
 
 <p align="center">
-  Open-source AI voice input for desktop. Speak naturally, get polished text in any app.
+  Open-source AI voice typing for macOS, Windows, and Linux.
 </p>
 
 <p align="center">
-  Whether you're writing emails, coding, chatting, or taking notes — just press a hotkey,<br/>
-  speak your mind, and OpenTypeless transcribes and polishes your words with AI,<br/>
-  then types them directly into whatever app you're using.
+  Press a hotkey, speak naturally, and get clean, ready-to-send text in the app you are already using.<br/>
+  OpenTypeless combines speech-to-text, LLM rewriting, translation, custom dictionary, and local-first BYOK controls.
 </p>
 
 <p align="center">
@@ -24,6 +23,13 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/tover0314-w/opentypeless" alt="License" /></a>
   <a href="https://github.com/tover0314-w/opentypeless/stargazers"><img src="https://img.shields.io/github/stars/tover0314-w/opentypeless?style=social" alt="Stars" /></a>
   <a href="https://discord.gg/V6rRpJ4RGD"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.opentypeless.com"><strong>Website</strong></a> ·
+  <a href="https://github.com/tover0314-w/opentypeless/releases"><strong>Download</strong></a> ·
+  <a href="#getting-started"><strong>Run locally</strong></a> ·
+  <a href="https://github.com/tover0314-w/opentypeless/discussions"><strong>Discussions</strong></a>
 </p>
 
 <p align="center">
@@ -45,12 +51,27 @@
 
 ---
 
+## What OpenTypeless Does
+
+OpenTypeless turns rough speech into polished written output without forcing you to switch tools.
+
+| Step | What happens |
+|---|---|
+| 1. Capture | Use a global hotkey to record from anywhere on your desktop |
+| 2. Transcribe | Send audio to your chosen STT provider or a local Whisper-compatible server |
+| 3. Polish | Rewrite the raw transcript with your preferred LLM, dictionary, and scene prompt |
+| 4. Output | Type the final text back into the active app or paste it through the clipboard |
+
+Use it for emails, chat replies, meeting notes, issue comments, prompts, documentation drafts, multilingual translation, and any workflow where speaking is faster than typing.
+
 ## Why OpenTypeless?
+
+Most desktop dictation tools stop at transcription. OpenTypeless adds the AI rewrite layer, provider choice, and open-source control that power users need.
 
 | | OpenTypeless | macOS Dictation | Windows Voice Typing | Whisper Desktop |
 |---|---|---|---|---|
 | AI text polishing | ✅ Multiple LLMs | ❌ | ❌ | ❌ |
-| STT provider choice | ✅ 6+ providers | ❌ Apple only | ❌ Microsoft only | ❌ Whisper only |
+| STT provider choice | ✅ Deepgram, AssemblyAI, Whisper-compatible, and more | ❌ Apple only | ❌ Microsoft only | ❌ Whisper only |
 | Works in any app | ✅ | ✅ | ✅ | ❌ Copy-paste |
 | Translation mode | ✅ | ❌ | ❌ | ❌ |
 | Open source | ✅ MIT | ❌ | ❌ | ✅ |
@@ -60,19 +81,16 @@
 
 ## Features
 
-- 🎙️ Global hotkey recording — hold-to-record or toggle mode
-- 💊 Floating capsule widget that stays on top
-- 🗣️ 6+ STT providers: Deepgram, AssemblyAI, Whisper, Groq, GLM-ASR, SiliconFlow
-- 🤖 Text polishing via multiple LLMs: OpenAI, DeepSeek, Claude, Gemini, Ollama, and more
-- ⚡ Streaming output — text appears as the LLM generates it
-- ⌨️ Keyboard simulation or clipboard output
-- 📝 Highlight text before recording to give the LLM context
-- 🌐 Translation mode: speak in one language, output in another (20+ languages)
-- 📖 Custom dictionary for domain-specific terms
-- 🔍 Per-app detection to adapt formatting
-- 📜 Local history with full-text search
-- 🌗 Dark / light / system theme
-- 🚀 Auto-start on login
+| Area | Highlights |
+|---|---|
+| Voice capture | Global hotkey, hold-to-record or toggle mode, floating always-on-top capsule |
+| AI rewriting | Streaming LLM polish, selected-text context, scene prompts, per-app formatting |
+| Providers | Deepgram, AssemblyAI, GLM-ASR, OpenAI Whisper, Groq Whisper, SiliconFlow, custom Whisper-compatible endpoints |
+| LLMs | OpenAI-compatible APIs including OpenAI, DeepSeek, Claude via OpenRouter, Gemini, Groq, Qwen, Moonshot, Ollama, and more |
+| Output | Keyboard simulation or clipboard paste into the active application |
+| Language | Auto-detect speech, translate into 20+ target languages, customize domain vocabulary |
+| Local control | Local settings, local history search, BYOK mode, optional self-hosted cloud endpoints |
+| Desktop polish | Dark/light/system theme, auto-start on login, cross-platform Tauri app |
 
 > [!TIP]
 > **Recommended Configuration for Best Experience**
@@ -83,6 +101,14 @@
 > | 🤖 AI Polish | Google | `gemini-2.5-flash` |
 >
 > This combo delivers fast, accurate transcription with high-quality text polishing — and both offer generous free tiers.
+
+## Try It in 5 Minutes
+
+1. Download the latest build for your platform from [Releases](https://github.com/tover0314-w/opentypeless/releases).
+2. Choose **BYOK** for full provider control or **Cloud (Pro)** if you want managed quota without API keys.
+3. Pick an STT provider and an LLM provider in Settings.
+4. Set a global hotkey.
+5. Open any desktop app, press the hotkey, speak, and let OpenTypeless type the polished result.
 
 ## Download
 
