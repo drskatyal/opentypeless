@@ -21,7 +21,8 @@
     "output_fallback_clipboard": "文本输出失败，结果已改为复制到剪贴板。{{details}}",
     "output_wayland_unsupported": "Wayland 暂不支持键盘输出，结果已改为复制到剪贴板。",
     "llm_failed": "AI 润色失败，已改为输出原始文本。{{details}}",
-    "llm_quota_exceeded": "云端 AI 额度已用完。请升级到 Pro 或切换到 BYOK 模式。"
+    "llm_quota_exceeded": "云端 AI 额度已用完。请升级到 Pro 或切换到 BYOK 模式。",
+    "output_wayland_clipboard_copy_only": "已复制到剪贴板。Wayland 下需要手动粘贴。"
   },
   "home": {
     "welcome": "欢迎使用 OpenTypeless",
@@ -189,7 +190,8 @@
       "stt_connection_failed": "STT 连接失败",
       "audio_failed": "麦克风失败",
       "output_failed": "输出失败",
-      "unknown": "出错了"
+      "unknown": "出错了",
+      "output_wayland_clipboard_copy_only": "已复制"
     },
     "menu": {
       "hideWhenIdle": "空闲时隐藏胶囊",
@@ -277,7 +279,17 @@
     "accessibilityRequired": "键盘输出需要此权限",
     "grantPermission": "授权",
     "unsavedChanges": "你有未保存的更改",
-    "llmModelPlaceholder": "例如 gpt-4o-mini"
+    "llmModelPlaceholder": "例如 gpt-4o-mini",
+    "waylandHotkeyLimited": "Wayland 下全局热键受系统限制。如果快捷键无响应，请用托盘或应用内按钮开始录音。",
+    "hotkeyRegistrationFailed": "当前会话无法注册这个快捷键。",
+    "waylandClipboardCopyOnly": "Wayland 下剪贴板模式只会复制文本，需要手动粘贴，以避免系统权限弹窗。",
+    "chineseOutput": "中文输出",
+    "chineseOutputPreserve": "保留原文习惯",
+    "chineseOutputSimplified": "简体中文",
+    "chineseOutputTraditional": "繁體中文",
+    "customPolishInstructions": "自定义润色指令",
+    "customPolishInstructionsPlaceholder": "示例：使用繁體中文，语气简洁专业。",
+    "customPolishInstructionsCount": "{{count}} / 2000 字符"
   },
   "dictionary": {
     "word": "词语",

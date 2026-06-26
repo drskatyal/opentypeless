@@ -11,6 +11,8 @@ import {
   getHistory,
   getDictionary,
   checkAccessibilityPermission,
+  getPlatformCapabilities,
+  getHotkeyRegistrationError,
 } from './lib/tauri'
 import { initDeepLinkListener } from './lib/deep-link'
 import { Capsule } from './components/Capsule'
@@ -62,6 +64,8 @@ function MainApp() {
   const setHistory = useAppStore((s) => s.setHistory)
   const setDictionary = useAppStore((s) => s.setDictionary)
   const setAccessibilityTrusted = useAppStore((s) => s.setAccessibilityTrusted)
+  const setPlatformCapabilities = useAppStore((s) => s.setPlatformCapabilities)
+  const setHotkeyRegistrationError = useAppStore((s) => s.setHotkeyRegistrationError)
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const { route } = useRoute()
@@ -71,15 +75,25 @@ function MainApp() {
       setOnboardingCompleted(done)
       if (done) {
         try {
-          const [config, history, dictionary] = await Promise.all([
+          const [
+            config,
+            history,
+            dictionary,
+            platformCapabilities,
+            hotkeyRegistrationError,
+          ] = await Promise.all([
             getConfig(),
             getHistory(200, 0),
             getDictionary(),
+            getPlatformCapabilities(),
+            getHotkeyRegistrationError(),
           ])
           setConfig(config)
           setSavedConfig(config)
           setHistory(history)
           setDictionary(dictionary)
+          setPlatformCapabilities(platformCapabilities)
+          setHotkeyRegistrationError(hotkeyRegistrationError)
           // Check macOS Accessibility permission
           if (navigator.platform.toUpperCase().indexOf('MAC') >= 0) {
             checkAccessibilityPermission().then((trusted) => {
@@ -111,6 +125,8 @@ function MainApp() {
     setHistory,
     setDictionary,
     setAccessibilityTrusted,
+    setPlatformCapabilities,
+    setHotkeyRegistrationError,
   ])
 
   const user = useAuthStore((s) => s.user)

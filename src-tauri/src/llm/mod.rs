@@ -33,6 +33,8 @@ pub struct PolishRequest {
     pub raw_text: String,
     pub app_type: AppType,
     pub dictionary: Vec<String>,
+    pub polish_custom_prompt: String,
+    pub polish_chinese_script: String,
     pub translate_enabled: bool,
     pub target_lang: String,
     pub selected_text: Option<String>,

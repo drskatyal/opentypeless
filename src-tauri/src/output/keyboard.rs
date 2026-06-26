@@ -21,7 +21,7 @@ const MACOS_TYPE_MAX_TIMEOUT_SECS: u64 = 300;
 pub fn check_keyboard_available() -> std::result::Result<(), String> {
     #[cfg(target_os = "linux")]
     {
-        let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
+        let session = crate::platform::current_session_type();
         if session == "wayland" {
             return Err("wayland_unsupported".to_string());
         }

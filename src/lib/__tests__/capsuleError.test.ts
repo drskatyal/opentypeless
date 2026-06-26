@@ -22,6 +22,15 @@ describe('capsuleErrorKeyFromPayload', () => {
     ).toBe('llm_quota_exceeded')
   })
 
+  it('keeps structured Wayland clipboard copy-only warnings short', () => {
+    expect(
+      capsuleErrorKeyFromPayload({
+        code: 'output_wayland_clipboard_copy_only',
+        retry_count: 0,
+      }),
+    ).toBe('output_wayland_clipboard_copy_only')
+  })
+
   it('maps missing STT setup strings to a setup label', () => {
     expect(
       capsuleErrorKeyFromPayload(

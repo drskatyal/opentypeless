@@ -29,6 +29,15 @@ export type LlmProvider =
 export type OutputMode = 'keyboard' | 'clipboard'
 export type HotkeyMode = 'hold' | 'toggle'
 export type Theme = 'light' | 'dark' | 'system'
+export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
+
+export interface PlatformCapabilities {
+  os: 'macos' | 'windows' | 'linux' | 'unknown'
+  sessionType: 'wayland' | 'x11' | 'unknown'
+  globalHotkeyReliable: boolean
+  keyboardOutputReliable: boolean
+  clipboardAutoPasteReliable: boolean
+}
 
 export interface HistoryEntry {
   id: number
@@ -61,6 +70,8 @@ export interface AppConfig {
   llm_model: string
   llm_base_url: string
   polish_enabled: boolean
+  polish_custom_prompt: string
+  polish_chinese_script: PolishChineseScript
   translate_enabled: boolean
   target_lang: string
   hotkey: string
@@ -147,6 +158,10 @@ interface AppState {
   // macOS Accessibility permission
   accessibilityTrusted: boolean
   setAccessibilityTrusted: (trusted: boolean) => void
+  platformCapabilities: PlatformCapabilities | null
+  setPlatformCapabilities: (capabilities: PlatformCapabilities | null) => void
+  hotkeyRegistrationError: string | null
+  setHotkeyRegistrationError: (error: string | null) => void
 
   // Context menu
   contextMenuOpen: boolean
@@ -180,6 +195,8 @@ const defaultConfig: AppConfig = {
   llm_model: 'google/gemini-2.5-flash',
   llm_base_url: 'https://openrouter.ai/api/v1',
   polish_enabled: true,
+  polish_custom_prompt: '',
+  polish_chinese_script: 'preserve',
   translate_enabled: false,
   target_lang: 'en',
   hotkey: isMacPlatform() ? 'Option+/' : 'Ctrl+/',
@@ -256,6 +273,10 @@ export const useAppStore = create<AppState>((set) => ({
 
   accessibilityTrusted: true,
   setAccessibilityTrusted: (accessibilityTrusted) => set({ accessibilityTrusted }),
+  platformCapabilities: null,
+  setPlatformCapabilities: (platformCapabilities) => set({ platformCapabilities }),
+  hotkeyRegistrationError: null,
+  setHotkeyRegistrationError: (hotkeyRegistrationError) => set({ hotkeyRegistrationError }),
 
   contextMenuOpen: false,
   setContextMenuOpen: (contextMenuOpen) => set({ contextMenuOpen }),

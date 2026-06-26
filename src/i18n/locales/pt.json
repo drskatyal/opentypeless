@@ -21,7 +21,8 @@
     "output_fallback_clipboard": "A saída de texto falhou. O resultado foi copiado para a área de transferência. {{details}}",
     "output_wayland_unsupported": "A saída por teclado não é compatível com Wayland. O resultado foi copiado para a área de transferência.",
     "llm_failed": "O polimento por IA falhou. O texto original foi gerado em vez disso. {{details}}",
-    "llm_quota_exceeded": "A cota de IA na nuvem acabou. Atualize para Pro ou mude para o modo BYOK."
+    "llm_quota_exceeded": "A cota de IA na nuvem acabou. Atualize para Pro ou mude para o modo BYOK.",
+    "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
     "welcome": "Bem-vindo ao OpenTypeless",
@@ -189,7 +190,8 @@
       "stt_connection_failed": "STT offline",
       "audio_failed": "Falha micro",
       "output_failed": "Falha saída",
-      "unknown": "Erro"
+      "unknown": "Erro",
+      "output_wayland_clipboard_copy_only": "Copied"
     },
     "menu": {
       "hideWhenIdle": "Ocultar cápsula em repouso",
@@ -277,7 +279,17 @@
     "grantPermission": "Conceder Permissão",
     "unsavedChanges": "Você tem alterações não salvas",
     "autoDetect": "Detecção automática",
-    "llmModelPlaceholder": "ex: gpt-4o-mini"
+    "llmModelPlaceholder": "ex: gpt-4o-mini",
+    "waylandHotkeyLimited": "Global hotkeys are limited on Wayland. Use the tray or app button if this shortcut does not respond.",
+    "hotkeyRegistrationFailed": "Shortcut could not be registered in this session.",
+    "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
+    "chineseOutput": "Chinese output",
+    "chineseOutputPreserve": "Preserve original",
+    "chineseOutputSimplified": "Simplified Chinese",
+    "chineseOutputTraditional": "Traditional Chinese",
+    "customPolishInstructions": "Custom polish instructions",
+    "customPolishInstructionsPlaceholder": "Example: Use Traditional Chinese. Keep the tone concise and professional.",
+    "customPolishInstructionsCount": "{{count}} / 2000 characters"
   },
   "dictionary": {
     "word": "Palavra",

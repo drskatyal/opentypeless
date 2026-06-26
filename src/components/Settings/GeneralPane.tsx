@@ -8,6 +8,7 @@ import {
   resumeHotkey,
   checkAccessibilityPermission,
   requestAccessibilityPermission,
+  getPlatformCapabilities,
 } from '../../lib/tauri'
 import { SegmentedControl } from './shared/SegmentedControl'
 import { Toggle } from './shared/Toggle'
@@ -189,9 +190,21 @@ function HotkeyRecorder() {
 export function GeneralPane() {
   const config = useAppStore((s) => s.config)
   const updateConfig = useAppStore((s) => s.updateConfig)
+  const platformCapabilities = useAppStore((s) => s.platformCapabilities)
+  const setPlatformCapabilities = useAppStore((s) => s.setPlatformCapabilities)
+  const hotkeyRegistrationError = useAppStore((s) => s.hotkeyRegistrationError)
   const { t } = useTranslation()
   const isMac = isMacPlatform()
   const [a11yTrusted, setA11yTrusted] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (platformCapabilities) return
+    getPlatformCapabilities()
+      .then(setPlatformCapabilities)
+      .catch((err) => {
+        console.error('Failed to load platform capabilities:', err)
+      })
+  }, [platformCapabilities, setPlatformCapabilities])
 
   useEffect(() => {
     if (isMac && config.output_mode === 'keyboard') {
@@ -212,6 +225,16 @@ export function GeneralPane() {
     <div className="space-y-6">
       <Section title={t('settings.hotkey')}>
         <HotkeyRecorder />
+        {!platformCapabilities?.globalHotkeyReliable && (
+          <p className="mt-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
+            {t('settings.waylandHotkeyLimited')}
+          </p>
+        )}
+        {hotkeyRegistrationError && (
+          <p className="mt-2 rounded-[8px] border border-error/30 bg-error/10 px-3 py-2 text-[12px] leading-relaxed text-error">
+            {t('settings.hotkeyRegistrationFailed')}
+          </p>
+        )}
         <div className="mt-3">
           <SegmentedControl
             options={[
@@ -233,6 +256,13 @@ export function GeneralPane() {
           value={config.output_mode}
           onChange={(v) => updateConfig({ output_mode: v as OutputMode })}
         />
+        {config.output_mode === 'clipboard' &&
+          platformCapabilities &&
+          !platformCapabilities.clipboardAutoPasteReliable && (
+            <p className="mt-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
+              {t('settings.waylandClipboardCopyOnly')}
+            </p>
+          )}
       </Section>
 
       {isMac && config.output_mode === 'keyboard' && a11yTrusted !== null && (

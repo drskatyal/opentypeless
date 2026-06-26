@@ -24,6 +24,13 @@ vi.mock('react-i18next', () => ({
         'settings.modelsAvailable': `${params?.count || 0} models available`,
         'settings.llmModelPlaceholder': 'e.g. gpt-4o-mini',
         'settings.enableAiPolish': 'Enable AI Polish',
+        'settings.chineseOutput': 'Chinese output',
+        'settings.chineseOutputPreserve': 'Preserve original',
+        'settings.chineseOutputSimplified': 'Simplified Chinese',
+        'settings.chineseOutputTraditional': 'Traditional Chinese',
+        'settings.customPolishInstructions': 'Custom polish instructions',
+        'settings.customPolishInstructionsPlaceholder': 'Example prompt',
+        'settings.customPolishInstructionsCount': `${params?.count || 0} / 2000 characters`,
         'settings.translationMode': 'Translation Mode',
         'settings.selectedTextContext': 'Selected Text Context',
         'settings.selectedTextContextDesc': 'Include selected text as context',
@@ -47,6 +54,8 @@ const mockAppStore = {
     llm_base_url: 'https://api.openai.com/v1',
     llm_model: 'gpt-4o-mini',
     polish_enabled: true,
+    polish_custom_prompt: '',
+    polish_chinese_script: 'preserve',
     translate_enabled: false,
     selected_text_enabled: false,
     target_lang: 'en',
@@ -100,6 +109,8 @@ describe('LlmPane', () => {
       llm_base_url: 'https://api.openai.com/v1',
       llm_model: 'gpt-4o-mini',
       polish_enabled: true,
+      polish_custom_prompt: '',
+      polish_chinese_script: 'preserve',
       translate_enabled: false,
       selected_text_enabled: false,
       target_lang: 'en',
@@ -276,6 +287,30 @@ describe('LlmPane', () => {
 
       render(<LlmPane />)
       expect(screen.getByText('Connection failed')).toBeInTheDocument()
+    })
+  })
+
+  describe('AI polish behavior settings', () => {
+    it('updates Chinese script preference', () => {
+      render(<LlmPane />)
+
+      const select = screen.getByDisplayValue('Preserve original')
+      fireEvent.change(select, { target: { value: 'traditional' } })
+
+      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({
+        polish_chinese_script: 'traditional',
+      })
+    })
+
+    it('updates custom polish instructions', () => {
+      render(<LlmPane />)
+
+      const textarea = screen.getByPlaceholderText('Example prompt')
+      fireEvent.change(textarea, { target: { value: 'Use Traditional Chinese.' } })
+
+      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({
+        polish_custom_prompt: 'Use Traditional Chinese.',
+      })
     })
   })
 

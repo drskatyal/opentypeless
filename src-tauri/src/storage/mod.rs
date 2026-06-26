@@ -21,6 +21,8 @@ pub struct AppConfig {
     pub llm_model: String,
     pub llm_base_url: String,
     pub polish_enabled: bool,
+    pub polish_custom_prompt: String,
+    pub polish_chinese_script: String,
     pub translate_enabled: bool,
     pub target_lang: String,
     pub hotkey: String,
@@ -53,6 +55,8 @@ impl Default for AppConfig {
             llm_model: "google/gemini-2.5-flash".to_string(),
             llm_base_url: "https://openrouter.ai/api/v1".to_string(),
             polish_enabled: true,
+            polish_custom_prompt: String::new(),
+            polish_chinese_script: "preserve".to_string(),
             translate_enabled: false,
             target_lang: "en".to_string(),
             #[cfg(target_os = "macos")]
@@ -88,6 +92,12 @@ impl AppConfig {
         }
     }
 
+    fn normalize_values(&mut self) {
+        self.polish_custom_prompt = sanitize_polish_custom_prompt(&self.polish_custom_prompt);
+        self.polish_chinese_script = normalize_polish_chinese_script(&self.polish_chinese_script);
+        self.normalize_platform_hotkey();
+    }
+
     pub fn from_stored_value(value: serde_json::Value) -> Result<Self, serde_json::Error> {
         let has_capsule_auto_hide = value
             .as_object()
@@ -96,8 +106,27 @@ impl AppConfig {
         if !has_capsule_auto_hide {
             config.capsule_auto_hide = false;
         }
-        config.normalize_platform_hotkey();
+        config.normalize_values();
         Ok(config)
+    }
+}
+
+const POLISH_CUSTOM_PROMPT_MAX_CHARS: usize = 2000;
+
+fn sanitize_polish_custom_prompt(value: &str) -> String {
+    value
+        .replace('\0', "")
+        .trim()
+        .chars()
+        .take(POLISH_CUSTOM_PROMPT_MAX_CHARS)
+        .collect()
+}
+
+fn normalize_polish_chinese_script(value: &str) -> String {
+    match value.trim() {
+        "simplified" => "simplified".to_string(),
+        "traditional" => "traditional".to_string(),
+        _ => "preserve".to_string(),
     }
 }
 
@@ -135,13 +164,15 @@ impl ConfigManager {
     }
 
     pub async fn save(&self, config: &AppConfig) -> Result<()> {
+        let mut config = config.clone();
+        config.normalize_values();
         *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(config.clone());
 
         let store = self
             .app_handle
             .store("settings.json")
             .map_err(|e| anyhow::anyhow!("Failed to open store: {}", e))?;
-        let val = serde_json::to_value(config)?;
+        let val = serde_json::to_value(&config)?;
         store.set("app_config", val);
         store.save().map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -346,6 +377,49 @@ mod tests {
             config.stt_volcengine_resource_id,
             crate::stt::volcengine::VOLCENGINE_SEEDASR_RESOURCE_ID
         );
+    }
+
+    #[test]
+    fn app_config_defaults_missing_polish_preferences() {
+        let value = serde_json::json!({
+            "stt_provider": "glm-asr",
+            "stt_api_key": "",
+            "stt_language": "multi",
+            "llm_provider": "openrouter",
+            "llm_api_key": "",
+            "llm_model": "google/gemini-2.5-flash",
+            "llm_base_url": "https://openrouter.ai/api/v1",
+            "polish_enabled": true,
+            "translate_enabled": false,
+            "target_lang": "en",
+            "hotkey": "Ctrl+/",
+            "hotkey_mode": "hold",
+            "output_mode": "keyboard",
+            "selected_text_enabled": false,
+            "theme": "system",
+            "auto_start": false,
+            "close_to_tray": true,
+            "start_minimized": false,
+            "max_recording_seconds": 30,
+            "ui_language": "en"
+        });
+
+        let config = AppConfig::from_stored_value(value).unwrap();
+
+        assert_eq!(config.polish_custom_prompt, "");
+        assert_eq!(config.polish_chinese_script, "preserve");
+    }
+
+    #[test]
+    fn app_config_sanitizes_polish_preferences() {
+        let mut value = serde_json::to_value(AppConfig::default()).unwrap();
+        value["polish_custom_prompt"] = serde_json::json!("  use formal tone\0  ");
+        value["polish_chinese_script"] = serde_json::json!("invalid");
+
+        let config = AppConfig::from_stored_value(value).unwrap();
+
+        assert_eq!(config.polish_custom_prompt, "use formal tone");
+        assert_eq!(config.polish_chinese_script, "preserve");
     }
 
     #[test]

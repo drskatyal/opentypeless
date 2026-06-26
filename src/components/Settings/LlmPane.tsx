@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../stores/appStore'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
+import type { PolishChineseScript } from '../../stores/appStore'
 import { LLM_PROVIDERS, LLM_DEFAULT_CONFIG, TARGET_LANGUAGES } from '../../lib/constants'
 import { benchLlmConnection, fetchLlmModels } from '../../lib/tauri'
 import { FormField } from './shared/FormField'
@@ -20,6 +21,7 @@ export function LlmPane() {
   const { t } = useTranslation()
 
   const isCloud = config.llm_provider === 'cloud'
+  const polishPromptLength = config.polish_custom_prompt.length
 
   const models = useAppStore((s) => s.llmModels)
   const setModels = useAppStore((s) => s.setLlmModels)
@@ -228,6 +230,40 @@ export function LlmPane() {
           </p>
         )}
       </div>
+
+      {config.polish_enabled && (
+        <div className="space-y-3">
+          <FormField label={t('settings.chineseOutput')}>
+            <select
+              value={config.polish_chinese_script}
+              onChange={(e) =>
+                updateConfig({
+                  polish_chinese_script: e.target.value as PolishChineseScript,
+                })
+              }
+              className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+            >
+              <option value="preserve">{t('settings.chineseOutputPreserve')}</option>
+              <option value="simplified">{t('settings.chineseOutputSimplified')}</option>
+              <option value="traditional">{t('settings.chineseOutputTraditional')}</option>
+            </select>
+          </FormField>
+
+          <FormField label={t('settings.customPolishInstructions')}>
+            <textarea
+              value={config.polish_custom_prompt}
+              onChange={(e) => updateConfig({ polish_custom_prompt: e.target.value })}
+              maxLength={2000}
+              rows={4}
+              placeholder={t('settings.customPolishInstructionsPlaceholder')}
+              className="w-full resize-y px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+            />
+            <p className="text-[11px] text-text-tertiary mt-1.5">
+              {t('settings.customPolishInstructionsCount', { count: polishPromptLength })}
+            </p>
+          </FormField>
+        </div>
+      )}
 
       {config.translate_enabled && (
         <FormField label={t('settings.targetLanguage')}>

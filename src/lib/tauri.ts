@@ -1,5 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AppConfig, HistoryEntry, DictionaryEntry } from '../stores/appStore'
+import type {
+  AppConfig,
+  HistoryEntry,
+  DictionaryEntry,
+  PlatformCapabilities,
+} from '../stores/appStore'
 
 // Pipeline commands
 export async function startRecording(): Promise<void> {
@@ -25,6 +30,14 @@ export async function updateConfig(config: AppConfig): Promise<void> {
 
 export async function setCapsuleAutoHide(enabled: boolean): Promise<void> {
   return invoke('set_capsule_auto_hide', { enabled })
+}
+
+export async function getPlatformCapabilities(): Promise<PlatformCapabilities> {
+  return invoke('get_platform_capabilities')
+}
+
+export async function getHotkeyRegistrationError(): Promise<string | null> {
+  return invoke('get_hotkey_registration_error')
 }
 
 // Connection test

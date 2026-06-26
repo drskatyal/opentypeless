@@ -21,7 +21,8 @@
     "output_fallback_clipboard": "Die Textausgabe ist fehlgeschlagen. Das Ergebnis wurde stattdessen in die Zwischenablage kopiert. {{details}}",
     "output_wayland_unsupported": "Tastaturausgabe wird unter Wayland nicht unterstützt. Das Ergebnis wurde in die Zwischenablage kopiert.",
     "llm_failed": "Die KI-Glättung ist fehlgeschlagen. Stattdessen wurde der Originaltext ausgegeben. {{details}}",
-    "llm_quota_exceeded": "Das Cloud-KI-Kontingent ist aufgebraucht. Wechseln Sie zu Pro oder in den BYOK-Modus."
+    "llm_quota_exceeded": "Das Cloud-KI-Kontingent ist aufgebraucht. Wechseln Sie zu Pro oder in den BYOK-Modus.",
+    "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
     "welcome": "Willkommen bei OpenTypeless",
@@ -189,7 +190,8 @@
       "stt_connection_failed": "STT offline",
       "audio_failed": "Mikrofehler",
       "output_failed": "Ausgabe-Fehler",
-      "unknown": "Fehler"
+      "unknown": "Fehler",
+      "output_wayland_clipboard_copy_only": "Copied"
     },
     "menu": {
       "hideWhenIdle": "Kapsel im Leerlauf ausblenden",
@@ -277,7 +279,17 @@
     "grantPermission": "Berechtigung erteilen",
     "unsavedChanges": "Sie haben ungespeicherte Änderungen",
     "autoDetect": "Automatische Erkennung",
-    "llmModelPlaceholder": "z.B. gpt-4o-mini"
+    "llmModelPlaceholder": "z.B. gpt-4o-mini",
+    "waylandHotkeyLimited": "Global hotkeys are limited on Wayland. Use the tray or app button if this shortcut does not respond.",
+    "hotkeyRegistrationFailed": "Shortcut could not be registered in this session.",
+    "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
+    "chineseOutput": "Chinese output",
+    "chineseOutputPreserve": "Preserve original",
+    "chineseOutputSimplified": "Simplified Chinese",
+    "chineseOutputTraditional": "Traditional Chinese",
+    "customPolishInstructions": "Custom polish instructions",
+    "customPolishInstructionsPlaceholder": "Example: Use Traditional Chinese. Keep the tone concise and professional.",
+    "customPolishInstructionsCount": "{{count}} / 2000 characters"
   },
   "dictionary": {
     "word": "Wort",

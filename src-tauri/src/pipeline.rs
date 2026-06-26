@@ -1154,6 +1154,8 @@ impl PipelineHandle {
             raw_text: raw_text.to_string(),
             app_type: app_ctx.app_type,
             dictionary: dictionary_words,
+            polish_custom_prompt: config.polish_custom_prompt.clone(),
+            polish_chinese_script: config.polish_chinese_script.clone(),
             translate_enabled: config.translate_enabled,
             target_lang: config.target_lang.clone(),
             selected_text,

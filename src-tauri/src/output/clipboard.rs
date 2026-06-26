@@ -21,6 +21,10 @@ impl ClipboardOutput {
     }
 }
 
+fn should_auto_paste_after_clipboard(session_type: &str) -> bool {
+    !session_type.eq_ignore_ascii_case("wayland")
+}
+
 #[async_trait]
 impl TextOutput for ClipboardOutput {
     async fn type_text(&self, text: &str) -> Result<(), AppError> {
@@ -34,6 +38,11 @@ impl TextOutput for ClipboardOutput {
                 .map_err(|e| AppError::Output(format!("Failed to set clipboard: {}", e)))?;
 
             std::thread::sleep(std::time::Duration::from_millis(CLIPBOARD_SETTLE_MS));
+
+            #[cfg(target_os = "linux")]
+            if !should_auto_paste_after_clipboard(&crate::platform::current_session_type()) {
+                return Ok(());
+            }
 
             // On macOS: trigger Cmd+V via osascript (AppleScript).
             // This avoids the Accessibility permission requirement that enigo's
@@ -81,5 +90,22 @@ impl TextOutput for ClipboardOutput {
 
     fn mode(&self) -> OutputMode {
         OutputMode::Clipboard
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wayland_clipboard_output_is_copy_only() {
+        assert!(!should_auto_paste_after_clipboard("wayland"));
+        assert!(!should_auto_paste_after_clipboard("WAYLAND"));
+    }
+
+    #[test]
+    fn x11_clipboard_output_keeps_auto_paste() {
+        assert!(should_auto_paste_after_clipboard("x11"));
+        assert!(should_auto_paste_after_clipboard("unknown"));
     }
 }

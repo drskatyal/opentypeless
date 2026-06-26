@@ -44,6 +44,8 @@ impl LlmProvider for OpenAiProvider {
         let system_prompt = prompt::build_system_prompt(
             req.app_type,
             &req.dictionary,
+            &req.polish_custom_prompt,
+            &req.polish_chinese_script,
             req.translate_enabled,
             &req.target_lang,
             has_selected_text,

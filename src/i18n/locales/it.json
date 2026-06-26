@@ -21,7 +21,8 @@
     "output_fallback_clipboard": "L'output del testo non è riuscito. Il risultato è stato copiato negli appunti. {{details}}",
     "output_wayland_unsupported": "L'output da tastiera non è supportato su Wayland. Il risultato è stato copiato negli appunti.",
     "llm_failed": "La rifinitura con IA non è riuscita. È stato generato il testo originale. {{details}}",
-    "llm_quota_exceeded": "La quota IA cloud è esaurita. Passa a Pro o usa la modalità BYOK."
+    "llm_quota_exceeded": "La quota IA cloud è esaurita. Passa a Pro o usa la modalità BYOK.",
+    "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
     "welcome": "Benvenuto in OpenTypeless",
@@ -189,7 +190,8 @@
       "stt_connection_failed": "STT offline",
       "audio_failed": "Micro fallito",
       "output_failed": "Output fallito",
-      "unknown": "Errore"
+      "unknown": "Errore",
+      "output_wayland_clipboard_copy_only": "Copied"
     },
     "menu": {
       "hideWhenIdle": "Nascondi capsula quando inattiva",
@@ -277,7 +279,17 @@
     "grantPermission": "Concedi autorizzazione",
     "unsavedChanges": "Hai modifiche non salvate",
     "autoDetect": "Rilevamento automatico",
-    "llmModelPlaceholder": "es: gpt-4o-mini"
+    "llmModelPlaceholder": "es: gpt-4o-mini",
+    "waylandHotkeyLimited": "Global hotkeys are limited on Wayland. Use the tray or app button if this shortcut does not respond.",
+    "hotkeyRegistrationFailed": "Shortcut could not be registered in this session.",
+    "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
+    "chineseOutput": "Chinese output",
+    "chineseOutputPreserve": "Preserve original",
+    "chineseOutputSimplified": "Simplified Chinese",
+    "chineseOutputTraditional": "Traditional Chinese",
+    "customPolishInstructions": "Custom polish instructions",
+    "customPolishInstructionsPlaceholder": "Example: Use Traditional Chinese. Keep the tone concise and professional.",
+    "customPolishInstructionsCount": "{{count}} / 2000 characters"
   },
   "dictionary": {
     "word": "Parola",

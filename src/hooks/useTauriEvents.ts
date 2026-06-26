@@ -21,6 +21,7 @@ export function useTauriEvents() {
     setAccessibilityTrusted,
     setHistory,
     applyPersistedConfigPatch,
+    setHotkeyRegistrationError,
   } = useAppStore()
 
   useEffect(() => {
@@ -74,6 +75,9 @@ export function useTauriEvents() {
       const message = t(`errors.${payload.code}`, { details: payload.details ?? '' })
       toast(message, 'info')
     })
+    addListener<string>('hotkey:registration-failed', (payload) => {
+      setHotkeyRegistrationError(payload)
+    })
     addListener<Partial<AppConfig>>('config:patch', (patch) => {
       applyPersistedConfigPatch(patch)
       if (patch.ui_language) {
@@ -110,6 +114,7 @@ export function useTauriEvents() {
     setAccessibilityTrusted,
     setHistory,
     applyPersistedConfigPatch,
+    setHotkeyRegistrationError,
     t,
   ])
 }

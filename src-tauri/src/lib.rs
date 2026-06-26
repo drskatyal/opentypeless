@@ -8,6 +8,7 @@ mod linux_x11;
 pub mod llm;
 pub mod output;
 pub mod pipeline;
+pub mod platform;
 pub mod storage;
 pub mod stt;
 pub mod tray;
@@ -38,6 +39,9 @@ pub struct HotkeyModeCache(pub Arc<Mutex<String>>);
 
 /// Cached close_to_tray setting to avoid blocking I/O in the window close handler.
 pub struct CloseToTrayCache(pub Arc<Mutex<bool>>);
+
+/// Last global-hotkey registration error, if startup or settings registration failed.
+pub struct HotkeyRegistrationError(pub Arc<Mutex<Option<String>>>);
 
 /// Session token for cloud providers. Set by the frontend after Better Auth login.
 /// The Rust pipeline reads this when creating cloud STT/LLM providers.
@@ -74,7 +78,7 @@ fn abort_recording(state: tauri::State<'_, pipeline::PipelineHandle>) -> Result<
 fn apply_linux_workarounds() {
     #[cfg(target_os = "linux")]
     {
-        let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
+        let session = crate::platform::current_session_type();
         let is_nvidia = std::path::Path::new("/proc/driver/nvidia").exists()
             || std::env::var("__GLX_VENDOR_LIBRARY_NAME")
                 .map(|v| v.eq_ignore_ascii_case("nvidia"))
@@ -184,6 +188,8 @@ pub fn run() {
             app.manage(HotkeyModeCache(Arc::new(Mutex::new(
                 initial_config.hotkey_mode.clone(),
             ))));
+            let hotkey_registration_error = Arc::new(Mutex::new(None));
+            app.manage(HotkeyRegistrationError(hotkey_registration_error.clone()));
             app.manage(CloseToTrayCache(Arc::new(Mutex::new(
                 initial_config.close_to_tray,
             ))));
@@ -209,10 +215,18 @@ pub fn run() {
                     .build(),
             )?;
             if let Err(e) = app.global_shortcut().register(shortcut) {
+                let message = format!(
+                    "Failed to register shortcut '{}' (may be occupied): {e}",
+                    initial_config.hotkey
+                );
                 tracing::warn!(
                     "Failed to register shortcut '{}' (may be occupied): {e}",
                     initial_config.hotkey
                 );
+                *hotkey_registration_error
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()) = Some(message.clone());
+                let _ = app_handle.emit("hotkey:registration-failed", message);
             }
 
             // System tray
@@ -443,6 +457,8 @@ pub fn run() {
             commands::misc::pause_hotkey,
             commands::misc::resume_hotkey,
             commands::misc::refresh_tray_labels,
+            commands::misc::get_platform_capabilities,
+            commands::misc::get_hotkey_registration_error,
             commands::config::set_auto_start,
             commands::config::set_capsule_auto_hide,
             commands::config::set_session_token,

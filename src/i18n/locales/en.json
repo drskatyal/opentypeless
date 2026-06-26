@@ -21,7 +21,8 @@
     "output_fallback_clipboard": "Text output failed. The result was copied to clipboard instead. {{details}}",
     "output_wayland_unsupported": "Keyboard output is not supported on Wayland. The result was copied to clipboard instead.",
     "llm_failed": "AI polishing failed. The original text was output instead. {{details}}",
-    "llm_quota_exceeded": "Cloud AI quota exceeded. Upgrade to Pro or switch to BYOK mode."
+    "llm_quota_exceeded": "Cloud AI quota exceeded. Upgrade to Pro or switch to BYOK mode.",
+    "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
     "welcome": "Welcome to OpenTypeless",
@@ -189,7 +190,8 @@
       "stt_connection_failed": "STT offline",
       "audio_failed": "Mic failed",
       "output_failed": "Output failed",
-      "unknown": "Error"
+      "unknown": "Error",
+      "output_wayland_clipboard_copy_only": "Copied"
     },
     "menu": {
       "hideWhenIdle": "Hide capsule when idle",
@@ -277,7 +279,17 @@
     "accessibilityRequired": "Required for keyboard output",
     "grantPermission": "Grant Permission",
     "unsavedChanges": "You have unsaved changes",
-    "llmModelPlaceholder": "e.g. gpt-4o-mini"
+    "llmModelPlaceholder": "e.g. gpt-4o-mini",
+    "waylandHotkeyLimited": "Global hotkeys are limited on Wayland. Use the tray or app button if this shortcut does not respond.",
+    "hotkeyRegistrationFailed": "Shortcut could not be registered in this session.",
+    "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
+    "chineseOutput": "Chinese output",
+    "chineseOutputPreserve": "Preserve original",
+    "chineseOutputSimplified": "Simplified Chinese",
+    "chineseOutputTraditional": "Traditional Chinese",
+    "customPolishInstructions": "Custom polish instructions",
+    "customPolishInstructionsPlaceholder": "Example: Use Traditional Chinese. Keep the tone concise and professional.",
+    "customPolishInstructionsCount": "{{count}} / 2000 characters"
   },
   "dictionary": {
     "word": "Word",

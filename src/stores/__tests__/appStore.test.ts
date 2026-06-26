@@ -30,6 +30,8 @@ describe('appStore', () => {
       expect(config.hotkey).toBe('Ctrl+/')
       expect(config.output_mode).toBe('keyboard')
       expect(config.polish_enabled).toBe(true)
+      expect(config.polish_custom_prompt).toBe('')
+      expect(config.polish_chinese_script).toBe('preserve')
       expect(config.stt_custom_api_key).toBe('')
       expect(config.capsule_auto_hide).toBe(true)
     })

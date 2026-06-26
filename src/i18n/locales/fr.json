@@ -21,7 +21,8 @@
     "output_fallback_clipboard": "La sortie de texte a échoué. Le résultat a été copié dans le presse-papiers. {{details}}",
     "output_wayland_unsupported": "La sortie clavier n'est pas prise en charge sur Wayland. Le résultat a été copié dans le presse-papiers.",
     "llm_failed": "Le polissage IA a échoué. Le texte original a été sorti à la place. {{details}}",
-    "llm_quota_exceeded": "Le quota IA cloud est dépassé. Passez à Pro ou utilisez le mode BYOK."
+    "llm_quota_exceeded": "Le quota IA cloud est dépassé. Passez à Pro ou utilisez le mode BYOK.",
+    "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
     "welcome": "Bienvenue dans OpenTypeless",
@@ -189,7 +190,8 @@
       "stt_connection_failed": "STT hors ligne",
       "audio_failed": "Micro échoué",
       "output_failed": "Échec sortie",
-      "unknown": "Erreur"
+      "unknown": "Erreur",
+      "output_wayland_clipboard_copy_only": "Copied"
     },
     "menu": {
       "hideWhenIdle": "Masquer la capsule au repos",
@@ -277,7 +279,17 @@
     "grantPermission": "Accorder l'autorisation",
     "unsavedChanges": "Vous avez des modifications non enregistrées",
     "autoDetect": "Détection automatique",
-    "llmModelPlaceholder": "ex: gpt-4o-mini"
+    "llmModelPlaceholder": "ex: gpt-4o-mini",
+    "waylandHotkeyLimited": "Global hotkeys are limited on Wayland. Use the tray or app button if this shortcut does not respond.",
+    "hotkeyRegistrationFailed": "Shortcut could not be registered in this session.",
+    "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
+    "chineseOutput": "Chinese output",
+    "chineseOutputPreserve": "Preserve original",
+    "chineseOutputSimplified": "Simplified Chinese",
+    "chineseOutputTraditional": "Traditional Chinese",
+    "customPolishInstructions": "Custom polish instructions",
+    "customPolishInstructionsPlaceholder": "Example: Use Traditional Chinese. Keep the tone concise and professional.",
+    "customPolishInstructionsCount": "{{count}} / 2000 characters"
   },
   "dictionary": {
     "word": "Mot",

@@ -1,6 +1,8 @@
 use crate::pipeline;
+use crate::platform;
 use crate::storage;
 use crate::tray;
+use crate::HotkeyRegistrationError;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 #[tauri::command]
@@ -20,9 +22,22 @@ pub fn request_accessibility_permission() -> bool {
 }
 
 #[tauri::command]
+pub fn get_platform_capabilities() -> platform::PlatformCapabilities {
+    platform::capabilities()
+}
+
+#[tauri::command]
+pub fn get_hotkey_registration_error(
+    state: tauri::State<'_, HotkeyRegistrationError>,
+) -> Option<String> {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+#[tauri::command]
 pub async fn update_hotkey(
     app: tauri::AppHandle,
     config_state: tauri::State<'_, storage::ConfigManager>,
+    hotkey_error: tauri::State<'_, HotkeyRegistrationError>,
     hotkey: String,
 ) -> Result<(), String> {
     let new_shortcut =
@@ -33,9 +48,12 @@ pub async fn update_hotkey(
     app.global_shortcut()
         .unregister_all()
         .map_err(|e| e.to_string())?;
-    app.global_shortcut()
-        .register(new_shortcut)
-        .map_err(|e| e.to_string())?;
+    if let Err(e) = app.global_shortcut().register(new_shortcut) {
+        let message = e.to_string();
+        *hotkey_error.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(message.clone());
+        return Err(message);
+    }
+    *hotkey_error.0.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
     // Save updated hotkey to config
     let mut config = config_state.load().await.map_err(|e| e.to_string())?;
