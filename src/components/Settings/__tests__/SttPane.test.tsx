@@ -87,7 +87,10 @@ vi.mock('../../../stores/authStore', () => ({
   hasManagedCloudAccess: (state: typeof mockAuthStore) =>
     state.licenseStatus !== 'refunded' &&
     state.licenseStatus !== 'deactivated' &&
-    (((state.source === 'creem' || state.source === 'appsumo') && state.cloudWordsLimit > 0) ||
+    ((state.source === 'creem' && state.cloudWordsLimit > 0) ||
+      (state.source === 'appsumo' &&
+        state.cloudWordsLimit > 0 &&
+        state.licenseStatus === 'active') ||
       state.plan === 'pro'),
   useAuthStore: (selector: any) => {
     if (typeof selector === 'function') {

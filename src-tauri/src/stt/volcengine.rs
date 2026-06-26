@@ -26,14 +26,17 @@ const FULL_SERVER_RESPONSE: u8 = 0x9;
 const ERROR_RESPONSE: u8 = 0xf;
 const POS_SEQUENCE: u8 = 0x1;
 const NEG_SEQUENCE: u8 = 0x2;
+const NEG_WITH_SEQUENCE: u8 = 0x3;
 const JSON_SERIALIZATION: u8 = 0x1;
 const NO_SERIALIZATION: u8 = 0x0;
 const GZIP_COMPRESSION: u8 = 0x1;
+const INITIAL_RESPONSE_TIMEOUT_SECS: u64 = 5;
 
 pub struct VolcengineDoubaoProvider {
     ws: Option<WsStream>,
     sequence: i32,
     sent_audio: bool,
+    url: String,
 }
 
 impl Default for VolcengineDoubaoProvider {
@@ -48,7 +51,15 @@ impl VolcengineDoubaoProvider {
             ws: None,
             sequence: 1,
             sent_audio: false,
+            url: VOLCENGINE_ASR_URL.to_string(),
         }
+    }
+
+    #[cfg(test)]
+    fn with_url(url: String) -> Self {
+        let mut provider = Self::new();
+        provider.url = url;
+        provider
     }
 }
 
@@ -126,7 +137,7 @@ fn build_full_client_request_frame(config: &SttConfig, sequence: i32) -> Result<
             "uid": "opentypeless"
         },
         "audio": {
-            "format": "wav",
+            "format": "pcm",
             "codec": "raw",
             "rate": config.sample_rate,
             "bits": 16,
@@ -152,7 +163,7 @@ fn build_full_client_request_frame(config: &SttConfig, sequence: i32) -> Result<
 
 fn build_audio_request_frame(chunk: &[u8], sequence: i32) -> Result<Vec<u8>, AppError> {
     let flags = if sequence < 0 {
-        NEG_SEQUENCE
+        NEG_WITH_SEQUENCE
     } else {
         POS_SEQUENCE
     };
@@ -204,7 +215,7 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
     let compression = frame[2] & 0x0f;
 
     let mut offset = header_size;
-    let sequence = if flags != 0 {
+    let sequence = if flags & POS_SEQUENCE != 0 {
         if frame.len() < offset + 4 {
             return Err(AppError::Config(
                 "Volcengine ASR frame sequence is incomplete".to_string(),
@@ -216,6 +227,29 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
     } else {
         None
     };
+    let is_last = flags & NEG_SEQUENCE != 0;
+
+    if flags & 0x04 != 0 {
+        if frame.len() < offset + 4 {
+            return Err(AppError::Config(
+                "Volcengine ASR frame event is incomplete".to_string(),
+            ));
+        }
+        offset += 4;
+    }
+
+    let error_code = if message_type == ERROR_RESPONSE {
+        if frame.len() < offset + 8 {
+            return Err(AppError::Config(
+                "Volcengine ASR error frame is incomplete".to_string(),
+            ));
+        }
+        let code = i32::from_be_bytes(frame[offset..offset + 4].try_into().unwrap());
+        offset += 4;
+        Some(code)
+    } else {
+        None
+    };
 
     if frame.len() < offset + 4 {
         return Err(AppError::Config(
@@ -224,6 +258,13 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
     }
     let payload_size = u32::from_be_bytes(frame[offset..offset + 4].try_into().unwrap()) as usize;
     offset += 4;
+
+    if payload_size == 0 && message_type == ERROR_RESPONSE {
+        let message = error_code
+            .map(|code| format!("Volcengine ASR error {}", code))
+            .unwrap_or_else(|| "Unknown Volcengine ASR error".to_string());
+        return Ok(Some(TranscriptEvent::Error { message }));
+    }
 
     if frame.len() < offset + payload_size {
         return Err(AppError::Config(
@@ -238,6 +279,12 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
     };
 
     if serialization != JSON_SERIALIZATION {
+        if message_type == ERROR_RESPONSE {
+            let message = error_code
+                .map(|code| format!("Volcengine ASR error {}", code))
+                .unwrap_or_else(|| "Unknown Volcengine ASR error".to_string());
+            return Ok(Some(TranscriptEvent::Error { message }));
+        }
         return Ok(None);
     }
 
@@ -249,8 +296,15 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
             .as_i64()
             .is_some_and(|code| code != 0 && code != 20000000)
     {
+        let message = response_message(&value);
         return Ok(Some(TranscriptEvent::Error {
-            message: response_message(&value),
+            message: if message == "Unknown Volcengine ASR error" {
+                error_code
+                    .map(|code| format!("Volcengine ASR error {}", code))
+                    .unwrap_or(message)
+            } else {
+                message
+            },
         }));
     }
 
@@ -263,7 +317,7 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
         return Ok(None);
     }
 
-    let is_final = sequence.is_some_and(|seq| seq < 0) || flags == 0x03;
+    let is_final = is_last || sequence.is_some_and(|seq| seq < 0);
     if is_final {
         Ok(Some(TranscriptEvent::Final {
             text,
@@ -271,6 +325,33 @@ fn parse_response_frame(frame: &[u8]) -> Result<Option<TranscriptEvent>, AppErro
         }))
     } else {
         Ok(Some(TranscriptEvent::Partial { text }))
+    }
+}
+
+async fn read_initial_response(ws: &mut WsStream) -> Result<(), AppError> {
+    let next = tokio::time::timeout(
+        std::time::Duration::from_secs(INITIAL_RESPONSE_TIMEOUT_SECS),
+        ws.next(),
+    )
+    .await
+    .map_err(|_| {
+        AppError::Network(format!(
+            "Volcengine ASR initial response timed out after {}s",
+            INITIAL_RESPONSE_TIMEOUT_SECS
+        ))
+    })?;
+
+    match next {
+        Some(Ok(Message::Binary(data))) => match parse_response_frame(&data)? {
+            Some(TranscriptEvent::Error { message }) => Err(AppError::Config(message)),
+            _ => Ok(()),
+        },
+        Some(Ok(Message::Text(text))) => Err(AppError::Config(text)),
+        Some(Ok(Message::Close(_))) | None => Err(AppError::Network(
+            "Volcengine ASR WebSocket closed before initial response".to_string(),
+        )),
+        Some(Ok(_)) => Ok(()),
+        Some(Err(e)) => Err(AppError::Network(e.to_string())),
     }
 }
 
@@ -316,7 +397,7 @@ impl SttProvider for VolcengineDoubaoProvider {
         let mut attempt = 0u32;
         loop {
             let mut builder = http::Request::builder()
-                .uri(VOLCENGINE_ASR_URL)
+                .uri(&self.url)
                 .header("Host", VOLCENGINE_ASR_HOST)
                 .header("Connection", "Upgrade")
                 .header("Upgrade", "websocket")
@@ -348,6 +429,7 @@ impl SttProvider for VolcengineDoubaoProvider {
                     ws.send(Message::Binary(frame))
                         .await
                         .map_err(|e| AppError::Network(e.to_string()))?;
+                    read_initial_response(&mut ws).await?;
                     self.ws = Some(ws);
                     tracing::info!("Volcengine Doubao ASR WebSocket connected");
                     return Ok(());
@@ -482,6 +564,9 @@ fn build_test_server_response_frame(sequence: i32, payload: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use crate::stt::{SttConfig, TranscriptEvent};
+    use futures_util::{SinkExt, StreamExt};
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::accept_async;
 
     use super::*;
 
@@ -518,7 +603,7 @@ mod tests {
         let payload = ungzip_payload(&frame[12..12 + payload_size]).unwrap();
         let value: serde_json::Value = serde_json::from_slice(&payload).unwrap();
 
-        assert_eq!(value["audio"]["format"], "wav");
+        assert_eq!(value["audio"]["format"], "pcm");
         assert_eq!(value["audio"]["rate"], 16000);
         assert_eq!(value["audio"]["bits"], 16);
         assert_eq!(value["audio"]["channel"], 1);
@@ -534,7 +619,7 @@ mod tests {
         let frame = build_audio_request_frame(b"\x01\x02", -2).unwrap();
 
         assert_eq!(frame[0], 0x11);
-        assert_eq!(frame[1], 0x22);
+        assert_eq!(frame[1], 0x23);
         assert_eq!(frame[2], 0x01);
         assert_eq!(frame[3], 0x00);
         assert_eq!(i32::from_be_bytes(frame[4..8].try_into().unwrap()), -2);
@@ -544,6 +629,71 @@ mod tests {
             ungzip_payload(&frame[12..12 + payload_size]).unwrap(),
             b"\x01\x02"
         );
+    }
+
+    fn build_test_error_response_frame(code: i32, payload: &[u8]) -> Vec<u8> {
+        let mut frame = Vec::with_capacity(12 + payload.len());
+        frame.extend_from_slice(&header(
+            ERROR_RESPONSE,
+            0x00,
+            JSON_SERIALIZATION,
+            GZIP_COMPRESSION,
+        ));
+        frame.extend_from_slice(&code.to_be_bytes());
+        frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        frame.extend_from_slice(payload);
+        frame
+    }
+
+    #[test]
+    fn parses_error_response_code_and_message_payload() {
+        let payload = gzip_payload(
+            serde_json::json!({
+                "message": "invalid resource"
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .unwrap();
+        let frame = build_test_error_response_frame(400, &payload);
+
+        let event = parse_response_frame(&frame).unwrap().unwrap();
+
+        match event {
+            TranscriptEvent::Error { message } => assert_eq!(message, "invalid resource"),
+            other => panic!("expected error response, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_final_response_without_sequence_flag() {
+        let payload = gzip_payload(
+            serde_json::json!({
+                "result": { "text": "hello world" }
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .unwrap();
+        let mut frame = Vec::with_capacity(8 + payload.len());
+        frame.extend_from_slice(&header(
+            FULL_SERVER_RESPONSE,
+            0x02,
+            JSON_SERIALIZATION,
+            GZIP_COMPRESSION,
+        ));
+        frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        frame.extend_from_slice(&payload);
+
+        let event = parse_response_frame(&frame).unwrap().unwrap();
+
+        match event {
+            TranscriptEvent::Final { text, confidence } => {
+                assert_eq!(text, "hello world");
+                assert_eq!(confidence, 1.0);
+            }
+            other => panic!("expected final transcript, got {other:?}"),
+        }
     }
 
     #[test]
@@ -572,6 +722,35 @@ mod tests {
             }
             other => panic!("expected final transcript, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn connect_fails_when_initial_server_response_is_error() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut ws = accept_async(stream).await.unwrap();
+            let _ = ws.next().await.unwrap().unwrap();
+
+            let payload = gzip_payload(
+                serde_json::json!({
+                    "message": "invalid resource"
+                })
+                .to_string()
+                .as_bytes(),
+            )
+            .unwrap();
+            let frame = build_test_error_response_frame(400, &payload);
+            ws.send(Message::Binary(frame)).await.unwrap();
+        });
+
+        let mut provider = VolcengineDoubaoProvider::with_url(format!("ws://{}", addr));
+        let err = provider.connect(&test_config(None)).await.unwrap_err();
+
+        assert!(err.to_string().contains("invalid resource"));
+        server.await.unwrap();
     }
 
     #[test]

@@ -49,12 +49,7 @@ export class ApiError extends Error {
 }
 
 // Subscription
-export type SubscriptionPlan =
-  | 'free'
-  | 'pro'
-  | 'appsumo_tier1'
-  | 'appsumo_tier2'
-  | 'appsumo_tier3'
+export type SubscriptionPlan = 'free' | 'pro' | 'appsumo_tier1' | 'appsumo_tier2' | 'appsumo_tier3'
 
 export type SubscriptionSource = 'free' | 'creem' | 'appsumo'
 export type LicenseStatus = 'pending' | 'active' | 'refunded' | 'deactivated'
@@ -85,7 +80,9 @@ export function getSubscriptionStatus(): Promise<SubscriptionStatus> {
     return {
       plan,
       source: source as SubscriptionSource,
-      displayName: status.displayName ?? (plan === 'pro' ? 'Pro' : plan === 'free' ? 'Free' : 'AppSumo Lifetime'),
+      displayName:
+        status.displayName ??
+        (plan === 'pro' ? 'Pro' : plan === 'free' ? 'Free' : 'AppSumo Lifetime'),
       subscriptionEnd: status.subscriptionEnd ?? null,
       subscriptionStatus: status.subscriptionStatus ?? null,
       licenseStatus: status.licenseStatus ?? null,

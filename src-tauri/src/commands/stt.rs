@@ -30,7 +30,10 @@ fn has_managed_cloud_access(body: &serde_json::Value) -> bool {
 
     let source = body["source"].as_str().unwrap_or_default();
     let cloud_words_limit = body["cloudWordsLimit"].as_i64().unwrap_or_default();
-    if matches!(source, "creem" | "appsumo") && cloud_words_limit > 0 {
+    if source == "appsumo" {
+        return cloud_words_limit > 0 && body["licenseStatus"].as_str() == Some("active");
+    }
+    if source == "creem" && cloud_words_limit > 0 {
         return true;
     }
 
@@ -183,6 +186,31 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("Model is required"));
+    }
+
+    #[test]
+    fn managed_cloud_access_requires_active_appsumo_license() {
+        let active = serde_json::json!({
+            "plan": "appsumo_tier1",
+            "source": "appsumo",
+            "cloudWordsLimit": 200000,
+            "licenseStatus": "active"
+        });
+        let pending = serde_json::json!({
+            "plan": "appsumo_tier1",
+            "source": "appsumo",
+            "cloudWordsLimit": 200000,
+            "licenseStatus": "pending"
+        });
+        let missing = serde_json::json!({
+            "plan": "appsumo_tier1",
+            "source": "appsumo",
+            "cloudWordsLimit": 200000
+        });
+
+        assert!(has_managed_cloud_access(&active));
+        assert!(!has_managed_cloud_access(&pending));
+        assert!(!has_managed_cloud_access(&missing));
     }
 }
 

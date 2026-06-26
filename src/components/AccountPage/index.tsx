@@ -448,7 +448,12 @@ function AccountDetails() {
         <InfoRow label={t('account.email')} value={user!.email} />
         {user!.name && <InfoRow label={t('account.name')} value={user!.name} />}
         <InfoRow label={t('account.plan')} value={displayName} />
-        {isAppSumo && <InfoRow label={t('account.license', 'License')} value={t('account.lifetime', 'Lifetime')} />}
+        {isAppSumo && (
+          <InfoRow
+            label={t('account.license', 'License')}
+            value={t('account.lifetime', 'Lifetime')}
+          />
+        )}
         {canManageSubscription && subscriptionEnd && (
           <InfoRow
             label={t('account.renews')}
@@ -480,7 +485,10 @@ function AccountDetails() {
               divisor={1000}
             />
             <p className="text-[11px] text-text-tertiary">
-              {t('account.byokUnlimited', 'BYOK usage is unlimited and does not count toward cloud words.')}
+              {t(
+                'account.byokUnlimited',
+                'BYOK usage is unlimited and does not count toward cloud words.',
+              )}
             </p>
           </div>
         </div>
@@ -488,7 +496,9 @@ function AccountDetails() {
         <div className="border border-border rounded-[10px] overflow-hidden">
           <div className="px-3 py-2.5 bg-bg-secondary/50 border-b border-border">
             <h3 className="text-[13px] font-medium text-text-primary">
-              {hasCloudAccess ? t('account.usageThisMonth') : t('account.freeCredit', 'Free Credit')}
+              {hasCloudAccess
+                ? t('account.usageThisMonth')
+                : t('account.freeCredit', 'Free Credit')}
             </h3>
           </div>
           <div className="px-3 py-3 space-y-3">

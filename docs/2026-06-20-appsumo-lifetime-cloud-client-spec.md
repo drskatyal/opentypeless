@@ -212,7 +212,7 @@ As an AppSumo buyer, I want the first-run setup and connection tests to recogniz
 Acceptance criteria:
 
 1. Cloud STT and Cloud LLM connection tests use a shared paid-cloud access rule instead of `plan === "pro"`.
-2. A paid-cloud plan is active only when status has `source: "creem"` or `source: "appsumo"`, a positive `cloudWordsLimit`, and no refunded/deactivated license state.
+2. A paid-cloud plan is active when either `source: "creem"` has a positive `cloudWordsLimit`, or `source: "appsumo"` has a positive `cloudWordsLimit` and `licenseStatus: "active"`.
 3. Onboarding cloud provider steps do not require a local API key.
 4. If the user is not signed in, onboarding routes them to account sign-in before cloud testing.
 5. If cloud quota is exhausted, onboarding explains BYOK or monthly reset instead of showing a generic connection failure.
@@ -247,7 +247,7 @@ Client compatibility rules:
 
 1. If `cloudWordsLimit` exists, use cloud words UI.
 2. If it does not exist, fall back to the current STT/LLM bars.
-3. Unknown plan IDs should not automatically unlock cloud. The client may display `Paid plan detected` only when `source` is `creem` or `appsumo`, `cloudWordsLimit > 0`, and `licenseStatus` is not `refunded` or `deactivated`.
+3. Unknown plan IDs should not automatically unlock cloud. The client may display `Paid plan detected` only when `source` is `creem` with `cloudWordsLimit > 0`, or when `source` is `appsumo` with `cloudWordsLimit > 0` and `licenseStatus === "active"`.
 4. `plan === 'pro'` must not be the only paid check. Add a helper like `hasManagedCloudAccess(status)`.
 
 ## 9. UI Copy

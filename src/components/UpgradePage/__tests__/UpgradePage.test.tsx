@@ -32,16 +32,22 @@ vi.mock('../../../stores/authStore', () => ({
   hasManagedCloudAccess: (state: typeof mockAuthState) =>
     state.licenseStatus !== 'refunded' &&
     state.licenseStatus !== 'deactivated' &&
-    (((state.source === 'creem' || state.source === 'appsumo') && state.cloudWordsLimit > 0) ||
+    ((state.source === 'creem' && state.cloudWordsLimit > 0) ||
+      (state.source === 'appsumo' &&
+        state.cloudWordsLimit > 0 &&
+        state.licenseStatus === 'active') ||
       state.plan === 'pro'),
-  useAuthStore: Object.assign((selector: any) => {
-    if (typeof selector === 'function') {
-      return selector(mockAuthState)
-    }
-    return mockAuthState
-  }, {
-    setState: vi.fn(),
-  }),
+  useAuthStore: Object.assign(
+    (selector: any) => {
+      if (typeof selector === 'function') {
+        return selector(mockAuthState)
+      }
+      return mockAuthState
+    },
+    {
+      setState: vi.fn(),
+    },
+  ),
 }))
 
 vi.mock('react-i18next', () => ({

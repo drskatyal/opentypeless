@@ -26,6 +26,7 @@ vi.mock('../../components/Toast', () => ({
 import { invoke } from '@tauri-apps/api/core'
 import { authClient } from '../../lib/auth-client'
 import { getSubscriptionStatus } from '../../lib/api'
+import { toast } from '../../components/Toast'
 
 function getState() {
   return useAuthStore.getState()
@@ -33,6 +34,8 @@ function getState() {
 
 describe('authStore', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
+
     // Reset store state
     useAuthStore.setState({
       user: null,
@@ -130,6 +133,34 @@ describe('authStore', () => {
       expect(getState().llmTokensUsed).toBe(5000)
       expect(getState().llmTokensLimit).toBe(5000000)
     })
+
+    it('shows cloud words quota warning only once while usage stays high', async () => {
+      vi.mocked(getSubscriptionStatus).mockResolvedValue({
+        plan: 'appsumo_tier1',
+        source: 'appsumo',
+        displayName: 'AppSumo Tier 1',
+        subscriptionEnd: null,
+        subscriptionStatus: null,
+        licenseStatus: 'active',
+        sttSecondsUsed: 0,
+        sttSecondsLimit: 0,
+        llmTokensUsed: 0,
+        llmTokensLimit: 0,
+        cloudWordsUsed: 180000,
+        cloudWordsLimit: 200000,
+        cloudWordsResetAt: null,
+        byokUnlimited: true,
+      })
+      useAuthStore.setState({
+        user: { id: '1', email: 'test@example.com', name: 'Test' },
+      })
+
+      await getState().refreshSubscription()
+      await getState().refreshSubscription()
+
+      expect(toast).toHaveBeenCalledTimes(1)
+      expect(toast).toHaveBeenCalledWith('Cloud words are almost used up.', 'error')
+    })
   })
 
   describe('hasManagedCloudAccess', () => {
@@ -162,6 +193,26 @@ describe('authStore', () => {
           source: 'appsumo',
           cloudWordsLimit: 200000,
           licenseStatus: 'refunded',
+        }),
+      ).toBe(false)
+    })
+
+    it('denies AppSumo cloud access unless the license is active', () => {
+      expect(
+        hasManagedCloudAccess({
+          plan: 'appsumo_tier1',
+          source: 'appsumo',
+          cloudWordsLimit: 200000,
+          licenseStatus: 'pending',
+        }),
+      ).toBe(false)
+
+      expect(
+        hasManagedCloudAccess({
+          plan: 'appsumo_tier1',
+          source: 'appsumo',
+          cloudWordsLimit: 200000,
+          licenseStatus: null,
         }),
       ).toBe(false)
     })

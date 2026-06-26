@@ -75,19 +75,14 @@ function MainApp() {
       setOnboardingCompleted(done)
       if (done) {
         try {
-          const [
-            config,
-            history,
-            dictionary,
-            platformCapabilities,
-            hotkeyRegistrationError,
-          ] = await Promise.all([
-            getConfig(),
-            getHistory(200, 0),
-            getDictionary(),
-            getPlatformCapabilities(),
-            getHotkeyRegistrationError(),
-          ])
+          const [config, history, dictionary, platformCapabilities, hotkeyRegistrationError] =
+            await Promise.all([
+              getConfig(),
+              getHistory(200, 0),
+              getDictionary(),
+              getPlatformCapabilities(),
+              getHotkeyRegistrationError(),
+            ])
           setConfig(config)
           setSavedConfig(config)
           setHistory(history)

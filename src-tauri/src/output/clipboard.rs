@@ -21,6 +21,7 @@ impl ClipboardOutput {
     }
 }
 
+#[cfg(any(target_os = "linux", test))]
 fn should_auto_paste_after_clipboard(session_type: &str) -> bool {
     !session_type.eq_ignore_ascii_case("wayland")
 }

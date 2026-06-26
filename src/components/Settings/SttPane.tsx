@@ -65,9 +65,7 @@ export function SttPane() {
       setSttTestStatus('success')
     } catch (err) {
       console.error('[STT Test] Error:', err)
-      setTestErrorMessage(
-        err instanceof Error ? err.message : typeof err === 'string' ? err : null,
-      )
+      setTestErrorMessage(err instanceof Error ? err.message : typeof err === 'string' ? err : null)
       setSttTestStatus('error')
     }
   }
@@ -91,7 +89,7 @@ export function SttPane() {
                   ? {
                       stt_volcengine_resource_id: VOLCENGINE_STT_RESOURCES[0].value,
                     }
-                : {}),
+                  : {}),
             })
             setSttTestStatus('idle')
             setSttLatencyMs(null)

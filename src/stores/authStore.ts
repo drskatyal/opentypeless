@@ -12,6 +12,7 @@ import i18n from '../i18n'
 
 let sttWarningShown = false
 let llmWarningShown = false
+let cloudWordsWarningShown = false
 
 export interface AuthUser {
   id: string
@@ -58,9 +59,14 @@ interface AuthState {
   handleDeepLinkToken: (token: string) => Promise<void>
 }
 
-export function hasManagedCloudAccess(state: Pick<AuthState, 'plan' | 'source' | 'cloudWordsLimit' | 'licenseStatus'>): boolean {
+export function hasManagedCloudAccess(
+  state: Pick<AuthState, 'plan' | 'source' | 'cloudWordsLimit' | 'licenseStatus'>,
+): boolean {
   if (state.licenseStatus === 'refunded' || state.licenseStatus === 'deactivated') return false
-  if ((state.source === 'creem' || state.source === 'appsumo') && state.cloudWordsLimit > 0) {
+  if (state.source === 'appsumo') {
+    return state.cloudWordsLimit > 0 && state.licenseStatus === 'active'
+  }
+  if (state.source === 'creem' && state.cloudWordsLimit > 0) {
     return true
   }
   return state.plan === 'pro'
@@ -235,6 +241,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
       sttWarningShown = false
       llmWarningShown = false
+      cloudWordsWarningShown = false
     }
   },
 
@@ -262,10 +269,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ checkoutPending: false })
       }
       if (status.cloudWordsLimit > 0 && status.cloudWordsUsed / status.cloudWordsLimit >= 0.9) {
-        toast(i18n.t('account.cloudQuotaWarning', 'Cloud words are almost used up.'), 'error')
+        if (!cloudWordsWarningShown) {
+          toast(i18n.t('account.cloudQuotaWarning', 'Cloud words are almost used up.'), 'error')
+          cloudWordsWarningShown = true
+        }
         sttWarningShown = true
         llmWarningShown = true
-      } else if (
+      } else {
+        cloudWordsWarningShown = false
+      }
+      if (
         status.sttSecondsLimit > 0 &&
         status.sttSecondsUsed / status.sttSecondsLimit >= 0.9 &&
         !sttWarningShown

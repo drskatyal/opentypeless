@@ -54,7 +54,9 @@ export function UpgradePage() {
       <div className="flex items-center justify-center mb-6">
         <span
           className={`px-3 py-1 rounded-full text-[12px] font-medium ${
-            hasCloudAccess ? 'bg-amber-500/10 text-amber-600' : 'bg-bg-secondary text-text-secondary'
+            hasCloudAccess
+              ? 'bg-amber-500/10 text-amber-600'
+              : 'bg-bg-secondary text-text-secondary'
           }`}
         >
           {t('upgrade.currentPlan', { plan: displayName })}
