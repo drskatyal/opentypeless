@@ -53,6 +53,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev libxdo-dev libfuse2 gnupg rpm
 
+      - name: Verify release publishing token
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::RELEASE_TOKEN is required to publish releases to tover0314-w/opentypeless."
+            exit 1
+          fi
+
+          gh api repos/tover0314-w/opentypeless >/dev/null
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -113,7 +125,7 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         id: tauri
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -139,7 +151,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
           LINUX_GPG_KEY_ID: ${{ secrets.LINUX_GPG_KEY_ID }}
           LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
