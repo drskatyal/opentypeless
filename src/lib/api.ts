@@ -1,10 +1,20 @@
-import { API_BASE_URL } from './constants'
+import {
+  API_BASE_URL,
+  APP_VERSION_HEADER_VALUE,
+  CLIENT_VERSION_HEADER,
+  DEFAULT_CHECKOUT_PRODUCT,
+  type CheckoutProduct,
+} from './constants'
 
 const DEFAULT_TIMEOUT_MS = 30_000
 
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('session_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+function clientHeaders(): Record<string, string> {
+  return { [CLIENT_VERSION_HEADER]: APP_VERSION_HEADER_VALUE }
 }
 
 async function request<T>(
@@ -22,6 +32,7 @@ async function request<T>(
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        ...clientHeaders(),
         ...authHeaders(),
         ...fetchOptions?.headers,
       },
@@ -49,9 +60,15 @@ export class ApiError extends Error {
 }
 
 // Subscription
-export type SubscriptionPlan = 'free' | 'pro' | 'appsumo_tier1' | 'appsumo_tier2' | 'appsumo_tier3'
+export type SubscriptionPlan =
+  | 'free'
+  | 'pro'
+  | 'lifetime_starter'
+  | 'appsumo_tier1'
+  | 'appsumo_tier2'
+  | 'appsumo_tier3'
 
-export type SubscriptionSource = 'free' | 'creem' | 'appsumo'
+export type SubscriptionSource = 'free' | 'creem' | 'lifetime' | 'appsumo'
 export type LicenseStatus = 'pending' | 'active' | 'refunded' | 'deactivated'
 
 export interface SubscriptionStatus {
@@ -75,14 +92,27 @@ export function getSubscriptionStatus(): Promise<SubscriptionStatus> {
   return request<Partial<SubscriptionStatus>>('/api/subscription/status').then((status) => {
     const plan = (status.plan ?? 'free') as SubscriptionPlan
     const source =
-      status.source ?? (plan === 'pro' ? 'creem' : plan.startsWith('appsumo_') ? 'appsumo' : 'free')
+      status.source ??
+      (plan === 'pro'
+        ? 'creem'
+        : plan === 'lifetime_starter'
+          ? 'lifetime'
+          : plan.startsWith('appsumo_')
+            ? 'appsumo'
+            : 'free')
 
     return {
       plan,
       source: source as SubscriptionSource,
       displayName:
         status.displayName ??
-        (plan === 'pro' ? 'Pro' : plan === 'free' ? 'Free' : 'AppSumo Lifetime'),
+        (plan === 'pro'
+          ? 'Pro'
+          : plan === 'lifetime_starter'
+            ? 'Lifetime Starter'
+            : plan === 'free'
+              ? 'Free'
+              : 'AppSumo Lifetime'),
       subscriptionEnd: status.subscriptionEnd ?? null,
       subscriptionStatus: status.subscriptionStatus ?? null,
       licenseStatus: status.licenseStatus ?? null,
@@ -103,10 +133,13 @@ export interface CheckoutResponse {
   url: string
 }
 
-export function createCheckout(origin: 'desktop' | 'web' = 'desktop'): Promise<CheckoutResponse> {
+export function createCheckout(
+  origin: 'desktop' | 'web' = 'desktop',
+  product: CheckoutProduct = DEFAULT_CHECKOUT_PRODUCT,
+): Promise<CheckoutResponse> {
   return request('/api/checkout/create', {
     method: 'POST',
-    body: JSON.stringify({ origin }),
+    body: JSON.stringify({ origin, product }),
   })
 }
 
@@ -124,7 +157,10 @@ export async function proxyStt(audioBlob: Blob, language: string): Promise<{ tex
       method: 'POST',
       credentials: 'include',
       signal: controller.signal,
-      headers: authHeaders(),
+      headers: {
+        ...clientHeaders(),
+        ...authHeaders(),
+      },
       body: formData,
     })
 

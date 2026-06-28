@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OpenTypeless",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "identifier": "com.opentypeless.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -50,15 +50,24 @@
     }
   },
   "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/tover0314-w/opentypeless/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdBNEFFRjEzN0ZCQTNBMEQKUldRTk9ycC9FKzlLZXVKSFZLNUYxdFZ2Ri9Ya0FRaGsvUEZ1bkJRTDZ6dHZ1emhtZWR6QkprS3kK"
+    },
     "deep-link": {
       "desktop": {
-        "schemes": ["opentypeless"]
+        "schemes": [
+          "opentypeless"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -68,7 +77,6 @@
     ],
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "signingIdentity": "-",
       "entitlements": "./Entitlements.plist",
       "infoPlist": "./Info.plist"
     }

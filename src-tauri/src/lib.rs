@@ -27,10 +27,19 @@ use std::sync::{Arc, Mutex};
 
 /// Default cloud API base URL. Override with the `API_BASE_URL` environment variable.
 pub const DEFAULT_API_BASE_URL: &str = "https://www.opentypeless.com";
+pub const CLIENT_VERSION_HEADER: &str = "X-OpenTypeless-Version";
 
 /// Read the cloud API base URL from the environment, falling back to the compiled default.
 pub fn api_base_url() -> String {
     std::env::var("API_BASE_URL").unwrap_or_else(|_| DEFAULT_API_BASE_URL.to_string())
+}
+
+pub fn desktop_client_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+pub fn with_desktop_client_version(request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    request.header(CLIENT_VERSION_HEADER, desktop_client_version())
 }
 
 /// Cached hotkey mode to avoid loading config from disk on every keypress.
@@ -71,6 +80,12 @@ mod tests {
     #[test]
     fn dock_reopen_restores_main_window_even_when_capsule_is_visible() {
         assert!(should_restore_main_window_on_reopen(true));
+    }
+
+    #[test]
+    fn desktop_client_version_header_matches_frontend_contract() {
+        assert_eq!(crate::CLIENT_VERSION_HEADER, "X-OpenTypeless-Version");
+        assert_eq!(crate::desktop_client_version(), env!("CARGO_PKG_VERSION"));
     }
 }
 
@@ -154,6 +169,8 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Deep-link URL forwarding is handled automatically by the

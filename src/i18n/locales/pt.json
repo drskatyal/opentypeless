@@ -38,7 +38,9 @@
     "aiPolish": "Polimento por IA",
     "enabled": "Ativado",
     "disabled": "Desativado",
-    "outputMode": "Modo de Saída"
+    "outputMode": "Modo de Saída",
+    "wordsRemaining": "Palavras restantes",
+    "wordsReset": "Reinicia em {{date}}"
   },
   "onboarding": {
     "speakToWrite": "Fale para escrever — transforme sua voz em texto polido em tempo real",
@@ -152,7 +154,7 @@
       "recommended": "Recomendado",
       "zeroConfig": "Configuração zero",
       "cloudVoice": "Reconhecimento de voz na nuvem",
-      "cloudTokens": "Tokens de IA na nuvem incluídos",
+      "cloudTokens": "Palavras na nuvem incluídas",
       "oneTimeCredit": "Crédito único ao se cadastrar",
       "byok": "Traga Sua Própria Chave",
       "byokDesc": "Use suas próprias chaves de API",
@@ -227,8 +229,8 @@
     "provider": "Provedor",
     "cloudSttPro": "STT na Nuvem (Pro)",
     "cloudLlmPro": "LLM na Nuvem (Pro)",
-    "sttSignInHint": "Entre e assine o Pro para usar a cota oficial de STT (10h/mês).",
-    "sttUpgradeHint": "Atualize para Pro para STT em milissegundos — 10h/mês, 99 idiomas. Sem necessidade de chave de API.",
+    "sttSignInHint": "Entre e assine o Pro para usar palavras na nuvem/mês oficiais.",
+    "sttUpgradeHint": "Atualize para Pro para palavras na nuvem/mês em 99 idiomas. Sem chave de API.",
     "sttProActive": "Pro ativo — STT em milissegundos, 99 idiomas. Sem necessidade de chave de API.",
     "customSttPreset": "Preset",
     "customSttPresetSpeaches": "Speaches",
@@ -244,8 +246,8 @@
     "volcengineResourceSeedAsr": "SeedASR 2.0",
     "volcengineResourceBigAsr": "BigASR 1.0",
     "customSttConnectionFailed": "Local STT server is not reachable. Check that it is running and the port is correct.",
-    "llmSignInHint": "Entre e assine o Pro para usar a cota oficial de LLM (~5M tokens/mês).",
-    "llmUpgradeHint": "Atualize para Pro para reescrita instantânea por IA (~5M tokens/mês). Sem necessidade de chave de API.",
+    "llmSignInHint": "Entre e assine o Pro para usar palavras na nuvem/mês oficiais.",
+    "llmUpgradeHint": "Atualize para Pro para reescrita instantânea por IA com palavras na nuvem/mês. Sem chave de API.",
     "llmProActive": "Pro ativo — reescrita instantânea por IA. Sem necessidade de chave de API.",
     "apiKey": "Chave de API",
     "enterApiKey": "Insira a Chave de API...",
@@ -330,24 +332,36 @@
     "failedToClear": "Falha ao limpar o histórico"
   },
   "upgrade": {
-    "title": "Atualizar para Pro",
-    "subtitle": "Reconhecimento de voz em 300-800ms + reescrita por IA. 99 idiomas. Sem necessidade de chave de API.",
+    "title": "Atualizar",
+    "subtitle": "Assine mensalmente para reconhecimento de voz rápido e reescrita com IA com 100.000 palavras na nuvem por mês.",
     "currentPlan": "Plano atual: {{plan}}",
-    "pro": "Pro",
+    "pro": "Pro mensal",
+    "lifetime": "Lifetime Starter",
+    "lifetimeBadge": "Melhor valor",
+    "lifetimeSave": "Economiza após 18 meses",
+    "lifetimeUpgradeSave": "Inclui seu crédito mensal atual",
     "free": "Gratuito",
     "usageThisMonth": "Uso Este Mês",
     "stt": "STT",
     "llm": "LLM",
-    "thankYou": "Você está no Pro — obrigado pelo seu apoio!",
+    "thankYou": "Seu plano está ativo — obrigado pelo seu apoio!",
+    "monthlyActive": "Pro está ativo.",
     "signInFirst": "Entre pela página de Conta primeiro para se inscrever.",
     "subscribeToPro": "Inscrever-se no Pro",
+    "buyLifetime": "Comprar lifetime",
     "month": "mês",
+    "oneTime": "pagamento único",
+    "planDescriptions": {
+      "pro": "Acesso mensal flexível com 100.000 palavras na nuvem/mês.",
+      "lifetime": "Um pagamento para acesso lifetime com 100.000 palavras na nuvem por mês."
+    },
     "benefits": {
-      "title": "Pro inclui",
-      "stt": "10 h de reconhecimento de voz na nuvem por mês",
-      "llm": "~5 M de tokens de IA para polir e reescrever",
+      "title": "O que você recebe",
+      "cloudWords": "100.000 palavras na nuvem/mês para voz e IA",
+      "stt": "Palavras na nuvem/mês para reconhecimento de voz",
+      "llm": "Palavras na nuvem/mês para polimento e reescrita por IA",
       "noApiKey": "Nenhuma chave de API necessária no modo nuvem",
-      "backupScenes": "Backup na nuvem e modelos de cenas incluídos"
+      "backupScenes": "Backup na nuvem e pacotes de cenas Pro"
     },
     "features": {
       "sttTitle": "STT na Nuvem",
@@ -413,6 +427,14 @@
     "somethingWentWrong": "Algo deu errado",
     "unexpectedError": "Ocorreu um erro inesperado.",
     "reload": "Recarregar"
+  },
+  "updates": {
+    "availableTitle": "Atualização disponível",
+    "availableBody": "A versão {{version}} está pronta para instalar.",
+    "install": "Instalar atualização",
+    "installing": "Instalando...",
+    "dismiss": "Dispensar",
+    "error": "A atualização falhou. Baixe a versão mais recente no site."
   },
   "common": {
     "save": "Salvar",

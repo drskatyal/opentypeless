@@ -1,6 +1,6 @@
 [package]
 name = "opentypeless"
-version = "0.1.41"
+version = "0.1.42"
 description = "AI-powered speech-to-text and text polishing desktop app"
 authors = ["OpenTypeless Contributors"]
 license = "MIT"
@@ -43,6 +43,8 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 chrono = "0.4"
 url = "2"
 flate2 = "1"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = [

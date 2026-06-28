@@ -38,7 +38,9 @@
     "aiPolish": "Rifinitura IA",
     "enabled": "Abilitato",
     "disabled": "Disabilitato",
-    "outputMode": "Modalità di output"
+    "outputMode": "Modalità di output",
+    "wordsRemaining": "Parole rimanenti",
+    "wordsReset": "Si reimposta il {{date}}"
   },
   "onboarding": {
     "speakToWrite": "Parla per scrivere — trasforma la tua voce in testo rifinito in tempo reale",
@@ -152,7 +154,7 @@
       "recommended": "Consigliato",
       "zeroConfig": "Configurazione zero",
       "cloudVoice": "Riconoscimento vocale cloud",
-      "cloudTokens": "Token IA cloud inclusi",
+      "cloudTokens": "Parole cloud incluse",
       "oneTimeCredit": "Credito una tantum alla registrazione",
       "byok": "Porta la tua chiave",
       "byokDesc": "Usa le tue chiavi API",
@@ -227,8 +229,8 @@
     "provider": "Provider",
     "cloudSttPro": "STT Cloud (Pro)",
     "cloudLlmPro": "LLM Cloud (Pro)",
-    "sttSignInHint": "Accedi e abbonati a Pro per usare la quota STT ufficiale (10h/mese).",
-    "sttUpgradeHint": "Aggiorna a Pro per STT in millisecondi — 10h/mese, 99 lingue. Nessuna chiave API necessaria.",
+    "sttSignInHint": "Accedi e abbonati a Pro per usare parole cloud/mese ufficiali.",
+    "sttUpgradeHint": "Aggiorna a Pro per parole cloud/mese in 99 lingue. Nessuna chiave API necessaria.",
     "sttProActive": "Pro attivo — STT in millisecondi, 99 lingue. Nessuna chiave API necessaria.",
     "customSttPreset": "Preset",
     "customSttPresetSpeaches": "Speaches",
@@ -244,8 +246,8 @@
     "volcengineResourceSeedAsr": "SeedASR 2.0",
     "volcengineResourceBigAsr": "BigASR 1.0",
     "customSttConnectionFailed": "Local STT server is not reachable. Check that it is running and the port is correct.",
-    "llmSignInHint": "Accedi e abbonati a Pro per usare la quota LLM ufficiale (~5M token/mese).",
-    "llmUpgradeHint": "Aggiorna a Pro per riscrittura IA istantanea (~5M token/mese). Nessuna chiave API necessaria.",
+    "llmSignInHint": "Accedi e abbonati a Pro per usare parole cloud/mese ufficiali.",
+    "llmUpgradeHint": "Aggiorna a Pro per riscrittura IA istantanea con parole cloud/mese. Nessuna chiave API necessaria.",
     "llmProActive": "Pro attivo — riscrittura IA istantanea. Nessuna chiave API necessaria.",
     "apiKey": "Chiave API",
     "enterApiKey": "Inserisci la chiave API...",
@@ -330,24 +332,36 @@
     "failedToClear": "Cancellazione cronologia non riuscita"
   },
   "upgrade": {
-    "title": "Aggiorna a Pro",
-    "subtitle": "Riconoscimento vocale 300-800ms + riscrittura IA. 99 lingue. Nessuna chiave API necessaria.",
+    "title": "Aggiorna",
+    "subtitle": "Abbonati mensilmente per riconoscimento vocale rapido e riscrittura AI con 100.000 parole cloud al mese.",
     "currentPlan": "Piano attuale: {{plan}}",
-    "pro": "Pro",
+    "pro": "Pro mensile",
+    "lifetime": "Lifetime Starter",
+    "lifetimeBadge": "Miglior valore",
+    "lifetimeSave": "Risparmi dopo 18 mesi",
+    "lifetimeUpgradeSave": "Include il tuo credito mensile attuale",
     "free": "Gratuito",
     "usageThisMonth": "Utilizzo questo mese",
     "stt": "STT",
     "llm": "LLM",
-    "thankYou": "Sei su Pro — grazie per il tuo supporto!",
+    "thankYou": "Il tuo piano è attivo — grazie per il tuo supporto!",
+    "monthlyActive": "Pro è attivo.",
     "signInFirst": "Accedi prima dalla pagina Account per abbonarti.",
     "subscribeToPro": "Abbonati a Pro",
+    "buyLifetime": "Acquista lifetime",
     "month": "mese",
+    "oneTime": "una tantum",
+    "planDescriptions": {
+      "pro": "Accesso mensile flessibile con 100.000 parole cloud/mese.",
+      "lifetime": "Un pagamento per accesso lifetime con 100.000 parole cloud ogni mese."
+    },
     "benefits": {
-      "title": "Pro include",
-      "stt": "10 h di riconoscimento vocale cloud ogni mese",
-      "llm": "~5 M di token IA per rifinire e riscrivere",
+      "title": "Cosa ottieni",
+      "cloudWords": "100.000 parole cloud/mese per voce e IA",
+      "stt": "Parole cloud/mese per riconoscimento vocale",
+      "llm": "Parole cloud/mese per rifinitura e riscrittura IA",
       "noApiKey": "Nessuna chiave API richiesta in modalità cloud",
-      "backupScenes": "Backup cloud e modelli di scene inclusi"
+      "backupScenes": "Backup cloud e pacchetti scene Pro"
     },
     "features": {
       "sttTitle": "STT Cloud",
@@ -413,6 +427,14 @@
     "somethingWentWrong": "Qualcosa è andato storto",
     "unexpectedError": "Si è verificato un errore imprevisto.",
     "reload": "Ricarica"
+  },
+  "updates": {
+    "availableTitle": "Aggiornamento disponibile",
+    "availableBody": "La versione {{version}} è pronta per l'installazione.",
+    "install": "Installa aggiornamento",
+    "installing": "Installazione...",
+    "dismiss": "Chiudi",
+    "error": "Aggiornamento non riuscito. Scarica l'ultima versione dal sito web."
   },
   "common": {
     "save": "Salva",

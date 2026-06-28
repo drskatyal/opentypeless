@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use crate::error::AppError;
+use crate::with_desktop_client_version;
 
 use super::whisper_compat::WhisperCompatProvider;
 use super::{SttConfig, SttProvider, TranscriptEvent};
@@ -163,14 +164,15 @@ impl SttProvider for CloudSttProvider {
                 form = form.text("language", lang.clone());
             }
 
-            let resp_result = self
-                .client
-                .post(format!("{}/api/proxy/stt", self.api_base_url))
-                .header("Authorization", format!("Bearer {}", config.api_key))
-                .multipart(form)
-                .timeout(std::time::Duration::from_secs(60))
-                .send()
-                .await;
+            let resp_result = with_desktop_client_version(
+                self.client
+                    .post(format!("{}/api/proxy/stt", self.api_base_url)),
+            )
+            .header("Authorization", format!("Bearer {}", config.api_key))
+            .multipart(form)
+            .timeout(std::time::Duration::from_secs(60))
+            .send()
+            .await;
 
             match resp_result {
                 Ok(resp) => {

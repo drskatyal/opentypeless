@@ -388,6 +388,7 @@ function AccountDetails() {
 
   const hasCloudAccess = useAuthStore(hasManagedCloudAccess)
   const isAppSumo = source === 'appsumo'
+  const isDirectLifetime = source === 'lifetime' || plan === 'lifetime_starter'
   const canManageSubscription = source === 'creem' || plan === 'pro'
 
   const handleBackup = async () => {
@@ -448,7 +449,7 @@ function AccountDetails() {
         <InfoRow label={t('account.email')} value={user!.email} />
         {user!.name && <InfoRow label={t('account.name')} value={user!.name} />}
         <InfoRow label={t('account.plan')} value={displayName} />
-        {isAppSumo && (
+        {(isAppSumo || isDirectLifetime) && (
           <InfoRow
             label={t('account.license', 'License')}
             value={t('account.lifetime', 'Lifetime')}

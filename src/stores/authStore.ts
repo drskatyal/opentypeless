@@ -7,6 +7,7 @@ import {
   type SubscriptionPlan,
   type SubscriptionSource,
 } from '../lib/api'
+import { isActiveCloudPlan } from '../lib/constants'
 import { toast } from '../components/Toast'
 import i18n from '../i18n'
 
@@ -66,10 +67,13 @@ export function hasManagedCloudAccess(
   if (state.source === 'appsumo') {
     return state.cloudWordsLimit > 0 && state.licenseStatus === 'active'
   }
+  if (state.source === 'lifetime') {
+    return state.cloudWordsLimit > 0 || state.plan === 'lifetime_starter'
+  }
   if (state.source === 'creem' && state.cloudWordsLimit > 0) {
     return true
   }
-  return state.plan === 'pro'
+  return isActiveCloudPlan(state.plan)
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

@@ -3,6 +3,7 @@ use futures_util::StreamExt;
 use reqwest::Client;
 
 use crate::error::AppError;
+use crate::with_desktop_client_version;
 
 use super::{prompt, ChunkCallback, LlmConfig, LlmProvider, PolishRequest, PolishResponse};
 
@@ -148,15 +149,15 @@ impl LlmProvider for CloudLlmProvider {
         let mut attempt = 0u32;
 
         loop {
-            match self
-                .client
-                .post(format!("{}/api/proxy/llm", api_base_url))
-                .header("Authorization", format!("Bearer {}", config.api_key))
-                .header("Content-Type", "application/json")
-                .json(&body)
-                .timeout(std::time::Duration::from_secs(15))
-                .send()
-                .await
+            match with_desktop_client_version(
+                self.client.post(format!("{}/api/proxy/llm", api_base_url)),
+            )
+            .header("Authorization", format!("Bearer {}", config.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(15))
+            .send()
+            .await
             {
                 Ok(resp) => {
                     let status = resp.status();

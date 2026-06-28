@@ -38,7 +38,9 @@
     "aiPolish": "AI整形",
     "enabled": "有効",
     "disabled": "無効",
-    "outputMode": "出力モード"
+    "outputMode": "出力モード",
+    "wordsRemaining": "残り words",
+    "wordsReset": "{{date}} にリセット"
   },
   "onboarding": {
     "speakToWrite": "話して書く — 音声をリアルタイムで整形されたテキストに変換します",
@@ -152,7 +154,7 @@
       "recommended": "おすすめ",
       "zeroConfig": "設定不要",
       "cloudVoice": "クラウド音声認識",
-      "cloudTokens": "クラウドAIトークン付き",
+      "cloudTokens": "クラウド words 枠を含む",
       "oneTimeCredit": "サインアップ時に一回限りクレジット",
       "byok": "独自キーを使用",
       "byokDesc": "独自のAPIキーを使用します",
@@ -227,8 +229,8 @@
     "provider": "プロバイダー",
     "cloudSttPro": "クラウドSTT (Pro)",
     "cloudLlmPro": "クラウドLLM (Pro)",
-    "sttSignInHint": "サインインしてProに登録すると、公式STT枠（10時間/月）が利用できます。",
-    "sttUpgradeHint": "Proにアップグレードしてミリ秒STTを — 10時間/月、99言語対応。APIキー不要。",
+    "sttSignInHint": "サインインしてProに登録すると、公式クラウド words/月を利用できます。",
+    "sttUpgradeHint": "Proにアップグレードして、99言語対応のクラウド words/月を利用できます。APIキー不要。",
     "sttProActive": "Pro有効 — ミリ秒STT、99言語対応。APIキー不要。",
     "customSttPreset": "Preset",
     "customSttPresetSpeaches": "Speaches",
@@ -244,8 +246,8 @@
     "volcengineResourceSeedAsr": "SeedASR 2.0",
     "volcengineResourceBigAsr": "BigASR 1.0",
     "customSttConnectionFailed": "Local STT server is not reachable. Check that it is running and the port is correct.",
-    "llmSignInHint": "サインインしてProに登録すると、公式LLM枠（約500万トークン/月）が利用できます。",
-    "llmUpgradeHint": "Proにアップグレードして即座のAIリライト（約500万トークン/月）。APIキー不要。",
+    "llmSignInHint": "サインインしてProに登録すると、公式クラウド words/月を利用できます。",
+    "llmUpgradeHint": "Proにアップグレードして、クラウド words/月で即時AIリライトを利用できます。APIキー不要。",
     "llmProActive": "Pro有効 — 即座のAIリライト。APIキー不要。",
     "apiKey": "APIキー",
     "enterApiKey": "APIキーを入力...",
@@ -330,24 +332,36 @@
     "failedToClear": "履歴の消去に失敗しました"
   },
   "upgrade": {
-    "title": "Proにアップグレード",
-    "subtitle": "300〜800msの音声認識 + AIリライト。99言語対応。APIキー不要。",
+    "title": "アップグレード",
+    "subtitle": "月額プランで高速音声認識とAIリライトを利用できます。毎月100,000 cloud wordsが含まれます。",
     "currentPlan": "現在のプラン：{{plan}}",
-    "pro": "Pro",
+    "pro": "Pro 月額",
+    "lifetime": "Lifetime Starter",
+    "lifetimeBadge": "最もお得",
+    "lifetimeSave": "18か月で元が取れます",
+    "lifetimeUpgradeSave": "現在の月額クレジットを含みます",
     "free": "無料",
     "usageThisMonth": "今月の使用量",
     "stt": "STT",
     "llm": "LLM",
-    "thankYou": "Proをご利用いただきありがとうございます！",
+    "thankYou": "プランが有効です。ご支援ありがとうございます！",
+    "monthlyActive": "Pro が有効です。",
     "signInFirst": "サブスクライブするには、まずアカウントページからサインインしてください。",
     "subscribeToPro": "Proにサブスクライブ",
+    "buyLifetime": "lifetimeを購入",
     "month": "月",
+    "oneTime": "一括",
+    "planDescriptions": {
+      "pro": "100,000 cloud words/月を含む柔軟な月額アクセス。",
+      "lifetime": "一括払いでlifetimeアクセス。毎月100,000 cloud wordsを含みます。"
+    },
     "benefits": {
-      "title": "Proに含まれるもの",
-      "stt": "毎月10時間のクラウド音声認識",
-      "llm": "校正とリライト用に約500万AIトークン",
+      "title": "主な特典",
+      "cloudWords": "音声とAIに使える毎月100,000 cloud words",
+      "stt": "音声認識用クラウド words/月",
+      "llm": "AI校正・リライト用クラウド words/月",
       "noApiKey": "クラウドモードではAPIキー不要",
-      "backupScenes": "クラウドバックアップとシーンテンプレートを含む"
+      "backupScenes": "クラウドバックアップとProシーンパック"
     },
     "features": {
       "sttTitle": "クラウドSTT",
@@ -413,6 +427,14 @@
     "somethingWentWrong": "問題が発生しました",
     "unexpectedError": "予期しないエラーが発生しました。",
     "reload": "再読み込み"
+  },
+  "updates": {
+    "availableTitle": "アップデートがあります",
+    "availableBody": "バージョン {{version}} をインストールできます。",
+    "install": "アップデートをインストール",
+    "installing": "インストール中...",
+    "dismiss": "閉じる",
+    "error": "アップデートに失敗しました。Web サイトから最新バージョンをダウンロードしてください。"
   },
   "common": {
     "save": "保存",

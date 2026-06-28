@@ -1379,9 +1379,13 @@ impl PipelineHandle {
             }
         };
         tracing::debug!("Pre-warming HTTP connection to {}", stt_endpoint);
-        let _ = self
-            .shared_client
-            .head(&stt_endpoint)
+        let stt_prewarm = self.shared_client.head(&stt_endpoint);
+        let stt_prewarm = if config.stt_provider == "cloud" {
+            crate::with_desktop_client_version(stt_prewarm)
+        } else {
+            stt_prewarm
+        };
+        let _ = stt_prewarm
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await;
@@ -1396,9 +1400,13 @@ impl PipelineHandle {
                 config.llm_base_url.clone()
             };
             tracing::debug!("Pre-warming LLM connection to {}", llm_url);
-            let _ = self
-                .shared_client
-                .head(&llm_url)
+            let llm_prewarm = self.shared_client.head(&llm_url);
+            let llm_prewarm = if config.llm_provider == "cloud" {
+                crate::with_desktop_client_version(llm_prewarm)
+            } else {
+                llm_prewarm
+            };
+            let _ = llm_prewarm
                 .timeout(std::time::Duration::from_secs(5))
                 .send()
                 .await;

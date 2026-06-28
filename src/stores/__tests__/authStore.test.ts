@@ -186,6 +186,26 @@ describe('authStore', () => {
       ).toBe(true)
     })
 
+    it('allows direct lifetime plans', () => {
+      expect(
+        hasManagedCloudAccess({
+          plan: 'lifetime_starter',
+          source: 'lifetime',
+          cloudWordsLimit: 0,
+          licenseStatus: 'active',
+        }),
+      ).toBe(true)
+
+      expect(
+        hasManagedCloudAccess({
+          plan: 'lifetime_starter',
+          source: 'lifetime',
+          cloudWordsLimit: 100000,
+          licenseStatus: null,
+        }),
+      ).toBe(true)
+    })
+
     it('denies revoked lifetime licenses even when a quota remains', () => {
       expect(
         hasManagedCloudAccess({

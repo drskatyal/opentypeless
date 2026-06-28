@@ -38,7 +38,9 @@
     "aiPolish": "KI-Glättung",
     "enabled": "Aktiviert",
     "disabled": "Deaktiviert",
-    "outputMode": "Ausgabemodus"
+    "outputMode": "Ausgabemodus",
+    "wordsRemaining": "Verbleibende Wörter",
+    "wordsReset": "Wird am {{date}} zurückgesetzt"
   },
   "onboarding": {
     "speakToWrite": "Sprechen Sie, um zu schreiben — verwandeln Sie Ihre Stimme in Echtzeit in geglätteten Text",
@@ -152,7 +154,7 @@
       "recommended": "Empfohlen",
       "zeroConfig": "Keine Konfiguration erforderlich",
       "cloudVoice": "Cloud-Spracherkennung",
-      "cloudTokens": "Cloud-KI-Token inklusive",
+      "cloudTokens": "Cloud-Wörter inklusive",
       "oneTimeCredit": "Einmaliges Guthaben bei der Registrierung",
       "byok": "Eigener Schlüssel (BYOK)",
       "byokDesc": "Verwenden Sie Ihre eigenen API-Schlüssel",
@@ -227,8 +229,8 @@
     "provider": "Anbieter",
     "cloudSttPro": "Cloud-STT (Pro)",
     "cloudLlmPro": "Cloud-LLM (Pro)",
-    "sttSignInHint": "Melden Sie sich an und abonnieren Sie Pro, um das offizielle STT-Kontingent zu nutzen (10 Std./Monat).",
-    "sttUpgradeHint": "Upgraden Sie auf Pro für millisekunden-schnelle STT — 10 Std./Monat, 99 Sprachen. Kein API-Schlüssel nötig.",
+    "sttSignInHint": "Melden Sie sich an und abonnieren Sie Pro, um offizielle Cloud-Wörter/Monat zu nutzen.",
+    "sttUpgradeHint": "Upgrade auf Pro für Cloud-Wörter/Monat in 99 Sprachen. Kein API-Schlüssel nötig.",
     "sttProActive": "Pro aktiv — millisekunden-schnelle STT, 99 Sprachen. Kein API-Schlüssel nötig.",
     "customSttPreset": "Preset",
     "customSttPresetSpeaches": "Speaches",
@@ -244,8 +246,8 @@
     "volcengineResourceSeedAsr": "SeedASR 2.0",
     "volcengineResourceBigAsr": "BigASR 1.0",
     "customSttConnectionFailed": "Local STT server is not reachable. Check that it is running and the port is correct.",
-    "llmSignInHint": "Melden Sie sich an und abonnieren Sie Pro, um das offizielle LLM-Kontingent zu nutzen (~5M Token/Monat).",
-    "llmUpgradeHint": "Upgraden Sie auf Pro für sofortiges KI-Umschreiben (~5M Token/Monat). Kein API-Schlüssel nötig.",
+    "llmSignInHint": "Melden Sie sich an und abonnieren Sie Pro, um offizielle Cloud-Wörter/Monat zu nutzen.",
+    "llmUpgradeHint": "Upgrade auf Pro für sofortiges KI-Umschreiben mit Cloud-Wörtern/Monat. Kein API-Schlüssel nötig.",
     "llmProActive": "Pro aktiv — sofortiges KI-Umschreiben. Kein API-Schlüssel nötig.",
     "apiKey": "API-Schlüssel",
     "enterApiKey": "API-Schlüssel eingeben...",
@@ -330,24 +332,36 @@
     "failedToClear": "Verlauf konnte nicht gelöscht werden"
   },
   "upgrade": {
-    "title": "Auf Pro upgraden",
-    "subtitle": "300-800ms Spracherkennung + KI-Umschreiben. 99 Sprachen. Kein API-Schlüssel nötig.",
+    "title": "Upgrade",
+    "subtitle": "Monatlich abonnieren für schnelle Spracherkennung und KI-Umschreiben mit 100.000 Cloud-Wörtern pro Monat.",
     "currentPlan": "Aktueller Tarif: {{plan}}",
-    "pro": "Pro",
+    "pro": "Pro monatlich",
+    "lifetime": "Lifetime Starter",
+    "lifetimeBadge": "Bester Wert",
+    "lifetimeSave": "Spart nach 18 Monaten",
+    "lifetimeUpgradeSave": "Enthält Ihre aktuelle Monatsgutschrift",
     "free": "Kostenlos",
     "usageThisMonth": "Nutzung diesen Monat",
     "stt": "STT",
     "llm": "LLM",
-    "thankYou": "Sie sind auf Pro — danke für Ihre Unterstützung!",
+    "thankYou": "Ihr Tarif ist aktiv — danke für Ihre Unterstützung!",
+    "monthlyActive": "Pro ist aktiv.",
     "signInFirst": "Melden Sie sich zuerst auf der Konto-Seite an, um zu abonnieren.",
     "subscribeToPro": "Pro abonnieren",
+    "buyLifetime": "Lifetime kaufen",
     "month": "Monat",
+    "oneTime": "einmalig",
+    "planDescriptions": {
+      "pro": "Flexible monatliche Nutzung mit 100.000 Cloud-Wörtern/Monat.",
+      "lifetime": "Einmal zahlen, lifetime Zugriff und jeden Monat 100.000 Cloud-Wörter."
+    },
     "benefits": {
-      "title": "Pro enthält",
-      "stt": "10 Std. Cloud-Spracherkennung pro Monat",
-      "llm": "~5 Mio. KI-Token zum Polieren und Umschreiben",
+      "title": "Was Sie bekommen",
+      "cloudWords": "100.000 Cloud-Wörter/Monat für Stimme und KI",
+      "stt": "Cloud-Wörter/Monat für Spracherkennung",
+      "llm": "Cloud-Wörter/Monat für KI-Politur und Umschreiben",
       "noApiKey": "Keine API-Schlüssel im Cloud-Modus erforderlich",
-      "backupScenes": "Cloud-Backup und Szenenvorlagen enthalten"
+      "backupScenes": "Cloud-Backup und Pro-Szenenpakete"
     },
     "features": {
       "sttTitle": "Cloud-STT",
@@ -413,6 +427,14 @@
     "somethingWentWrong": "Etwas ist schiefgelaufen",
     "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten.",
     "reload": "Neu laden"
+  },
+  "updates": {
+    "availableTitle": "Aktualisierung verfügbar",
+    "availableBody": "Version {{version}} kann installiert werden.",
+    "install": "Update installieren",
+    "installing": "Wird installiert...",
+    "dismiss": "Schließen",
+    "error": "Update fehlgeschlagen. Bitte lade die neueste Version von der Website herunter."
   },
   "common": {
     "save": "Speichern",

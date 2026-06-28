@@ -1,0 +1,73 @@
+# Release Signing Setup
+
+OpenTypeless releases are built in `toverwu-qaq/opentypeless` and published to
+`tover0314-w/opentypeless`.
+
+## Required GitHub Secrets
+
+Set these secrets on `toverwu-qaq/opentypeless`, because that repository runs
+the GitHub Actions workflow.
+
+macOS:
+
+- `APPLE_CERTIFICATE`
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_SIGNING_IDENTITY`
+- `APPLE_ID`
+- `APPLE_PASSWORD`
+- `APPLE_TEAM_ID`
+
+Tauri updater:
+
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+
+Cross-repository publishing:
+
+- `RELEASE_TOKEN`
+
+Linux:
+
+- `LINUX_GPG_PRIVATE_KEY`: base64-encoded ASCII-armored private GPG key
+- `LINUX_GPG_KEY_ID`: GPG key ID or fingerprint
+- `LINUX_GPG_PASSPHRASE`: GPG key passphrase
+
+Windows signing is currently deferred. The release workflow only builds macOS and
+Linux artifacts, so Windows certificate secrets are not required for current
+releases.
+
+## Deferred Windows Certificate Notes
+
+These notes are for re-enabling Windows releases later.
+
+Use a real code signing certificate. SSL/TLS certificates do not sign Windows
+desktop apps. EV certificates get Microsoft SmartScreen reputation immediately;
+OV certificates can still show SmartScreen warnings until reputation builds.
+
+If you receive a `.pfx`, encode it before saving it as a GitHub secret:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) |
+  Set-Content -NoNewline windows-certificate-base64.txt
+```
+
+Save the content of `windows-certificate-base64.txt` as `WINDOWS_CERTIFICATE`.
+
+## Linux GPG Notes
+
+Generate a release-only GPG key, export it, and base64 encode it:
+
+```bash
+gpg --full-gen-key
+gpg --armor --export-secret-keys "OpenTypeless Release" > opentypeless-linux-private.asc
+openssl base64 -A -in opentypeless-linux-private.asc -out opentypeless-linux-private.asc.base64
+gpg --list-secret-keys --keyid-format LONG
+```
+
+Save `opentypeless-linux-private.asc.base64` as `LINUX_GPG_PRIVATE_KEY`, the
+fingerprint/key ID as `LINUX_GPG_KEY_ID`, and the passphrase as
+`LINUX_GPG_PASSPHRASE`.
+
+The workflow embeds an AppImage signature, signs RPM bundles through Tauri,
+creates detached `.asc` signatures for Linux artifacts, and uploads
+`SHA256SUMS-linux-x86_64.txt`.

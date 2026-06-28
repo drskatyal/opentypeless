@@ -38,7 +38,9 @@
     "aiPolish": "AI 다듬기",
     "enabled": "활성화",
     "disabled": "비활성화",
-    "outputMode": "출력 모드"
+    "outputMode": "출력 모드",
+    "wordsRemaining": "남은 words",
+    "wordsReset": "{{date}} 재설정"
   },
   "onboarding": {
     "speakToWrite": "말해서 글 쓰기 — 음성을 실시간으로 다듬어진 텍스트로 변환합니다",
@@ -152,7 +154,7 @@
       "recommended": "추천",
       "zeroConfig": "설정 불필요",
       "cloudVoice": "클라우드 음성 인식",
-      "cloudTokens": "클라우드 AI 토큰 포함",
+      "cloudTokens": "클라우드 words 포함",
       "oneTimeCredit": "가입 시 일회성 크레딧 제공",
       "byok": "직접 키 사용",
       "byokDesc": "자신의 API 키를 사용하세요",
@@ -227,8 +229,8 @@
     "provider": "제공자",
     "cloudSttPro": "클라우드 STT (Pro)",
     "cloudLlmPro": "클라우드 LLM (Pro)",
-    "sttSignInHint": "로그인하고 Pro를 구독하여 공식 STT 할당량(월 10시간)을 사용하세요.",
-    "sttUpgradeHint": "Pro로 업그레이드하여 밀리초 단위 STT를 경험하세요 — 월 10시간, 99개 언어. API 키 불필요.",
+    "sttSignInHint": "로그인하고 Pro를 구독하여 공식 클라우드 words/월을 사용하세요.",
+    "sttUpgradeHint": "Pro로 업그레이드하여 99개 언어의 클라우드 words/월을 사용하세요. API 키 불필요.",
     "sttProActive": "Pro 활성 — 밀리초 단위 STT, 99개 언어. API 키 불필요.",
     "customSttPreset": "Preset",
     "customSttPresetSpeaches": "Speaches",
@@ -244,8 +246,8 @@
     "volcengineResourceSeedAsr": "SeedASR 2.0",
     "volcengineResourceBigAsr": "BigASR 1.0",
     "customSttConnectionFailed": "Local STT server is not reachable. Check that it is running and the port is correct.",
-    "llmSignInHint": "로그인하고 Pro를 구독하여 공식 LLM 할당량(월 약 5M 토큰)을 사용하세요.",
-    "llmUpgradeHint": "Pro로 업그레이드하여 즉각적인 AI 다시 쓰기(월 약 5M 토큰)를 사용하세요. API 키 불필요.",
+    "llmSignInHint": "로그인하고 Pro를 구독하여 공식 클라우드 words/월을 사용하세요.",
+    "llmUpgradeHint": "Pro로 업그레이드하여 클라우드 words/월로 즉각적인 AI 다시 쓰기를 사용하세요. API 키 불필요.",
     "llmProActive": "Pro 활성 — 즉각적인 AI 다시 쓰기. API 키 불필요.",
     "apiKey": "API 키",
     "enterApiKey": "API 키를 입력하세요...",
@@ -330,24 +332,36 @@
     "failedToClear": "기록 삭제에 실패했습니다"
   },
   "upgrade": {
-    "title": "Pro로 업그레이드",
-    "subtitle": "300-800ms 음성 인식 + AI 다시 쓰기. 99개 언어. API 키 불필요.",
+    "title": "업그레이드",
+    "subtitle": "월간 구독으로 빠른 음성 인식과 AI 재작성을 사용하세요. 매월 100,000 cloud words가 포함됩니다.",
     "currentPlan": "현재 플랜: {{plan}}",
-    "pro": "Pro",
+    "pro": "Pro 월간",
+    "lifetime": "Lifetime Starter",
+    "lifetimeBadge": "최고 가치",
+    "lifetimeSave": "18개월 후 절약",
+    "lifetimeUpgradeSave": "현재 월간 크레딧 포함",
     "free": "무료",
     "usageThisMonth": "이번 달 사용량",
     "stt": "STT",
     "llm": "LLM",
-    "thankYou": "Pro를 이용 중이시네요 — 지원해 주셔서 감사합니다!",
+    "thankYou": "플랜이 활성화되었습니다 — 지원해 주셔서 감사합니다!",
+    "monthlyActive": "Pro가 활성화되었습니다.",
     "signInFirst": "구독하려면 먼저 계정 페이지에서 로그인하세요.",
     "subscribeToPro": "Pro 구독하기",
+    "buyLifetime": "lifetime 구매",
     "month": "월",
+    "oneTime": "일회성",
+    "planDescriptions": {
+      "pro": "월 100,000 cloud words가 포함된 유연한 월간 이용.",
+      "lifetime": "한 번 결제하고 lifetime 이용, 매월 100,000 cloud words 포함."
+    },
     "benefits": {
-      "title": "Pro에 포함",
-      "stt": "매월 10시간 클라우드 음성 인식",
-      "llm": "교정과 다시 쓰기를 위한 약 500만 AI 토큰",
+      "title": "핵심 혜택",
+      "cloudWords": "음성과 AI에 매월 100,000 cloud words",
+      "stt": "음성 인식용 클라우드 words/월",
+      "llm": "AI 다듬기와 다시 쓰기용 클라우드 words/월",
       "noApiKey": "클라우드 모드에서 API 키 불필요",
-      "backupScenes": "클라우드 백업과 씬 템플릿 포함"
+      "backupScenes": "클라우드 백업과 Pro 씬 팩"
     },
     "features": {
       "sttTitle": "클라우드 STT",
@@ -413,6 +427,14 @@
     "somethingWentWrong": "문제가 발생했습니다",
     "unexpectedError": "예기치 않은 오류가 발생했습니다.",
     "reload": "새로고침"
+  },
+  "updates": {
+    "availableTitle": "업데이트 사용 가능",
+    "availableBody": "버전 {{version}}을 설치할 수 있습니다.",
+    "install": "업데이트 설치",
+    "installing": "설치 중...",
+    "dismiss": "닫기",
+    "error": "업데이트에 실패했습니다. 웹사이트에서 최신 버전을 다운로드하세요."
   },
   "common": {
     "save": "저장",

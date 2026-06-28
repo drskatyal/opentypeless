@@ -38,7 +38,9 @@
     "aiPolish": "Pulido con IA",
     "enabled": "Activado",
     "disabled": "Desactivado",
-    "outputMode": "Modo de salida"
+    "outputMode": "Modo de salida",
+    "wordsRemaining": "Palabras restantes",
+    "wordsReset": "Se reinicia el {{date}}"
   },
   "onboarding": {
     "speakToWrite": "Habla para escribir — convierte tu voz en texto pulido en tiempo real",
@@ -152,7 +154,7 @@
       "recommended": "Recomendado",
       "zeroConfig": "Sin configuración",
       "cloudVoice": "Reconocimiento de voz en la nube",
-      "cloudTokens": "Tokens de IA en la nube incluidos",
+      "cloudTokens": "Palabras en la nube incluidas",
       "oneTimeCredit": "Crédito único al registrarse",
       "byok": "Trae tu propia clave",
       "byokDesc": "Usa tus propias claves API",
@@ -227,8 +229,8 @@
     "provider": "Proveedor",
     "cloudSttPro": "STT en la nube (Pro)",
     "cloudLlmPro": "LLM en la nube (Pro)",
-    "sttSignInHint": "Inicia sesión y suscríbete a Pro para usar la cuota oficial de STT (10h/mes).",
-    "sttUpgradeHint": "Mejora a Pro para STT en milisegundos — 10h/mes, 99 idiomas. No se necesita clave API.",
+    "sttSignInHint": "Inicia sesión y suscríbete a Pro para usar palabras en la nube/mes oficiales.",
+    "sttUpgradeHint": "Mejora a Pro para palabras en la nube/mes en 99 idiomas. No se necesita clave API.",
     "sttProActive": "Pro activo — STT en milisegundos, 99 idiomas. No se necesita clave API.",
     "customSttPreset": "Preset",
     "customSttPresetSpeaches": "Speaches",
@@ -244,8 +246,8 @@
     "volcengineResourceSeedAsr": "SeedASR 2.0",
     "volcengineResourceBigAsr": "BigASR 1.0",
     "customSttConnectionFailed": "Local STT server is not reachable. Check that it is running and the port is correct.",
-    "llmSignInHint": "Inicia sesión y suscríbete a Pro para usar la cuota oficial de LLM (~5M tokens/mes).",
-    "llmUpgradeHint": "Mejora a Pro para reescritura instantánea con IA (~5M tokens/mes). No se necesita clave API.",
+    "llmSignInHint": "Inicia sesión y suscríbete a Pro para usar palabras en la nube/mes oficiales.",
+    "llmUpgradeHint": "Mejora a Pro para reescritura instantánea con IA usando palabras en la nube/mes. No se necesita clave API.",
     "llmProActive": "Pro activo — reescritura instantánea con IA. No se necesita clave API.",
     "apiKey": "Clave API",
     "enterApiKey": "Ingresa la clave API...",
@@ -330,24 +332,36 @@
     "failedToClear": "Error al borrar el historial"
   },
   "upgrade": {
-    "title": "Mejorar a Pro",
-    "subtitle": "Reconocimiento de voz en 300-800ms + reescritura con IA. 99 idiomas. No se necesita clave API.",
+    "title": "Mejorar",
+    "subtitle": "Suscríbete mensualmente para dictado rápido y reescritura con IA con 100.000 palabras en la nube al mes.",
     "currentPlan": "Plan actual: {{plan}}",
-    "pro": "Pro",
+    "pro": "Pro mensual",
+    "lifetime": "Lifetime Starter",
+    "lifetimeBadge": "Mejor valor",
+    "lifetimeSave": "Ahorra tras 18 meses",
+    "lifetimeUpgradeSave": "Incluye tu crédito mensual actual",
     "free": "Gratuito",
     "usageThisMonth": "Uso este mes",
     "stt": "STT",
     "llm": "LLM",
-    "thankYou": "Estás en Pro — ¡gracias por tu apoyo!",
+    "thankYou": "Tu plan está activo — ¡gracias por tu apoyo!",
+    "monthlyActive": "Pro está activo.",
     "signInFirst": "Inicia sesión desde la página de Cuenta primero para suscribirte.",
     "subscribeToPro": "Suscribirse a Pro",
+    "buyLifetime": "Comprar lifetime",
     "month": "mes",
+    "oneTime": "pago único",
+    "planDescriptions": {
+      "pro": "Acceso mensual flexible con 100.000 palabras en la nube/mes.",
+      "lifetime": "Un pago para acceso lifetime con 100.000 palabras en la nube cada mes."
+    },
     "benefits": {
-      "title": "Pro incluye",
-      "stt": "10 h de reconocimiento de voz en la nube cada mes",
-      "llm": "~5 M de tokens de IA para pulir y reescribir",
+      "title": "Lo que obtienes",
+      "cloudWords": "100.000 palabras en la nube/mes para voz e IA",
+      "stt": "Palabras en la nube/mes para reconocimiento de voz",
+      "llm": "Palabras en la nube/mes para pulir y reescribir con IA",
       "noApiKey": "No se requieren claves API en modo nube",
-      "backupScenes": "Respaldo en la nube y plantillas de escenas incluidos"
+      "backupScenes": "Respaldo en la nube y paquetes de escenas Pro"
     },
     "features": {
       "sttTitle": "STT en la nube",
@@ -413,6 +427,14 @@
     "somethingWentWrong": "Algo salió mal",
     "unexpectedError": "Ocurrió un error inesperado.",
     "reload": "Recargar"
+  },
+  "updates": {
+    "availableTitle": "Actualización disponible",
+    "availableBody": "La versión {{version}} está lista para instalarse.",
+    "install": "Instalar actualización",
+    "installing": "Instalando...",
+    "dismiss": "Descartar",
+    "error": "La actualización falló. Descarga la última versión desde el sitio web."
   },
   "common": {
     "save": "Guardar",

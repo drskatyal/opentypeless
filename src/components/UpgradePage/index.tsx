@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Cloud, Crown, KeyRound, Loader2, Mic, Sparkles } from 'lucide-react'
+import { Check, Cloud, CreditCard, Crown, KeyRound, Loader2, Sparkles } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
-import { PRO_PLAN } from '../../lib/constants'
+import { CHECKOUT_PLANS, PRO_PLAN, type CheckoutProduct } from '../../lib/constants'
 import { createCheckout } from '../../lib/api'
 
-const benefitIcons = [Mic, Sparkles, KeyRound, Cloud]
+const benefitIcons = [Sparkles, KeyRound, Cloud]
 
 export function UpgradePage() {
   const {
     user,
+    plan,
+    source,
     displayName,
     cloudWordsUsed,
     cloudWordsLimit,
@@ -20,27 +22,38 @@ export function UpgradePage() {
     llmTokensLimit,
   } = useAuthStore()
   const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
+  const [loadingProduct, setLoadingProduct] = useState<CheckoutProduct | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const hasCloudAccess = useAuthStore(hasManagedCloudAccess)
+  const hasLifetimeAccess = plan === 'lifetime_starter' || source === 'lifetime' || source === 'appsumo'
+  const hasMonthlyAccess = !hasLifetimeAccess && (plan === 'pro' || source === 'creem')
+  const hasLifetimeCheckoutPlan = CHECKOUT_PLANS.some((checkoutPlan) => checkoutPlan.product === 'lifetime_starter')
+  const visiblePlans = hasMonthlyAccess
+    ? CHECKOUT_PLANS.filter((checkoutPlan) => checkoutPlan.product === 'lifetime_starter')
+    : CHECKOUT_PLANS
+  const canStartCheckout = (product: CheckoutProduct) => {
+    if (hasLifetimeAccess) return false
+    if (product === 'lifetime_starter') return true
+    return !hasCloudAccess
+  }
 
-  const handleSubscribe = async () => {
-    setLoading(true)
+  const handleSubscribe = async (product: CheckoutProduct) => {
+    setLoadingProduct(product)
     setError(null)
     try {
-      const { url } = await createCheckout('desktop')
+      const { url } = await createCheckout('desktop', product)
       useAuthStore.setState({ checkoutPending: true })
       await openUrl(url)
     } catch (e) {
       setError(e instanceof Error ? e.message : t('account.toast.subscriptionFail'))
     } finally {
-      setLoading(false)
+      setLoadingProduct(null)
     }
   }
 
   return (
-    <div className="max-w-[480px] mx-auto py-8 px-6 text-[13px]">
+    <div className="max-w-[640px] mx-auto py-8 px-6 text-[13px]">
       {/* Header */}
       <div className="text-center mb-6">
         <div className="inline-flex items-center gap-2 mb-2">
@@ -63,19 +76,85 @@ export function UpgradePage() {
         </span>
       </div>
 
-      {/* Pricing card */}
-      <div className="border border-border rounded-[10px] overflow-hidden mb-5">
-        <div className="px-4 py-4 bg-bg-secondary/50 border-b border-border">
-          <p className="text-[22px] font-semibold text-text-primary">
-            {PRO_PLAN.price}
-            <span className="text-[13px] font-normal text-text-secondary">
-              {' '}
-              / {t('upgrade.month')}
-            </span>
-          </p>
+      {/* Pricing cards */}
+      {visiblePlans.length > 0 && (
+        <div className={`grid gap-3 mb-5 ${hasMonthlyAccess ? '' : 'min-[620px]:grid-cols-2'}`}>
+          {visiblePlans.map((checkoutPlan) => {
+            const isLoading = loadingProduct === checkoutPlan.product
+            const isLifetime = checkoutPlan.product === 'lifetime_starter'
+            const price = hasMonthlyAccess && isLifetime && checkoutPlan.upgradePrice
+              ? checkoutPlan.upgradePrice
+              : checkoutPlan.price
+            const sublineKey = hasMonthlyAccess && isLifetime && checkoutPlan.upgradeSublineKey
+              ? checkoutPlan.upgradeSublineKey
+              : checkoutPlan.sublineKey
+            return (
+              <section
+                key={checkoutPlan.product}
+                className={`relative rounded-[10px] overflow-hidden ${
+                  isLifetime
+                    ? 'border border-amber-400/70 bg-amber-500/[0.06] shadow-[0_14px_40px_rgba(245,158,11,0.12)]'
+                    : 'border border-border'
+                }`}
+              >
+                <div
+                  className={`px-4 py-4 border-b ${
+                    isLifetime
+                      ? 'border-amber-400/30 bg-amber-500/[0.08]'
+                      : 'border-border bg-bg-secondary/50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-[14px] font-semibold text-text-primary">{t(checkoutPlan.nameKey)}</h2>
+                    {checkoutPlan.badgeKey && (
+                      <span className="shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-white">
+                        {t(checkoutPlan.badgeKey)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[22px] font-semibold text-text-primary">
+                    {price}
+                    <span className="text-[13px] font-normal text-text-secondary">
+                      {' '}
+                      / {t(checkoutPlan.periodKey)}
+                    </span>
+                  </p>
+                  <p className="mt-2 min-h-[36px] text-[12px] leading-5 text-text-secondary">
+                    {t(checkoutPlan.descriptionKey)}
+                  </p>
+                  {sublineKey && (
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-700">
+                      <Sparkles size={12} />
+                      {t(sublineKey)}
+                    </p>
+                  )}
+                </div>
+                {canStartCheckout(checkoutPlan.product) && (
+                  <div className="p-4">
+                    <button
+                      onClick={() => handleSubscribe(checkoutPlan.product)}
+                      disabled={loadingProduct !== null || !user}
+                      className={`w-full py-2.5 rounded-[8px] text-white text-[13px] font-medium cursor-pointer border-none hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                        isLifetime ? 'bg-amber-500' : 'bg-accent'
+                      }`}
+                    >
+                      {isLoading ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <CreditCard size={14} />
+                      )}
+                      {t(checkoutPlan.ctaKey)}
+                    </button>
+                  </div>
+                )}
+              </section>
+            )
+          })}
         </div>
+      )}
 
-        {/* Pro benefits */}
+      {/* Cloud plan benefits */}
+      <div className="border border-border rounded-[10px] overflow-hidden mb-5">
         <section className="px-4 py-3 border-b border-border bg-bg-primary/40">
           <h2 className="text-[12px] font-semibold text-text-primary">
             {t('upgrade.benefits.title')}
@@ -96,22 +175,6 @@ export function UpgradePage() {
             })}
           </div>
         </section>
-
-        {/* Features */}
-        <div>
-          {PRO_PLAN.features.map((f, i) => (
-            <div
-              key={i}
-              className="flex items-start gap-2.5 px-4 py-2.5 border-b border-border last:border-b-0"
-            >
-              <Check size={14} className="text-green-500 mt-0.5 shrink-0" />
-              <div>
-                <span className="text-text-primary">{t(f.labelKey)}</span>
-                <span className="text-text-tertiary ml-1.5 text-[12px]">{t(f.detailKey)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Pro quota progress */}
@@ -154,12 +217,22 @@ export function UpgradePage() {
       )}
 
       {/* Action */}
-      {hasCloudAccess ? (
+      {hasLifetimeAccess ? (
         <div className="text-center py-3">
           <p className="text-text-secondary flex items-center justify-center gap-1.5">
             <Crown size={14} className="text-amber-500" />
             {t('upgrade.thankYou')}
           </p>
+        </div>
+      ) : hasCloudAccess ? (
+        <div className="text-center py-3">
+          <p className="text-text-secondary flex items-center justify-center gap-1.5">
+            <Crown size={14} className="text-amber-500" />
+            {hasLifetimeCheckoutPlan
+              ? t('upgrade.monthlyActiveLifetimeHint', 'Pro is active. Lifetime is available as a one-time upgrade.')
+              : t('upgrade.monthlyActive', 'Pro is active.')}
+          </p>
+          {error && <p className="text-red-500 text-[12px] mt-2 text-center">{error}</p>}
         </div>
       ) : (
         <>
@@ -168,14 +241,6 @@ export function UpgradePage() {
               {t('upgrade.signInFirst')}
             </p>
           )}
-          <button
-            onClick={handleSubscribe}
-            disabled={loading || !user}
-            className="w-full py-2.5 rounded-[8px] bg-accent text-white text-[13px] font-medium cursor-pointer border-none hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 size={14} className="animate-spin" />}
-            {t('upgrade.subscribeToPro')}
-          </button>
           {error && <p className="text-red-500 text-[12px] mt-2 text-center">{error}</p>}
         </>
       )}

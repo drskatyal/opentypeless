@@ -1,7 +1,7 @@
-use crate::api_base_url;
 use crate::stt;
 use crate::stt::SttProvider;
 use crate::SessionTokenStore;
+use crate::{api_base_url, with_desktop_client_version};
 
 async fn check_volcengine_doubao_connection(
     api_key: &str,
@@ -29,15 +29,19 @@ fn has_managed_cloud_access(body: &serde_json::Value) -> bool {
     }
 
     let source = body["source"].as_str().unwrap_or_default();
+    let plan = body["plan"].as_str().unwrap_or_default();
     let cloud_words_limit = body["cloudWordsLimit"].as_i64().unwrap_or_default();
     if source == "appsumo" {
         return cloud_words_limit > 0 && body["licenseStatus"].as_str() == Some("active");
+    }
+    if source == "lifetime" {
+        return cloud_words_limit > 0 || plan == "lifetime_starter";
     }
     if source == "creem" && cloud_words_limit > 0 {
         return true;
     }
 
-    body["plan"].as_str() == Some("pro")
+    matches!(plan, "pro" | "lifetime_starter")
 }
 
 fn resolve_whisper_test_config(
@@ -81,13 +85,14 @@ pub async fn test_stt_connection(
             return Ok(false);
         }
         let api_base = api_base_url();
-        let resp = client
-            .get(format!("{}/api/subscription/status", api_base))
-            .header("Authorization", format!("Bearer {}", token))
-            .timeout(std::time::Duration::from_secs(10))
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
+        let resp = with_desktop_client_version(
+            client.get(format!("{}/api/subscription/status", api_base)),
+        )
+        .header("Authorization", format!("Bearer {}", token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
             return Ok(false);
         }
@@ -212,6 +217,24 @@ mod tests {
         assert!(!has_managed_cloud_access(&pending));
         assert!(!has_managed_cloud_access(&missing));
     }
+
+    #[test]
+    fn managed_cloud_access_allows_direct_lifetime_license() {
+        let lifetime_legacy_quota = serde_json::json!({
+            "plan": "lifetime_starter",
+            "source": "lifetime",
+            "cloudWordsLimit": 0,
+            "licenseStatus": "active"
+        });
+        let lifetime_cloud_words = serde_json::json!({
+            "plan": "lifetime_starter",
+            "source": "lifetime",
+            "cloudWordsLimit": 100000
+        });
+
+        assert!(has_managed_cloud_access(&lifetime_legacy_quota));
+        assert!(has_managed_cloud_access(&lifetime_cloud_words));
+    }
 }
 
 #[tauri::command]
@@ -239,13 +262,14 @@ pub async fn bench_stt_connection(
         }
         let api_base = api_base_url();
         let t0 = std::time::Instant::now();
-        let resp = client
-            .get(format!("{}/api/subscription/status", api_base))
-            .header("Authorization", format!("Bearer {}", token))
-            .timeout(std::time::Duration::from_secs(10))
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
+        let resp = with_desktop_client_version(
+            client.get(format!("{}/api/subscription/status", api_base)),
+        )
+        .header("Authorization", format!("Bearer {}", token))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
         let elapsed = t0.elapsed().as_millis() as u32;
         if !resp.status().is_success() {
             return Err("Request failed".to_string());

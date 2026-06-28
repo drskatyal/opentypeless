@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ApiError } from '../api'
-import { API_BASE_URL } from '../constants'
+import { API_BASE_URL, APP_VERSION_HEADER_VALUE, CLIENT_VERSION_HEADER } from '../constants'
 
 const API_BASE = API_BASE_URL
 
@@ -45,7 +45,10 @@ describe('request() via getSubscriptionStatus', () => {
       `${API_BASE}/api/subscription/status`,
       expect.objectContaining({
         credentials: 'include',
-        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          [CLIENT_VERSION_HEADER]: APP_VERSION_HEADER_VALUE,
+        }),
       }),
     )
   })
@@ -100,7 +103,7 @@ describe('createCheckout', () => {
     vi.restoreAllMocks()
   })
 
-  it('sends POST with origin in body', async () => {
+  it('sends POST with origin and checkout product in body', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -110,16 +113,48 @@ describe('createCheckout', () => {
     )
 
     const { createCheckout } = await import('../api')
-    const result = await createCheckout('web')
+    const result = await createCheckout('web', 'lifetime_starter')
 
     expect(fetch).toHaveBeenCalledWith(
       `${API_BASE}/api/checkout/create`,
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ origin: 'web' }),
+        body: JSON.stringify({ origin: 'web', product: 'lifetime_starter' }),
       }),
     )
     expect(result.url).toBe('https://checkout.stripe.com/xxx')
+  })
+})
+
+describe('proxyStt', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('sends the desktop client version without forcing a JSON content type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ text: 'transcribed text' }),
+      }),
+    )
+
+    const { proxyStt } = await import('../api')
+    const result = await proxyStt(new Blob(['audio'], { type: 'audio/wav' }), 'en')
+
+    expect(fetch).toHaveBeenCalledWith(
+      `${API_BASE}/api/proxy/stt`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          [CLIENT_VERSION_HEADER]: APP_VERSION_HEADER_VALUE,
+        }),
+      }),
+    )
+    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined()
+    expect(result.text).toBe('transcribed text')
   })
 })
 
@@ -145,6 +180,9 @@ describe('proxyLlm', () => {
       `${API_BASE}/api/proxy/llm`,
       expect.objectContaining({
         method: 'POST',
+        headers: expect.objectContaining({
+          [CLIENT_VERSION_HEADER]: APP_VERSION_HEADER_VALUE,
+        }),
         body: JSON.stringify({ messages }),
       }),
     )

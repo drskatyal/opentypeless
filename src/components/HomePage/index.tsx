@@ -15,6 +15,7 @@ export function HomePage() {
     displayName,
     cloudWordsUsed,
     cloudWordsLimit,
+    cloudWordsResetAt,
     sttSecondsUsed,
     sttSecondsLimit,
     llmTokensUsed,
@@ -74,13 +75,20 @@ export function HomePage() {
               </div>
               <div className="space-y-3">
                 {cloudWordsLimit > 0 ? (
-                  <QuotaBar
-                    label={t('account.cloudWords', 'Cloud words')}
-                    used={cloudWordsUsed}
-                    limit={cloudWordsLimit}
-                    unit={t('account.quotaKWords', 'k words')}
-                    divisor={1000}
-                  />
+                  <>
+                    <RemainingWords
+                      used={cloudWordsUsed}
+                      limit={cloudWordsLimit}
+                      resetAt={cloudWordsResetAt}
+                    />
+                    <QuotaBar
+                      label={t('account.cloudWords', 'Cloud words')}
+                      used={cloudWordsUsed}
+                      limit={cloudWordsLimit}
+                      unit={t('account.quotaKWords', 'k words')}
+                      divisor={1000}
+                    />
+                  </>
                 ) : (
                   <>
                     <QuotaBar
@@ -183,6 +191,36 @@ export function HomePage() {
           <span className="text-[13px] font-medium">{t('nav.history')}</span>
         </motion.button>
       </div>
+    </div>
+  )
+}
+
+function RemainingWords({
+  used,
+  limit,
+  resetAt,
+}: {
+  used: number
+  limit: number
+  resetAt: string | null
+}) {
+  const { t } = useTranslation()
+  const remaining = Math.max(limit - used, 0)
+  const formattedRemaining = new Intl.NumberFormat().format(remaining)
+
+  return (
+    <div className="rounded-[10px] bg-bg-secondary/60 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[12px] text-text-secondary">{t('home.wordsRemaining')}</span>
+        <span className="text-[18px] font-semibold text-text-primary tabular-nums">
+          {formattedRemaining}
+        </span>
+      </div>
+      {resetAt && (
+        <p className="mt-1 text-[11px] text-text-tertiary">
+          {t('home.wordsReset', { date: new Date(resetAt).toLocaleDateString() })}
+        </p>
+      )}
     </div>
   )
 }

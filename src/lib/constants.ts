@@ -14,6 +14,8 @@ export const UI_LANGUAGES = [
 
 export const APP_NAME = 'OpenTypeless'
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? 'v0.1.41'
+export const CLIENT_VERSION_HEADER = 'X-OpenTypeless-Version'
+export const APP_VERSION_HEADER_VALUE = APP_VERSION.replace(/^v/i, '')
 export const APP_REPO_URL = 'https://github.com/tover0314-w/opentypeless'
 export const APP_LICENSE_URL = 'https://github.com/tover0314-w/opentypeless/blob/main/LICENSE'
 // Cloud API base URL — defaults to www.opentypeless.com but can be overridden via VITE_API_BASE_URL env var.
@@ -25,25 +27,62 @@ export const FREE_PLAN = {
   llmTokens: 100_000,
 } as const
 
+export type CheckoutProduct = 'pro_monthly' | 'lifetime_starter'
+
+const CLOUD_PLAN_BENEFITS = [
+  { labelKey: 'upgrade.benefits.cloudWords' },
+  { labelKey: 'upgrade.benefits.noApiKey' },
+  { labelKey: 'upgrade.benefits.backupScenes' },
+] as const
+
+type CloudPlanBenefit = (typeof CLOUD_PLAN_BENEFITS)[number]
+
+export type CheckoutPlan = {
+  product: CheckoutProduct
+  nameKey: string
+  descriptionKey: string
+  badgeKey?: string
+  sublineKey?: string
+  price: string
+  upgradePrice?: string
+  upgradeSublineKey?: string
+  periodKey: string
+  ctaKey: string
+  benefits: readonly CloudPlanBenefit[]
+}
+
 export const PRO_PLAN = {
+  product: 'pro_monthly',
+  nameKey: 'upgrade.pro',
+  descriptionKey: 'upgrade.planDescriptions.pro',
   price: '$4.99',
-  period: 'month',
-  benefits: [
-    { labelKey: 'upgrade.benefits.stt' },
-    { labelKey: 'upgrade.benefits.llm' },
-    { labelKey: 'upgrade.benefits.noApiKey' },
-    { labelKey: 'upgrade.benefits.backupScenes' },
-  ],
-  features: [
-    { labelKey: 'upgrade.features.sttTitle', detailKey: 'upgrade.features.sttDetail' },
-    { labelKey: 'upgrade.features.llmTitle', detailKey: 'upgrade.features.llmDetail' },
-    { labelKey: 'upgrade.features.backupTitle', detailKey: 'upgrade.features.backupDetail' },
-    { labelKey: 'upgrade.features.scenesTitle', detailKey: 'upgrade.features.scenesDetail' },
-    {
-      labelKey: 'upgrade.features.zeroConfigTitle',
-      detailKey: 'upgrade.features.zeroConfigDetail',
-    },
-  ],
+  periodKey: 'upgrade.month',
+  ctaKey: 'upgrade.subscribeToPro',
+  benefits: CLOUD_PLAN_BENEFITS,
+} satisfies CheckoutPlan
+
+export const LIFETIME_PLAN = {
+  product: 'lifetime_starter',
+  nameKey: 'upgrade.lifetime',
+  descriptionKey: 'upgrade.planDescriptions.lifetime',
+  badgeKey: 'upgrade.lifetimeBadge',
+  sublineKey: 'upgrade.lifetimeSave',
+  price: '$89.99',
+  upgradePrice: '$84.99',
+  upgradeSublineKey: 'upgrade.lifetimeUpgradeSave',
+  periodKey: 'upgrade.oneTime',
+  ctaKey: 'upgrade.buyLifetime',
+  benefits: CLOUD_PLAN_BENEFITS,
+} satisfies CheckoutPlan
+
+export const CHECKOUT_PLANS: CheckoutPlan[] = [PRO_PLAN]
+
+export const DEFAULT_CHECKOUT_PRODUCT: CheckoutProduct = 'pro_monthly'
+
+export const ACTIVE_CLOUD_PLANS = ['pro', 'lifetime_starter'] as const
+
+export function isActiveCloudPlan(plan: string): plan is (typeof ACTIVE_CLOUD_PLANS)[number] {
+  return ACTIVE_CLOUD_PLANS.includes(plan as (typeof ACTIVE_CLOUD_PLANS)[number])
 }
 
 export const CUSTOM_WHISPER_PROVIDER = 'custom-whisper' as const
