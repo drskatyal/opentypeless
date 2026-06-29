@@ -189,7 +189,9 @@ describe('LlmPane', () => {
       render(<LlmPane />)
 
       expect(screen.getByText('Ask Anything')).toBeInTheDocument()
-      expect(screen.getByText('Voice question, one-shot answer. No chat history.')).toBeInTheDocument()
+      expect(
+        screen.getByText('Voice question, one-shot answer. No chat history.'),
+      ).toBeInTheDocument()
       expect(screen.getByText('Voice question')).toBeInTheDocument()
       expect(screen.getByText('Ready to ask')).toBeInTheDocument()
     })
@@ -311,6 +313,19 @@ describe('LlmPane', () => {
 
       render(<LlmPane />)
       expect(screen.getByText('Connection failed')).toBeInTheDocument()
+    })
+
+    it('shows backend error details when test fails', async () => {
+      const mockBenchLlm = vi.mocked(tauri.benchLlmConnection)
+      mockBenchLlm.mockRejectedValue('HTTP 429 Too Many Requests')
+
+      mockAppStore.config.llm_api_key = 'sk-test123'
+      render(<LlmPane />)
+
+      fireEvent.click(screen.getByRole('button', { name: /test/i }))
+
+      expect(await screen.findByText('HTTP 429 Too Many Requests')).toBeInTheDocument()
+      expect(mockAppStore.setLlmTestStatus).toHaveBeenCalledWith('error')
     })
   })
 

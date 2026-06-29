@@ -35,6 +35,7 @@ export function LlmPane() {
   const models = useAppStore((s) => s.llmModels)
   const setModels = useAppStore((s) => s.setLlmModels)
   const [fetchingModels, setFetchingModels] = useState(false)
+  const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null)
   const [polishAdvancedOpen, setPolishAdvancedOpen] = useState(hasCustomPolishConfig)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -79,6 +80,7 @@ export function LlmPane() {
   const handleTest = async () => {
     setLlmTestStatus('testing')
     setLlmLatencyMs(null)
+    setTestErrorMessage(null)
     try {
       const ms = await benchLlmConnection(
         config.llm_api_key,
@@ -91,6 +93,7 @@ export function LlmPane() {
       setLlmTestStatus('success')
     } catch (err) {
       console.error('[LLM Test] Error:', err)
+      setTestErrorMessage(err instanceof Error ? err.message : typeof err === 'string' ? err : null)
       setLlmTestStatus('error')
     }
   }
@@ -103,12 +106,8 @@ export function LlmPane() {
             <MessageCircleQuestion size={15} />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-medium text-text-primary">
-              {t('settings.askAnything')}
-            </p>
-            <p className="text-[11px] text-text-tertiary mt-0.5">
-              {t('settings.askAnythingDesc')}
-            </p>
+            <p className="text-[13px] font-medium text-text-primary">{t('settings.askAnything')}</p>
+            <p className="text-[11px] text-text-tertiary mt-0.5">{t('settings.askAnythingDesc')}</p>
           </div>
         </div>
         <AskPanel embedded showHeader={false} />
@@ -128,6 +127,7 @@ export function LlmPane() {
             setLlmTestStatus('idle')
             setLlmLatencyMs(null)
             setModels([])
+            setTestErrorMessage(null)
           }}
           className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
@@ -164,6 +164,7 @@ export function LlmPane() {
                   updateConfig({ llm_api_key: e.target.value })
                   setLlmTestStatus('idle')
                   setLlmLatencyMs(null)
+                  setTestErrorMessage(null)
                 }}
                 placeholder={t('settings.enterApiKey')}
                 className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
@@ -183,10 +184,11 @@ export function LlmPane() {
                 {llmLatencyMs !== null ? `${llmLatencyMs}ms` : t('settings.connectionSuccess')}
               </p>
             )}
-            {llmTestStatus === 'error' && (
-              <p className="flex items-center gap-1 text-[12px] text-error mt-2">
-                <XCircle size={13} /> {t('settings.connectionFailed')}
-              </p>
+            {(llmTestStatus === 'error' || testErrorMessage) && (
+              <div className="flex items-start gap-1 text-[12px] text-error mt-2">
+                <XCircle size={13} className="mt-[1px] flex-shrink-0" />
+                <span>{testErrorMessage || t('settings.connectionFailed')}</span>
+              </div>
             )}
             <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.storedLocally')}</p>
           </FormField>
@@ -200,6 +202,7 @@ export function LlmPane() {
                   onChange={(e) => {
                     updateConfig({ llm_model: e.target.value })
                     setLlmLatencyMs(null)
+                    setTestErrorMessage(null)
                   }}
                   placeholder={t('settings.llmModelPlaceholder')}
                   className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
@@ -229,7 +232,12 @@ export function LlmPane() {
           <FormField label={t('settings.baseUrl')}>
             <input
               value={config.llm_base_url}
-              onChange={(e) => updateConfig({ llm_base_url: e.target.value })}
+              onChange={(e) => {
+                updateConfig({ llm_base_url: e.target.value })
+                setLlmTestStatus('idle')
+                setLlmLatencyMs(null)
+                setTestErrorMessage(null)
+              }}
               placeholder={
                 LLM_DEFAULT_CONFIG[config.llm_provider]?.baseUrl ?? 'https://api.openai.com/v1'
               }
