@@ -46,4 +46,17 @@ describe('deep-link OAuth callback', () => {
     expect(mocks.handleDeepLinkToken).toHaveBeenCalledWith('valid-token-12345')
     expect(window.location.hash).toBe('#/account')
   })
+
+  it('returns true when a pasted desktop callback signs the user in', async () => {
+    const module = await import('../deep-link')
+    const state = module.generateOAuthState()
+
+    const handled = await module.handleDeepLinkUrl(
+      `opentypeless://auth/callback?token=valid-token-12345&state=${state}`,
+    )
+
+    expect(handled).toBe(true)
+    expect(mocks.handleDeepLinkToken).toHaveBeenCalledWith('valid-token-12345')
+    expect(window.location.hash).toBe('#/account')
+  })
 })

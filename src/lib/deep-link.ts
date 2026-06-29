@@ -79,17 +79,17 @@ function isValidToken(token: string): boolean {
   return /^[\w\-._~+/]+=*$/.test(token) && token.length >= 10 && token.length <= 4096
 }
 
-async function handleDeepLinkUrl(rawUrl: string) {
+export async function handleDeepLinkUrl(rawUrl: string): Promise<boolean> {
   console.log('[deep-link] received URL:', rawUrl.replace(/token=[^&]+/, 'token=***'))
   let url: URL
   try {
     url = new URL(rawUrl)
   } catch {
-    return
+    return false
   }
 
   // Only accept our custom scheme
-  if (url.protocol !== 'opentypeless:') return
+  if (url.protocol !== 'opentypeless:') return false
 
   const path = url.hostname + url.pathname
   const params = url.searchParams
@@ -102,26 +102,29 @@ async function handleDeepLinkUrl(rawUrl: string) {
 
     // Reject tokens when no OAuth flow was initiated (prevents external injection)
     if (!expectedState) {
-      return
+      return false
     }
     // Validate CSRF state
     if (state !== expectedState) {
       clearOAuthState()
-      return
+      return false
     }
     clearOAuthState()
 
     if (token && isValidToken(token)) {
       await useAuthStore.getState().handleDeepLinkToken(token)
       window.location.hash = '#/account'
+      return true
     }
-    return
+    return false
   }
 
   // opentypeless://checkout/success
   if (path === 'checkout/success' || path === 'checkout/success/') {
     await useAuthStore.getState().refreshSubscription()
     window.location.hash = '#/upgrade'
-    return
+    return true
   }
+
+  return false
 }

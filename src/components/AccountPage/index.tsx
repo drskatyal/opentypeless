@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Upload, Download, Loader2, ExternalLink } from 'lucide-react'
+import { LogOut, Upload, Download, Loader2, ExternalLink, ClipboardCheck } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
 import { API_BASE_URL } from '../../lib/constants'
 import { uploadBackup, downloadBackup, createPortalSession } from '../../lib/api'
-import { generateOAuthState, clearOAuthState } from '../../lib/deep-link'
+import { generateOAuthState, clearOAuthState, handleDeepLinkUrl } from '../../lib/deep-link'
 
 type Tab = 'signin' | 'signup'
 
@@ -147,6 +148,19 @@ function AuthForm() {
     }
   }
 
+  const handleClipboardOAuth = async () => {
+    setLocalError(null)
+    try {
+      const text = (await readText()).trim()
+      const handled = await handleDeepLinkUrl(text)
+      if (!handled) {
+        setLocalError(t('account.oauthClipboardInvalid', 'No valid sign-in link found.'))
+      }
+    } catch {
+      setLocalError(t('account.oauthClipboardInvalid', 'No valid sign-in link found.'))
+    }
+  }
+
   if (oauthPending) {
     return (
       <div className="max-w-[340px] mx-auto py-8 px-6 text-[13px] text-center">
@@ -222,16 +236,26 @@ function AuthForm() {
             />
           </div>
 
-          {/* Cancel button */}
-          <button
-            onClick={() => {
-              setOauthPending(null)
-              clearOAuthState()
-            }}
-            className="px-4 py-2 rounded-[10px] border border-border bg-transparent text-text-secondary text-[12px] cursor-pointer hover:bg-bg-secondary transition-colors"
-          >
-            {t('account.cancel', 'Cancel')}
-          </button>
+          {displayError && <p className="text-error text-[12px]">{displayError}</p>}
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleClipboardOAuth}
+              className="px-4 py-2 rounded-[10px] border border-border bg-bg-secondary text-text-primary text-[12px] cursor-pointer hover:bg-bg-tertiary transition-colors inline-flex items-center justify-center gap-2"
+            >
+              <ClipboardCheck size={14} />
+              {t('account.completeFromClipboard', 'Complete from clipboard')}
+            </button>
+            <button
+              onClick={() => {
+                setOauthPending(null)
+                clearOAuthState()
+              }}
+              className="px-4 py-2 rounded-[10px] border border-border bg-transparent text-text-secondary text-[12px] cursor-pointer hover:bg-bg-secondary transition-colors"
+            >
+              {t('account.cancel', 'Cancel')}
+            </button>
+          </div>
         </div>
       </div>
     )
