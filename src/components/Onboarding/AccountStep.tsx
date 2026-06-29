@@ -6,7 +6,13 @@ import { openUrl } from '@tauri-apps/plugin-opener'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { useAuthStore } from '../../stores/authStore'
 import { API_BASE_URL } from '../../lib/constants'
-import { generateOAuthState, clearOAuthState, handleDeepLinkUrl } from '../../lib/deep-link'
+import {
+  EMAIL_VERIFICATION_STATE_TTL_MS,
+  OAUTH_STATE_TTL_MS,
+  clearOAuthState,
+  handleDeepLinkUrl,
+} from '../../lib/deep-link'
+import { createDesktopAuthCallbackURL } from '../../lib/desktop-auth-callback'
 
 type Tab = 'signin' | 'signup'
 
@@ -22,17 +28,14 @@ export function AccountStep() {
   const [resent, setResent] = useState(false)
   const [oauthPending, setOauthPending] = useState<'google' | 'github' | null>(null)
 
-  // Auto-timeout OAuth pending state after 2 minutes
+  // Keep the UI timeout aligned with the persisted OAuth state TTL.
   useEffect(() => {
     if (!oauthPending) return
-    const timer = setTimeout(
-      () => {
-        setOauthPending(null)
-        clearOAuthState()
-        setLocalError(t('onboarding.account.signInTimedOut'))
-      },
-      2 * 60 * 1000,
-    )
+    const timer = setTimeout(() => {
+      setOauthPending(null)
+      clearOAuthState()
+      setLocalError(t('onboarding.account.signInTimedOut'))
+    }, OAUTH_STATE_TTL_MS)
     return () => clearTimeout(timer)
   }, [oauthPending, t])
 
@@ -48,9 +51,14 @@ export function AccountStep() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLocalError(null)
+    let verificationCallbackURL: string | null = null
     try {
       if (tab === 'signin') {
-        await signIn(email, password)
+        verificationCallbackURL = createDesktopAuthCallbackURL(EMAIL_VERIFICATION_STATE_TTL_MS)
+        await signIn(email, password, { verificationCallbackURL })
+        if (!useAuthStore.getState().emailVerificationPending) {
+          clearOAuthState()
+        }
       } else {
         if (!name.trim()) {
           setLocalError(t('onboarding.account.nameRequired'))
@@ -60,9 +68,13 @@ export function AccountStep() {
           setLocalError(t('onboarding.account.passwordTooShort'))
           return
         }
-        await signUp(email, password, name)
+        verificationCallbackURL = createDesktopAuthCallbackURL(EMAIL_VERIFICATION_STATE_TTL_MS)
+        await signUp(email, password, name, { verificationCallbackURL })
       }
     } catch {
+      if (!useAuthStore.getState().emailVerificationPending) {
+        clearOAuthState()
+      }
       // Error already set in store
     }
   }
@@ -71,8 +83,7 @@ export function AccountStep() {
     try {
       setOauthPending(provider)
       setLocalError(null)
-      const state = generateOAuthState()
-      const callbackURL = `${API_BASE_URL}/auth/callback?from=desktop&state=${state}`
+      const callbackURL = createDesktopAuthCallbackURL()
       const url = `${API_BASE_URL}/api/auth/desktop-oauth?provider=${provider}&callbackURL=${encodeURIComponent(callbackURL)}`
       await openUrl(url)
     } catch {
@@ -154,7 +165,10 @@ export function AccountStep() {
           <button
             onClick={async () => {
               setResent(false)
-              await resendVerification()
+              const verificationCallbackURL = createDesktopAuthCallbackURL(
+                EMAIL_VERIFICATION_STATE_TTL_MS,
+              )
+              await resendVerification({ verificationCallbackURL })
               if (!useAuthStore.getState().error) {
                 setResent(true)
               }
@@ -171,6 +185,7 @@ export function AccountStep() {
           <button
             onClick={() => {
               useAuthStore.setState({ emailVerificationPending: false, pendingEmail: null })
+              clearOAuthState()
               setTab('signin')
               setResent(false)
             }}

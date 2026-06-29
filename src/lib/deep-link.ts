@@ -5,13 +5,14 @@ import { useAuthStore } from '../stores/authStore'
 let pendingOAuthState: string | null = null
 let pendingOAuthTimer: ReturnType<typeof setTimeout> | null = null
 const OAUTH_STATE_STORAGE_KEY = 'opentypeless.pendingOAuthState'
-const OAUTH_STATE_TTL_MS = 5 * 60 * 1000
+export const OAUTH_STATE_TTL_MS = 5 * 60 * 1000
+export const EMAIL_VERIFICATION_STATE_TTL_MS = 30 * 60 * 1000
 
-function persistOAuthState(state: string): void {
+function persistOAuthState(state: string, ttlMs: number): void {
   try {
     localStorage.setItem(
       OAUTH_STATE_STORAGE_KEY,
-      JSON.stringify({ state, expiresAt: Date.now() + OAUTH_STATE_TTL_MS }),
+      JSON.stringify({ state, expiresAt: Date.now() + ttlMs }),
     )
   } catch {
     // localStorage may be unavailable in some webview/test contexts.
@@ -38,13 +39,12 @@ function loadPersistedOAuthState(): string | null {
 }
 
 /** Generate and store a random state string for OAuth CSRF protection. */
-export function generateOAuthState(): string {
+export function generateOAuthState(ttlMs = OAUTH_STATE_TTL_MS): string {
   clearOAuthState()
   const state = crypto.randomUUID()
   pendingOAuthState = state
-  persistOAuthState(state)
-  // Auto-expire after 5 minutes to prevent stale state
-  pendingOAuthTimer = setTimeout(clearOAuthState, OAUTH_STATE_TTL_MS)
+  persistOAuthState(state, ttlMs)
+  pendingOAuthTimer = setTimeout(clearOAuthState, ttlMs)
   return state
 }
 
@@ -91,7 +91,7 @@ export async function handleDeepLinkUrl(rawUrl: string): Promise<boolean> {
   // Only accept our custom scheme
   if (url.protocol !== 'opentypeless:') return false
 
-  const path = url.hostname + url.pathname
+  const path = url.hostname ? url.hostname + url.pathname : url.pathname.replace(/^\/+/, '')
   const params = url.searchParams
 
   // opentypeless://auth/callback?token=xxx&state=yyy

@@ -7,7 +7,13 @@ import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
 import { API_BASE_URL } from '../../lib/constants'
 import { uploadBackup, downloadBackup, createPortalSession } from '../../lib/api'
-import { generateOAuthState, clearOAuthState, handleDeepLinkUrl } from '../../lib/deep-link'
+import {
+  EMAIL_VERIFICATION_STATE_TTL_MS,
+  OAUTH_STATE_TTL_MS,
+  clearOAuthState,
+  handleDeepLinkUrl,
+} from '../../lib/deep-link'
+import { createDesktopAuthCallbackURL } from '../../lib/desktop-auth-callback'
 
 type Tab = 'signin' | 'signup'
 
@@ -41,17 +47,14 @@ function AuthForm() {
   const [oauthPending, setOauthPending] = useState<'google' | 'github' | null>(null)
   const { t } = useTranslation()
 
-  // Auto-timeout OAuth pending state after 2 minutes
+  // Keep the UI timeout aligned with the persisted OAuth state TTL.
   useEffect(() => {
     if (!oauthPending) return
-    const timer = setTimeout(
-      () => {
-        setOauthPending(null)
-        clearOAuthState()
-        setLocalError(t('account.oauthTimeout', 'Sign in timed out. Please try again.'))
-      },
-      2 * 60 * 1000,
-    )
+    const timer = setTimeout(() => {
+      setOauthPending(null)
+      clearOAuthState()
+      setLocalError(t('account.oauthTimeout', 'Sign in timed out. Please try again.'))
+    }, OAUTH_STATE_TTL_MS)
     return () => clearTimeout(timer)
   }, [oauthPending, t])
 
@@ -62,7 +65,13 @@ function AuthForm() {
     setLocalError(null)
     try {
       if (tab === 'signin') {
-        await signIn(email, password)
+        const verificationCallbackURL = createDesktopAuthCallbackURL(
+          EMAIL_VERIFICATION_STATE_TTL_MS,
+        )
+        await signIn(email, password, { verificationCallbackURL })
+        if (!useAuthStore.getState().emailVerificationPending) {
+          clearOAuthState()
+        }
       } else {
         if (!name.trim()) {
           setLocalError(t('account.nameRequired'))
@@ -72,9 +81,15 @@ function AuthForm() {
           setLocalError(t('account.passwordMinLength'))
           return
         }
-        await signUp(email, password, name)
+        const verificationCallbackURL = createDesktopAuthCallbackURL(
+          EMAIL_VERIFICATION_STATE_TTL_MS,
+        )
+        await signUp(email, password, name, { verificationCallbackURL })
       }
     } catch {
+      if (!useAuthStore.getState().emailVerificationPending) {
+        clearOAuthState()
+      }
       // Error already set in store
     }
   }
@@ -96,7 +111,10 @@ function AuthForm() {
           <button
             onClick={async () => {
               setResent(false)
-              await resendVerification()
+              const verificationCallbackURL = createDesktopAuthCallbackURL(
+                EMAIL_VERIFICATION_STATE_TTL_MS,
+              )
+              await resendVerification({ verificationCallbackURL })
               // Only show success if store didn't set an error
               if (!useAuthStore.getState().error) {
                 setResent(true)
@@ -118,6 +136,7 @@ function AuthForm() {
           <button
             onClick={() => {
               useAuthStore.setState({ emailVerificationPending: false, pendingEmail: null })
+              clearOAuthState()
               setTab('signin')
               setResent(false)
             }}
@@ -134,8 +153,7 @@ function AuthForm() {
     try {
       setOauthPending(provider)
       setLocalError(null)
-      const state = generateOAuthState()
-      const callbackURL = `${API_BASE_URL}/auth/callback?from=desktop&state=${state}`
+      const callbackURL = createDesktopAuthCallbackURL()
       // Open the desktop-oauth bridge route in the system browser. The server
       // internally POSTs to Better Auth, then 302-redirects the browser to the
       // OAuth provider while forwarding the state cookie — keeping cookie and

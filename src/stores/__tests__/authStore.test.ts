@@ -11,6 +11,7 @@ vi.mock('../../lib/auth-client', () => ({
     getSession: vi.fn(),
     signIn: { email: vi.fn() },
     signUp: { email: vi.fn() },
+    sendVerificationEmail: vi.fn(),
     signOut: vi.fn(),
   },
 }))
@@ -64,6 +65,12 @@ describe('authStore', () => {
     // Set up mock implementations fresh each test
     vi.mocked(invoke).mockResolvedValue(undefined)
     vi.mocked(authClient.getSession).mockResolvedValue({ data: null } as never)
+    vi.mocked(authClient.signIn.email).mockResolvedValue({ data: null, error: null } as never)
+    vi.mocked(authClient.signUp.email).mockResolvedValue({ data: null, error: null } as never)
+    vi.mocked(authClient.sendVerificationEmail).mockResolvedValue({
+      data: null,
+      error: null,
+    } as never)
     vi.mocked(authClient.signOut).mockResolvedValue(undefined as never)
     vi.mocked(getSubscriptionStatus).mockResolvedValue({
       plan: 'pro',
@@ -93,6 +100,56 @@ describe('authStore', () => {
       expect(getState().plan).toBe('free')
       expect(getState().loading).toBe(false)
       expect(getState().error).toBeNull()
+    })
+  })
+
+  describe('email verification callback', () => {
+    it('passes a desktop callback URL when signing up', async () => {
+      await getState().signUp('test@example.com', 'password123', 'Test', {
+        verificationCallbackURL: 'https://www.opentypeless.com/auth/callback?from=desktop',
+      })
+
+      expect(authClient.signUp.email).toHaveBeenCalledWith(
+        {
+          email: 'test@example.com',
+          password: 'password123',
+          name: 'Test',
+          callbackURL: 'https://www.opentypeless.com/auth/callback?from=desktop',
+        },
+        expect.any(Object),
+      )
+      expect(getState().emailVerificationPending).toBe(true)
+      expect(getState().pendingEmail).toBe('test@example.com')
+    })
+
+    it('resends verification with a desktop callback URL for unverified sign-ins', async () => {
+      vi.mocked(authClient.signIn.email).mockResolvedValue({
+        data: null,
+        error: { code: 'EMAIL_NOT_VERIFIED', message: 'Email not verified' },
+      } as never)
+
+      await getState().signIn('test@example.com', 'password123', {
+        verificationCallbackURL: 'https://www.opentypeless.com/auth/callback?from=desktop',
+      })
+
+      expect(authClient.sendVerificationEmail).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        callbackURL: 'https://www.opentypeless.com/auth/callback?from=desktop',
+      })
+      expect(getState().emailVerificationPending).toBe(true)
+    })
+
+    it('resends pending verification with the supplied callback URL', async () => {
+      useAuthStore.setState({ pendingEmail: 'test@example.com' })
+
+      await getState().resendVerification({
+        verificationCallbackURL: 'https://www.opentypeless.com/auth/callback?from=desktop',
+      })
+
+      expect(authClient.sendVerificationEmail).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        callbackURL: 'https://www.opentypeless.com/auth/callback?from=desktop',
+      })
     })
   })
 

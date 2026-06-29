@@ -57,9 +57,18 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, name: string) => Promise<void>
-  resendVerification: () => Promise<void>
+  signIn: (
+    email: string,
+    password: string,
+    options?: { verificationCallbackURL?: string },
+  ) => Promise<void>
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    options?: { verificationCallbackURL?: string },
+  ) => Promise<void>
+  resendVerification: (options?: { verificationCallbackURL?: string }) => Promise<void>
   signOut: () => Promise<void>
   refreshSubscription: () => Promise<void>
   handleDeepLinkToken: (token: string) => Promise<void>
@@ -135,7 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signIn: async (email, password) => {
+  signIn: async (email, password, options) => {
     set({ loading: true, error: null })
     try {
       const { data, error } = await authClient.signIn.email(
@@ -155,6 +164,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) {
         if (error.code === 'EMAIL_NOT_VERIFIED') {
           set({ emailVerificationPending: true, pendingEmail: email })
+          if (options?.verificationCallbackURL) {
+            const verification = await authClient.sendVerificationEmail({
+              email,
+              callbackURL: options.verificationCallbackURL,
+            })
+            if (verification.error) {
+              throw new Error(verification.error.message ?? 'Failed to send verification email')
+            }
+          }
           return
         }
         throw new Error(error.message ?? 'Sign in failed')
@@ -178,11 +196,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password, name) => {
+  signUp: async (email, password, name, options) => {
     set({ loading: true, error: null, emailVerificationPending: false })
     try {
       const { error } = await authClient.signUp.email(
-        { email, password, name },
+        {
+          email,
+          password,
+          name,
+          ...(options?.verificationCallbackURL
+            ? { callbackURL: options.verificationCallbackURL }
+            : {}),
+        },
         {
           onSuccess: async (ctx) => {
             const token = ctx.response.headers.get('set-auth-token')
@@ -207,12 +232,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  resendVerification: async () => {
+  resendVerification: async (options) => {
     const email = get().pendingEmail
     if (!email) return
     set({ loading: true, error: null })
     try {
-      const { error } = await authClient.sendVerificationEmail({ email })
+      const { error } = await authClient.sendVerificationEmail({
+        email,
+        ...(options?.verificationCallbackURL
+          ? { callbackURL: options.verificationCallbackURL }
+          : {}),
+      })
       if (error) throw new Error(error.message ?? 'Failed to resend')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to resend verification email'
