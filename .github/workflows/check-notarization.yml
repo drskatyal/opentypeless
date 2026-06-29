@@ -1,0 +1,36 @@
+name: Check Notarization
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission_id:
+        description: 'Apple notarization submission ID'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check notarization status
+        shell: bash
+        env:
+          SUBMISSION_ID: ${{ github.event.inputs.submission_id }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID SUBMISSION_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is required."
+              exit 1
+            fi
+          done
+
+          xcrun notarytool info "$SUBMISSION_ID" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID"
