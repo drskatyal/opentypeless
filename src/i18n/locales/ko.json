@@ -27,6 +27,8 @@
     "placeholder": "질문을 입력하거나 위 캡슐을 사용하세요.",
     "recordQuestion": "질문 녹음",
     "stopAndAsk": "멈추고 질문",
+    "copyAnswer": "답변 복사",
+    "copied": "복사됨",
     "send": "질문"
   },
   "errors": {

@@ -9,13 +9,17 @@
 <h1 align="center">OpenTypeless</h1>
 
 <p align="center">
-  开源桌面端 AI 语音输入工具。自然说话，在任意应用中获得润色后的文本。
+  开源版 Wispr Flow / Superwhisper：面向 macOS、Windows 和 Linux 的 AI 语音输入、改写和语音问答工具。
 </p>
 
 <p align="center">
   无论你在写邮件、写代码、聊天还是做笔记 — 只需按下热键，<br/>
   说出你的想法，OpenTypeless 会用 AI 转录并润色你的语音，<br/>
   然后直接输入到你正在使用的任何应用中。
+</p>
+
+<p align="center">
+  如果 OpenTypeless 对你的工作流有帮助，欢迎点一个 GitHub Star，让更多人发现这个项目。
 </p>
 
 <p align="center">

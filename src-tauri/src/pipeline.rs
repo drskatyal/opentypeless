@@ -325,6 +325,16 @@ pub struct PipelineHandle {
     pipeline_lock: tokio::sync::Mutex<()>,
 }
 
+struct PolishTextInput<'a> {
+    raw_text: &'a str,
+    config: &'a storage::AppConfig,
+    app_ctx: &'a app_detector::AppContext,
+    dictionary_words: Vec<String>,
+    selected_text: Option<String>,
+    session_token: String,
+    operation_id: Option<String>,
+}
+
 impl PipelineHandle {
     pub fn new(app_handle: tauri::AppHandle, shared_client: reqwest::Client) -> Self {
         Self {
@@ -1086,15 +1096,15 @@ impl PipelineHandle {
 
         // ── Phase 2: LLM polish + output ───────────────────────────────
         let (final_text, llm_elapsed) = self
-            .polish_text(
-                &raw_text,
-                &config,
-                &app_ctx,
+            .polish_text(PolishTextInput {
+                raw_text: &raw_text,
+                config: &config,
+                app_ctx: &app_ctx,
                 dictionary_words,
                 selected_text,
                 session_token,
                 operation_id,
-            )
+            })
             .await;
 
         // ── Phase 3: Timing, history, cleanup ──────────────────────────
@@ -1193,16 +1203,17 @@ impl PipelineHandle {
 
     /// Polish raw text with LLM and output the result.
     /// Returns (final_text, llm_elapsed_duration).
-    async fn polish_text(
-        &self,
-        raw_text: &str,
-        config: &storage::AppConfig,
-        app_ctx: &app_detector::AppContext,
-        dictionary_words: Vec<String>,
-        selected_text: Option<String>,
-        session_token: String,
-        operation_id: Option<String>,
-    ) -> (String, std::time::Duration) {
+    async fn polish_text(&self, input: PolishTextInput<'_>) -> (String, std::time::Duration) {
+        let PolishTextInput {
+            raw_text,
+            config,
+            app_ctx,
+            dictionary_words,
+            selected_text,
+            session_token,
+            operation_id,
+        } = input;
+
         // Check if polish is enabled and API key / token is available
         if !config.polish_enabled
             || (config.llm_api_key.is_empty() && config.llm_provider != "cloud")

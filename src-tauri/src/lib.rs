@@ -71,6 +71,79 @@ fn restore_main_window(app: &tauri::AppHandle) {
     }
 }
 
+fn should_preserve_auxiliary_window_on_close(label: &str) -> bool {
+    label == "ask"
+}
+
+fn attach_ask_window_close_handler(handle: &tauri::AppHandle, ask_window: &tauri::WebviewWindow) {
+    let handle = handle.clone();
+    ask_window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if should_preserve_auxiliary_window_on_close("ask") {
+                api.prevent_close();
+                if let Some(w) = handle.get_webview_window("ask") {
+                    let _ = w.hide();
+                }
+            }
+        }
+    });
+}
+
+fn build_ask_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    if let Some(config) = handle
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == "ask")
+    {
+        return tauri::WebviewWindowBuilder::from_config(handle, config)?.build();
+    }
+
+    tauri::WebviewWindowBuilder::new(
+        handle,
+        "ask",
+        tauri::WebviewUrl::App("index.html#ask".into()),
+    )
+    .title("OpenTypeless Ask")
+    .inner_size(420.0, 320.0)
+    .min_inner_size(360.0, 260.0)
+    .resizable(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .visible(false)
+    .build()
+}
+
+pub fn ensure_ask_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    if let Some(window) = handle.get_webview_window("ask") {
+        return Ok(window);
+    }
+
+    match build_ask_window(handle) {
+        Ok(window) => {
+            attach_ask_window_close_handler(handle, &window);
+            Ok(window)
+        }
+        Err(error) => {
+            if let Some(window) = handle.get_webview_window("ask") {
+                Ok(window)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+pub fn show_ask_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    let window = ensure_ask_window(handle)?;
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(window)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,6 +162,21 @@ mod tests {
     fn desktop_client_version_header_matches_frontend_contract() {
         assert_eq!(crate::CLIENT_VERSION_HEADER, "X-OpenTypeless-Version");
         assert_eq!(crate::desktop_client_version(), env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn ask_window_close_keeps_popup_available_for_future_results() {
+        assert!(should_preserve_auxiliary_window_on_close("ask"));
+        assert!(!should_preserve_auxiliary_window_on_close("main"));
+    }
+
+    #[test]
+    fn ask_window_fallback_uses_ask_route() {
+        let url = tauri::WebviewUrl::App("index.html#ask".into());
+        match url {
+            tauri::WebviewUrl::App(path) => assert_eq!(path.to_string_lossy(), "index.html#ask"),
+            _ => panic!("expected app url"),
+        }
     }
 }
 
@@ -464,6 +552,10 @@ pub fn run() {
                         }
                     }
                 });
+            }
+
+            if let Some(ask_window) = app.get_webview_window("ask") {
+                attach_ask_window_close_handler(app.handle(), &ask_window);
             }
 
             // Restore window state from previous session

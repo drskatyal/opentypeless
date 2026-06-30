@@ -27,6 +27,8 @@
     "placeholder": "質問を入力するか、上のカプセルを使ってください。",
     "recordQuestion": "質問を録音",
     "stopAndAsk": "停止して質問",
+    "copyAnswer": "回答をコピー",
+    "copied": "コピーしました",
     "send": "質問"
   },
   "errors": {

@@ -27,6 +27,8 @@
     "placeholder": "Tippen Sie eine Frage oder nutzen Sie die Kapsel oben.",
     "recordQuestion": "Frage aufnehmen",
     "stopAndAsk": "Stoppen und fragen",
+    "copyAnswer": "Antwort kopieren",
+    "copied": "Kopiert",
     "send": "Fragen"
   },
   "errors": {

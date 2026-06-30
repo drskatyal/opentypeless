@@ -28,11 +28,9 @@ vi.mock('react-i18next', () => ({
         'onboarding.done.askAnythingSub':
           'Use the Ask hotkey to record a question; stop to get one answer.',
         'onboarding.done.clickCapsule': 'Click Capsule',
-        'onboarding.done.clickCapsuleSub':
-          'When visible, click the capsule to toggle recording.',
+        'onboarding.done.clickCapsuleSub': 'When visible, click the capsule to toggle recording.',
         'onboarding.done.dragToReposition': 'Drag to Reposition',
-        'onboarding.done.dragToRepositionSub':
-          'When visible, drag the capsule anywhere on screen.',
+        'onboarding.done.dragToRepositionSub': 'When visible, drag the capsule anywhere on screen.',
         'onboarding.done.rightClickMenu': 'Right-click Menu',
         'onboarding.done.restoreCapsuleSub':
           'Use the tray or Settings to keep the capsule visible while idle.',
@@ -45,7 +43,7 @@ vi.mock('../../../stores/appStore', () => ({
     selector({
       config: {
         hotkey: 'Option+/',
-        ask_hotkey: 'Option+Shift+/',
+        ask_hotkey: 'Command+.',
         output_mode: 'clipboard',
       },
     }),
@@ -63,7 +61,7 @@ describe('DoneStep', () => {
   it('teaches the Ask Anything voice question shortcut during onboarding', () => {
     render(<DoneStep />)
 
-    expect(screen.getByText('Ask Anything Option+Shift+/')).toBeInTheDocument()
+    expect(screen.getByText('Ask Anything Command+.')).toBeInTheDocument()
     expect(
       screen.getByText('Use the Ask hotkey to record a question; stop to get one answer.'),
     ).toBeInTheDocument()

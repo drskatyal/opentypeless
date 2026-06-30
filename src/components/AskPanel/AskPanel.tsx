@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Mic, Square } from 'lucide-react'
+import { Check, Copy, Loader2, Mic, Square } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   abortAskDictation,
@@ -24,9 +24,12 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
   const [answer, setAnswer] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [dictationState, setDictationState] = useState<'idle' | 'recording' | 'processing'>('idle')
   const loadingRef = useRef(loading)
   const dictationStateRef = useRef(dictationState)
+  const ownsDictationRef = useRef(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     loadingRef.current = loading
@@ -47,6 +50,7 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
     (payload: AskResultPayload) => {
       setAnswer(payload.answer)
       setError('')
+      setCopied(false)
       setAskDictationState('idle')
       setBusy(false)
     },
@@ -57,6 +61,7 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
     (message: string) => {
       setError(message)
       setAnswer('')
+      setCopied(false)
       setAskDictationState('idle')
       setBusy(false)
     },
@@ -68,10 +73,13 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
 
     setAnswer('')
     setError('')
+    setCopied(false)
     setAskDictationState('recording')
+    ownsDictationRef.current = true
     try {
       await startAskDictation()
     } catch (e) {
+      ownsDictationRef.current = false
       setError(e instanceof Error ? e.message : String(e))
       setAskDictationState('idle')
     }
@@ -83,18 +91,23 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
     setAskDictationState('processing')
     setBusy(true)
     setError('')
+    ownsDictationRef.current = false
     try {
       const result = await stopAskDictation()
       setAnswer(result.answer)
+      setCopied(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
+      ownsDictationRef.current = false
       setBusy(false)
       setAskDictationState('idle')
     }
   }, [setAskDictationState, setBusy])
 
   useEffect(() => {
+    if (embedded) return
+
     let cancelled = false
     const unlisteners: Array<() => void> = []
     const applyPendingMessage = async () => {
@@ -137,9 +150,17 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
     return () => {
       cancelled = true
       unlisteners.forEach((unlisten) => unlisten())
+    }
+  }, [applyError, applyResult, embedded])
+
+  useEffect(() => {
+    return () => {
+      if (!ownsDictationRef.current) return
+      if (dictationStateRef.current !== 'recording') return
+      ownsDictationRef.current = false
       Promise.resolve(abortAskDictation()).catch(() => {})
     }
-  }, [applyError, applyResult])
+  }, [])
 
   const toggleDictation = useCallback(() => {
     if (dictationState === 'recording') {
@@ -150,6 +171,24 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
     void beginDictation()
   }, [beginDictation, dictationState, finishDictation])
 
+  const copyAnswer = useCallback(() => {
+    if (!answer) return
+    navigator.clipboard
+      .writeText(answer)
+      .then(() => {
+        setCopied(true)
+        if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+        copiedTimerRef.current = setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => {})
+  }, [answer])
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
+
   const capsuleLabel =
     dictationState === 'recording'
       ? t('ask.listening')
@@ -159,18 +198,36 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
   const capsuleActive = dictationState === 'recording' || dictationState === 'processing'
   const displayTitle = title === 'Ask' ? t('ask.title') : title
   const resultText = error || answer
+  const canCopyAnswer = Boolean(answer && !error)
+  const copyAction = canCopyAnswer ? (
+    <div className="flex shrink-0 items-center gap-2">
+      {copied && <span className="text-[11px] text-success">{t('ask.copied')}</span>}
+      <button
+        type="button"
+        aria-label={t('ask.copyAnswer')}
+        title={t('ask.copyAnswer')}
+        onClick={copyAnswer}
+        className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-border bg-bg-secondary text-text-tertiary transition-colors hover:border-border-focus hover:text-accent cursor-pointer"
+      >
+        {copied ? <Check size={13} /> : <Copy size={13} />}
+      </button>
+    </div>
+  ) : null
 
   if (!embedded) {
     return (
       <div className="h-screen w-screen overflow-y-auto bg-bg-primary px-4 py-3 text-text-primary">
         {resultText && (
-          <p
-            className={`whitespace-pre-wrap text-[13px] leading-5 ${
-              error ? 'text-error' : 'text-text-primary'
-            }`}
-          >
-            {resultText}
-          </p>
+          <div className="flex items-start gap-3">
+            <p
+              className={`min-w-0 flex-1 whitespace-pre-wrap text-[13px] leading-5 ${
+                error ? 'text-error' : 'text-text-primary'
+              }`}
+            >
+              {resultText}
+            </p>
+            {copyAction}
+          </div>
         )}
       </div>
     )
@@ -224,6 +281,7 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
 
         {resultText && (
           <div className="min-h-0 flex-1 overflow-y-auto rounded-[8px] border border-border bg-bg-secondary px-3 py-2">
+            {canCopyAnswer && <div className="mb-2 flex justify-end">{copyAction}</div>}
             <p
               className={`text-[13px] leading-5 whitespace-pre-wrap ${
                 error ? 'text-error' : 'text-text-primary'

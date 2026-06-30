@@ -32,13 +32,16 @@ Linux:
 - `LINUX_GPG_KEY_ID`: GPG key ID or fingerprint
 - `LINUX_GPG_PASSPHRASE`: GPG key passphrase
 
-Windows signing is currently deferred. The release workflow only builds macOS and
-Linux artifacts, so Windows certificate secrets are not required for current
-releases.
+Windows:
 
-## Deferred Windows Certificate Notes
+- `WINDOWS_CERTIFICATE`: optional base64-encoded PFX code signing certificate
+- `WINDOWS_CERTIFICATE_PASSWORD`: required when `WINDOWS_CERTIFICATE` is set
+- `WINDOWS_TIMESTAMP_URL`: optional timestamp server URL; defaults to DigiCert
 
-These notes are for re-enabling Windows releases later.
+The release workflow publishes Windows artifacts even when Windows signing
+secrets are not configured. In that case, the Windows installers are unsigned.
+
+## Windows Certificate Notes
 
 Use a real code signing certificate. SSL/TLS certificates do not sign Windows
 desktop apps. EV certificates get Microsoft SmartScreen reputation immediately;

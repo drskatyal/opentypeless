@@ -185,7 +185,7 @@ describe('Settings tab 切换', () => {
     // General pane 包含 "settings.hotkey" section 标题
     expect(screen.getByText('settings.hotkey')).toBeDefined()
     expect(screen.getByText('settings.askHotkey')).toBeDefined()
-    expect(screen.getByText('Ctrl+Shift+/')).toBeDefined()
+    expect(screen.getByText('Ctrl+.')).toBeDefined()
   })
 
   it('点击 Speech Recognition 后显示 STT provider 字段', () => {
@@ -238,6 +238,32 @@ describe('Settings tab 切换', () => {
     const titles = screen.getAllByText('settings.dictionary')
     // 至少出现两次：sidebar nav 和 title bar h2
     expect(titles.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('records macOS Command+. as the Ask hotkey', async () => {
+    vi.useFakeTimers()
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    const { updateAskHotkey } = await import('../../../lib/tauri')
+    const mockUpdateAskHotkey = vi.mocked(updateAskHotkey)
+    mockUpdateAskHotkey.mockClear()
+    useAppStore.getState().updateConfig({ ask_hotkey: 'Command+.' })
+
+    renderSettings()
+    fireEvent.click(screen.getByText('Command+.'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    fireEvent.keyDown(window, { key: '。', metaKey: true })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600)
+    })
+
+    expect(mockUpdateAskHotkey).toHaveBeenCalledWith('Command+.')
+    vi.useRealTimers()
   })
 })
 

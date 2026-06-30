@@ -44,6 +44,12 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: tauriEventMock.listen,
 }))
 
+async function flushAsyncEffects() {
+  await Promise.resolve()
+  await Promise.resolve()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -80,9 +86,34 @@ describe('AskPanel', () => {
       expect(screen.getByText('It turns speech into useful text.')).toBeDefined()
     })
     expect(screen.queryByRole('textbox')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy answer' })).toBeDefined()
     expect(screen.queryByText('Answer')).toBeNull()
     expect(startAskDictation).not.toHaveBeenCalled()
+  })
+
+  it('copies the hotkey answer from the popup', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+
+    render(<AskPanel />)
+
+    await waitFor(() => {
+      expect(tauriEventMock.listen).toHaveBeenCalledWith('ask:result', expect.any(Function))
+    })
+    tauriEventMock.emit('ask:result', {
+      question: 'What is OpenTypeless?',
+      answer: 'It turns speech into useful text.',
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy answer' }))
+
+    expect(writeText).toHaveBeenCalledWith('It turns speech into useful text.')
+    await waitFor(() => {
+      expect(screen.getByText('Copied')).toBeDefined()
+    })
   })
 
   it('renders a pending hotkey result when the native event was missed', async () => {
@@ -100,8 +131,24 @@ describe('AskPanel', () => {
       expect(screen.getByText('It turns speech into useful text.')).toBeDefined()
     })
     expect(screen.queryByRole('textbox')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy answer' })).toBeDefined()
     expect(startAskDictation).not.toHaveBeenCalled()
+  })
+
+  it('does not let the embedded settings panel consume hotkey popup pending messages', async () => {
+    vi.mocked(takePendingAskMessage).mockResolvedValueOnce({
+      kind: 'result',
+      payload: {
+        question: 'What is OpenTypeless?',
+        answer: 'It turns speech into useful text.',
+      },
+    })
+
+    render(<AskPanel embedded />)
+    await flushAsyncEffects()
+
+    expect(takePendingAskMessage).not.toHaveBeenCalled()
+    expect(screen.queryByText('It turns speech into useful text.')).toBeNull()
   })
 
   it('records a spoken question, asks the model, and renders the answer', async () => {
@@ -133,6 +180,52 @@ describe('AskPanel', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.queryByText('Error')).toBeNull()
+  })
+
+  it('does not abort global Ask when an idle panel unmounts', async () => {
+    const { unmount } = render(<AskPanel />)
+    await flushAsyncEffects()
+    vi.mocked(abortAskDictation).mockClear()
+
+    unmount()
+
+    expect(abortAskDictation).not.toHaveBeenCalled()
+  })
+
+  it('aborts local dictation when the panel that started it unmounts', async () => {
+    const { unmount } = render(<AskPanel embedded />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record question' }))
+    await waitFor(() => expect(startAskDictation).toHaveBeenCalledTimes(1))
+    vi.mocked(abortAskDictation).mockClear()
+
+    unmount()
+
+    expect(abortAskDictation).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not abort after stop has handed the request to Ask processing', async () => {
+    let resolveStop: (value: { question: string; answer: string }) => void = () => {}
+    vi.mocked(stopAskDictation).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStop = resolve
+      }),
+    )
+    const { unmount } = render(<AskPanel embedded />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record question' }))
+    await waitFor(() => expect(startAskDictation).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop and ask' }))
+    await waitFor(() => expect(stopAskDictation).toHaveBeenCalledTimes(1))
+    vi.mocked(abortAskDictation).mockClear()
+
+    unmount()
+
+    expect(abortAskDictation).not.toHaveBeenCalled()
+    resolveStop({
+      question: 'What is OpenTypeless?',
+      answer: 'It turns speech into useful text.',
+    })
   })
 
   it('uses localized copy for the voice-first ask flow', async () => {

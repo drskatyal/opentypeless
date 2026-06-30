@@ -23,9 +23,9 @@ describe('Ask Anything Tauri wrappers', () => {
   it('invokes the ask hotkey update command independently from dictation hotkey', async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined)
 
-    await updateAskHotkey('Ctrl+Shift+/')
+    await updateAskHotkey('Ctrl+.')
 
-    expect(invoke).toHaveBeenCalledWith('update_ask_hotkey', { hotkey: 'Ctrl+Shift+/' })
+    expect(invoke).toHaveBeenCalledWith('update_ask_hotkey', { hotkey: 'Ctrl+.' })
   })
 
   it('reads and clears pending Ask popup messages from Tauri', async () => {

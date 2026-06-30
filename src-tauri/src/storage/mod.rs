@@ -65,9 +65,9 @@ impl Default for AppConfig {
             #[cfg(not(target_os = "macos"))]
             hotkey: "Ctrl+/".to_string(),
             #[cfg(target_os = "macos")]
-            ask_hotkey: "Option+Shift+/".to_string(),
+            ask_hotkey: "Command+.".to_string(),
             #[cfg(not(target_os = "macos"))]
-            ask_hotkey: "Ctrl+Shift+/".to_string(),
+            ask_hotkey: "Ctrl+.".to_string(),
             hotkey_mode: "hold".to_string(),
             output_mode: "keyboard".to_string(),
             selected_text_enabled: false,
@@ -96,12 +96,25 @@ impl AppConfig {
             self.hotkey = "Option+/".to_string();
         }
         #[cfg(target_os = "macos")]
-        if self.ask_hotkey == "Alt+Shift+/" {
-            self.ask_hotkey = "Option+Shift+/".to_string();
+        if self.ask_hotkey == "Alt+Shift+/"
+            || self.ask_hotkey == "Option+Shift+/"
+            || self.ask_hotkey == "Command+Shift+/"
+            || self.ask_hotkey == "Command+/"
+            || self.ask_hotkey == "Command+。"
+        {
+            self.ask_hotkey = "Command+.".to_string();
+        }
+        #[cfg(not(target_os = "macos"))]
+        if self.ask_hotkey == "Ctrl+Shift+/"
+            || self.ask_hotkey == "Control+Shift+/"
+            || self.ask_hotkey == "Ctrl+/"
+            || self.ask_hotkey == "Control+/"
+        {
+            self.ask_hotkey = "Ctrl+.".to_string();
         }
     }
 
-    fn normalize_values(&mut self) {
+    pub(crate) fn normalize_values(&mut self) {
         self.polish_custom_prompt = sanitize_polish_custom_prompt(&self.polish_custom_prompt);
         self.polish_chinese_script = "preserve".to_string();
         self.normalize_platform_hotkey();
@@ -429,6 +442,22 @@ mod tests {
         assert!(config.capsule_auto_hide);
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn app_config_new_install_uses_command_ask_hotkey_on_macos() {
+        let config = AppConfig::new_install_default();
+        assert_eq!(config.hotkey, "Option+/");
+        assert_eq!(config.ask_hotkey, "Command+.");
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn app_config_new_install_uses_ctrl_period_ask_hotkey_on_non_macos() {
+        let config = AppConfig::new_install_default();
+        assert_eq!(config.hotkey, "Ctrl+/");
+        assert_eq!(config.ask_hotkey, "Ctrl+.");
+    }
+
     #[test]
     fn app_config_existing_missing_capsule_auto_hide_defaults_false() {
         let value = serde_json::json!({
@@ -464,5 +493,39 @@ mod tests {
         let config = AppConfig::from_stored_value(value).unwrap();
 
         assert_eq!(config.hotkey, "Option+/");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn app_config_migrates_legacy_mac_ask_hotkey_defaults() {
+        for legacy in [
+            "Alt+Shift+/",
+            "Option+Shift+/",
+            "Command+Shift+/",
+            "Command+/",
+            "Command+。",
+        ] {
+            let value = serde_json::json!({
+                "ask_hotkey": legacy
+            });
+
+            let config = AppConfig::from_stored_value(value).unwrap();
+
+            assert_eq!(config.ask_hotkey, "Command+.");
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn app_config_migrates_legacy_non_macos_ask_hotkey_defaults() {
+        for legacy in ["Ctrl+Shift+/", "Control+Shift+/", "Ctrl+/", "Control+/"] {
+            let value = serde_json::json!({
+                "ask_hotkey": legacy
+            });
+
+            let config = AppConfig::from_stored_value(value).unwrap();
+
+            assert_eq!(config.ask_hotkey, "Ctrl+.");
+        }
     }
 }

@@ -201,7 +201,7 @@ const defaultConfig: AppConfig = {
   translate_enabled: false,
   target_lang: 'en',
   hotkey: isMacPlatform() ? 'Option+/' : 'Ctrl+/',
-  ask_hotkey: isMacPlatform() ? 'Option+Shift+/' : 'Ctrl+Shift+/',
+  ask_hotkey: isMacPlatform() ? 'Command+.' : 'Ctrl+.',
   hotkey_mode: 'hold',
   output_mode: 'keyboard',
   selected_text_enabled: false,

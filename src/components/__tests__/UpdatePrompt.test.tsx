@@ -17,18 +17,24 @@ vi.mock('@tauri-apps/plugin-process', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultTextOrValues?: string | Record<string, string>, valuesArg?: Record<string, string>) => {
+    t: (
+      key: string,
+      defaultTextOrValues?: string | Record<string, string>,
+      valuesArg?: Record<string, string>,
+    ) => {
       const values = typeof defaultTextOrValues === 'object' ? defaultTextOrValues : valuesArg
       return (
-        ({
-          'updates.availableTitle': 'Update available',
-          'updates.availableBody': `Version ${values?.version ?? ''} is ready to install.`,
-          'updates.install': 'Install update',
-          'updates.installing': 'Installing...',
-          'updates.dismiss': 'Dismiss',
-          'updates.error': 'Update failed. Please download the latest version from the website.',
-        }) as Record<string, string>
-      )[key] ?? key
+        (
+          {
+            'updates.availableTitle': 'Update available',
+            'updates.availableBody': `Version ${values?.version ?? ''} is ready to install.`,
+            'updates.install': 'Install update',
+            'updates.installing': 'Installing...',
+            'updates.dismiss': 'Dismiss',
+            'updates.error': 'Update failed. Please download the latest version from the website.',
+          } as Record<string, string>
+        )[key] ?? key
+      )
     },
   }),
 }))
@@ -79,7 +85,9 @@ describe('UpdatePrompt', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Install update' }))
 
     expect(
-      await screen.findByText('Update failed. Please download the latest version from the website.'),
+      await screen.findByText(
+        'Update failed. Please download the latest version from the website.',
+      ),
     ).toBeInTheDocument()
   })
 })

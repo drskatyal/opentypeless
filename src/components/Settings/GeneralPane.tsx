@@ -87,10 +87,11 @@ function HotkeyRecorder({ value, onSave, onSaved }: HotkeyRecorderProps) {
 
       // Build modifier prefix
       const parts: string[] = []
+      if (isMac && e.metaKey) parts.push('Command')
       if (e.ctrlKey) parts.push('Ctrl')
       if (e.altKey) parts.push(isMac ? 'Option' : 'Alt')
       if (e.shiftKey) parts.push('Shift')
-      if (e.metaKey) parts.push(isMac ? 'Cmd' : 'Meta')
+      if (!isMac && e.metaKey) parts.push('Meta')
 
       // If only modifier keys are pressed, show hint like "Alt+..."
       if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
@@ -116,6 +117,8 @@ function HotkeyRecorder({ value, onSave, onSaved }: HotkeyRecorderProps) {
         ArrowDown: 'Down',
         ArrowLeft: 'Left',
         ArrowRight: 'Right',
+        '。': '.',
+        '?': '/',
       }
 
       let keyName = keyMap[e.key] || e.key

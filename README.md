@@ -9,7 +9,7 @@
 <h1 align="center">OpenTypeless</h1>
 
 <p align="center">
-  Open-source AI voice input, rewriting, and voice Q&A for macOS, Windows, and Linux.
+  Open-source alternative to Wispr Flow and Superwhisper for AI voice input, rewriting, and voice Q&A on macOS, Windows, and Linux.
 </p>
 
 <p align="center">
@@ -30,6 +30,10 @@
   <a href="https://github.com/tover0314-w/opentypeless/releases"><strong>Download</strong></a> ·
   <a href="#getting-started"><strong>Run locally</strong></a> ·
   <a href="https://github.com/tover0314-w/opentypeless/discussions"><strong>Discussions</strong></a>
+</p>
+
+<p align="center">
+  If OpenTypeless helps your workflow, a GitHub star helps more people discover the project.
 </p>
 
 <p align="center">

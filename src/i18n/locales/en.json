@@ -27,6 +27,8 @@
     "placeholder": "Type a question, or use the capsule above.",
     "recordQuestion": "Record question",
     "stopAndAsk": "Stop and ask",
+    "copyAnswer": "Copy answer",
+    "copied": "Copied",
     "send": "Ask"
   },
   "errors": {

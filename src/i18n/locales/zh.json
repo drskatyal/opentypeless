@@ -27,6 +27,8 @@
     "placeholder": "输入问题，或使用上方胶囊录音。",
     "recordQuestion": "录制问题",
     "stopAndAsk": "停止并提问",
+    "copyAnswer": "复制回答",
+    "copied": "已复制",
     "send": "提问"
   },
   "errors": {

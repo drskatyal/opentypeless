@@ -17,6 +17,8 @@ pub struct AskDictationState(Arc<Mutex<AskDictationStateInner>>);
 
 #[derive(Default)]
 struct AskDictationStateInner {
+    starting: bool,
+    stop_after_start: bool,
     session: Option<AskDictationSession>,
     processing: bool,
     pending_message: Option<PendingAskMessage>,
@@ -33,7 +35,27 @@ impl AskDictationState {
 
     pub fn is_busy(&self) -> bool {
         let guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        guard.session.is_some() || guard.processing
+        guard.starting || guard.session.is_some() || guard.processing
+    }
+
+    pub fn is_starting(&self) -> bool {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).starting
+    }
+
+    pub(crate) fn try_begin_starting(&self) -> bool {
+        let mut guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if guard.starting || guard.session.is_some() || guard.processing {
+            return false;
+        }
+        guard.starting = true;
+        guard.stop_after_start = false;
+        true
+    }
+
+    fn clear_starting(&self) {
+        let mut guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        guard.starting = false;
+        guard.stop_after_start = false;
     }
 
     fn set_processing(&self, processing: bool) {
@@ -61,6 +83,30 @@ impl AskDictationState {
             .pending_message
             .take()
     }
+
+    pub fn request_stop_after_start(&self) -> bool {
+        let mut guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        if !guard.starting {
+            return false;
+        }
+        guard.stop_after_start = true;
+        true
+    }
+
+    pub fn take_stop_after_start(&self) -> bool {
+        let mut guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let should_stop = guard.stop_after_start;
+        guard.stop_after_start = false;
+        should_stop
+    }
+
+    fn abort_starting_or_recording(&self) -> (Option<AskDictationSession>, bool) {
+        let mut guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let was_starting = guard.starting;
+        guard.starting = false;
+        guard.stop_after_start = false;
+        (guard.session.take(), was_starting)
+    }
 }
 
 pub struct AskDictationSession {
@@ -87,6 +133,55 @@ pub enum PendingAskMessage {
 
 fn emit_capsule_state(app: &tauri::AppHandle, state: PipelineState) {
     let _ = app.emit("pipeline:state", state);
+}
+
+fn show_ask_error_window(app: &tauri::AppHandle, message: &str) {
+    match crate::show_ask_popup_window(app) {
+        Ok(window) => {
+            let _ = window.emit("ask:error", message);
+        }
+        Err(error) => {
+            tracing::error!("Failed to show Ask error window: {}", error);
+        }
+    }
+}
+
+fn should_surface_async_recording_error(
+    session_operation_id: Option<&str>,
+    processing: bool,
+    operation_id: &str,
+) -> bool {
+    !processing && session_operation_id == Some(operation_id)
+}
+
+fn surface_async_recording_error(
+    app: &tauri::AppHandle,
+    state: &Arc<Mutex<AskDictationStateInner>>,
+    operation_id: &str,
+    message: String,
+) {
+    let session = {
+        let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        if !should_surface_async_recording_error(
+            guard
+                .session
+                .as_ref()
+                .map(|session| session.operation_id.as_str()),
+            guard.processing,
+            operation_id,
+        ) {
+            return;
+        }
+
+        guard.pending_message = Some(PendingAskMessage::Error(message.clone()));
+        guard.session.take()
+    };
+
+    if let Some(mut session) = session {
+        session.handle.stop();
+    }
+    emit_capsule_state(app, PipelineState::Idle);
+    show_ask_error_window(app, &message);
 }
 
 fn synthetic_operation_id() -> String {
@@ -119,6 +214,14 @@ pub fn validate_ask_question(question: &str) -> Result<String, String> {
     Ok(trimmed)
 }
 
+fn validate_ask_answer(answer: &str) -> Result<String, String> {
+    let trimmed = answer.trim().to_string();
+    if trimmed.is_empty() {
+        return Err("Ask returned an empty answer. Please try again.".to_string());
+    }
+    Ok(trimmed)
+}
+
 fn ask_messages(question: &str) -> Vec<serde_json::Value> {
     vec![
         json!({
@@ -131,13 +234,28 @@ fn ask_messages(question: &str) -> Vec<serde_json::Value> {
 
 pub fn build_byok_ask_body(question: &str, model: &str) -> Result<serde_json::Value, String> {
     let question = validate_ask_question(question)?;
-    Ok(json!({
+    let mut body = json!({
         "model": model,
         "messages": ask_messages(&question),
         "max_tokens": ASK_OUTPUT_TOKEN_LIMIT,
         "temperature": 0.2,
         "stream": false
-    }))
+    });
+
+    if model.starts_with("glm-") {
+        if let Some(obj) = body.as_object_mut() {
+            obj.insert(
+                "thinking".to_string(),
+                json!({
+                    "type": "enabled"
+                }),
+            );
+            obj.insert("temperature".to_string(), json!(1.0));
+            obj.insert("top_p".to_string(), json!(0.95));
+        }
+    }
+
+    Ok(body)
 }
 
 fn should_use_byok(config: &storage::AppConfig) -> bool {
@@ -343,11 +461,18 @@ async fn ask_via_byok(
     }
 
     let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    Ok(body["choices"][0]["message"]["content"]
-        .as_str()
-        .unwrap_or("")
-        .trim()
-        .to_string())
+    extract_byok_ask_answer(&body)
+}
+
+fn extract_byok_ask_answer(body: &serde_json::Value) -> Result<String, String> {
+    let message = &body["choices"][0]["message"];
+    if let Some(content) = message["content"].as_str() {
+        if !content.trim().is_empty() {
+            return validate_ask_answer(content);
+        }
+    }
+
+    validate_ask_answer(message["reasoning_content"].as_str().unwrap_or(""))
 }
 
 async fn ask_via_cloud(
@@ -396,7 +521,7 @@ async fn ask_via_cloud(
     }
 
     let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    Ok(body["answer"].as_str().unwrap_or("").trim().to_string())
+    validate_ask_answer(body["answer"].as_str().unwrap_or(""))
 }
 
 #[tauri::command]
@@ -420,123 +545,179 @@ pub async fn start_ask_dictation(
     token_store: tauri::State<'_, SessionTokenStore>,
     client: tauri::State<'_, reqwest::Client>,
 ) -> Result<(), String> {
-    if state.is_busy() {
+    if !state.try_begin_starting() {
         return Ok(());
     }
 
-    let config = config_state.load().await.map_err(|e| e.to_string())?;
-    let stt_api_key = ask_stt_api_key(&config, &token_store);
-    if stt::config::stt_provider_requires_api_key(&config.stt_provider) && stt_api_key.is_empty() {
-        return Err(
-            "STT API key is not configured. Please set it in Settings -> Speech Recognition."
-                .to_string(),
-        );
-    }
+    start_reserved_ask_dictation(app, state, config_state, token_store, client).await
+}
 
-    let custom_whisper_config = if config.stt_provider == stt::config::CUSTOM_WHISPER_PROVIDER {
-        Some(stt::config::build_custom_whisper_config(
-            &config.stt_custom_base_url,
-            &config.stt_custom_model,
-        )?)
-    } else {
-        None
-    };
-    let operation_id = synthetic_operation_id();
-    let stt_config = build_ask_stt_config(&config, stt_api_key, operation_id.clone());
-    let mut provider = stt::create_provider(
-        &config.stt_provider,
-        custom_whisper_config,
-        Some(client.inner().clone()),
-    )
-    .map_err(|e| e.to_string())?;
-    provider
-        .connect(&stt_config)
-        .await
+pub(crate) async fn start_reserved_ask_dictation(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AskDictationState>,
+    config_state: tauri::State<'_, storage::ConfigManager>,
+    token_store: tauri::State<'_, SessionTokenStore>,
+    client: tauri::State<'_, reqwest::Client>,
+) -> Result<(), String> {
+    let result = async {
+        let config = config_state.load().await.map_err(|e| e.to_string())?;
+        let stt_api_key = ask_stt_api_key(&config, &token_store);
+        if stt::config::stt_provider_requires_api_key(&config.stt_provider)
+            && stt_api_key.is_empty()
+        {
+            return Err(
+                "STT API key is not configured. Please set it in Settings -> Speech Recognition."
+                    .to_string(),
+            );
+        }
+
+        let custom_whisper_config = if config.stt_provider == stt::config::CUSTOM_WHISPER_PROVIDER
+        {
+            Some(stt::config::build_custom_whisper_config(
+                &config.stt_custom_base_url,
+                &config.stt_custom_model,
+            )?)
+        } else {
+            None
+        };
+        let operation_id = synthetic_operation_id();
+        let stt_config = build_ask_stt_config(&config, stt_api_key, operation_id.clone());
+        let mut provider = stt::create_provider(
+            &config.stt_provider,
+            custom_whisper_config,
+            Some(client.inner().clone()),
+        )
         .map_err(|e| e.to_string())?;
+        provider
+            .connect(&stt_config)
+            .await
+            .map_err(|e| e.to_string())?;
 
-    let (mut handle, mut audio_rx) = AudioCaptureHandle::start(AudioConfig::default())
-        .map_err(|e| map_audio_capture_error(&e.to_string()))?;
-    let transcript = Arc::new(Mutex::new(String::new()));
-    let error = Arc::new(Mutex::new(None::<String>));
-    let done = Arc::new(Notify::new());
+        let (handle, mut audio_rx) = AudioCaptureHandle::start(AudioConfig::default())
+            .map_err(|e| map_audio_capture_error(&e.to_string()))?;
+        let mut handle = Some(handle);
+        let transcript = Arc::new(Mutex::new(String::new()));
+        let error = Arc::new(Mutex::new(None::<String>));
+        let done = Arc::new(Notify::new());
+        let task_operation_id = operation_id.clone();
 
-    {
-        let mut guard = state.0.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.session.is_some() || guard.processing {
-            handle.stop();
+        let should_discard_started_resources = {
+            let mut guard = state.0.lock().unwrap_or_else(|e| e.into_inner());
+            if !guard.starting || guard.session.is_some() || guard.processing {
+                guard.starting = false;
+                guard.stop_after_start = false;
+                true
+            } else {
+                guard.starting = false;
+                guard.session = Some(AskDictationSession {
+                    handle: handle.take().expect("Ask audio handle was already consumed"),
+                    operation_id,
+                    transcript: transcript.clone(),
+                    error: error.clone(),
+                    done: done.clone(),
+                });
+                false
+            }
+        };
+
+        if should_discard_started_resources {
+            if let Some(mut handle) = handle {
+                handle.stop();
+            }
+            let _ = provider.disconnect().await;
             return Ok(());
         }
-        guard.session = Some(AskDictationSession {
-            handle,
-            operation_id,
-            transcript: transcript.clone(),
-            error: error.clone(),
-            done: done.clone(),
-        });
-    }
 
-    emit_capsule_state(&app, PipelineState::Recording);
+        emit_capsule_state(&app, PipelineState::Recording);
+        let state_inner = state.0.clone();
 
-    tauri::async_runtime::spawn(async move {
-        loop {
-            tokio::select! {
-                chunk = audio_rx.recv() => {
-                    match chunk {
-                        Some(data) => {
-                            if let Err(e) = provider.send_audio(&data).await {
-                                let message = e.to_string();
-                                *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
-                                let _ = app.emit("ask:error", message);
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::select! {
+                    chunk = audio_rx.recv() => {
+                        match chunk {
+                            Some(data) => {
+                                if let Err(e) = provider.send_audio(&data).await {
+                                    let message = e.to_string();
+                                    *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
+                                    surface_async_recording_error(
+                                        &app,
+                                        &state_inner,
+                                        &task_operation_id,
+                                        message,
+                                    );
+                                    break;
+                                }
+                            }
+                            None => {
+                                match provider.disconnect().await {
+                                    Ok(Some(text)) => {
+                                        let current = append_final_transcript(&transcript, &text);
+                                        let _ = app.emit("ask:final", current);
+                                    }
+                                    Ok(None) => {}
+                                    Err(e) => {
+                                        let message = e.to_string();
+                                        *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
+                                        surface_async_recording_error(
+                                            &app,
+                                            &state_inner,
+                                            &task_operation_id,
+                                            message,
+                                        );
+                                    }
+                                }
                                 break;
                             }
                         }
-                        None => {
-                            match provider.disconnect().await {
-                                Ok(Some(text)) => {
-                                    let current = append_final_transcript(&transcript, &text);
-                                    let _ = app.emit("ask:final", current);
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    let message = e.to_string();
-                                    *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
-                                    let _ = app.emit("ask:error", message);
-                                }
-                            }
-                            break;
-                        }
                     }
-                }
-                event = provider.recv_transcript() => {
-                    match event {
-                        Ok(Some(TranscriptEvent::Partial { text })) => {
-                            let _ = app.emit("ask:partial", text);
+                    event = provider.recv_transcript() => {
+                        match event {
+                            Ok(Some(TranscriptEvent::Partial { text })) => {
+                                let _ = app.emit("ask:partial", text);
+                            }
+                            Ok(Some(TranscriptEvent::Final { text, .. })) => {
+                                let current = append_final_transcript(&transcript, &text);
+                                let _ = app.emit("ask:final", current);
+                            }
+                            Ok(Some(TranscriptEvent::Error { message })) => {
+                                *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
+                                surface_async_recording_error(
+                                    &app,
+                                    &state_inner,
+                                    &task_operation_id,
+                                    message,
+                                );
+                                break;
+                            }
+                            Err(e) => {
+                                let message = e.to_string();
+                                *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
+                                surface_async_recording_error(
+                                    &app,
+                                    &state_inner,
+                                    &task_operation_id,
+                                    message,
+                                );
+                                break;
+                            }
+                            _ => {}
                         }
-                        Ok(Some(TranscriptEvent::Final { text, .. })) => {
-                            let current = append_final_transcript(&transcript, &text);
-                            let _ = app.emit("ask:final", current);
-                        }
-                        Ok(Some(TranscriptEvent::Error { message })) => {
-                            *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
-                            let _ = app.emit("ask:error", message);
-                            break;
-                        }
-                        Err(e) => {
-                            let message = e.to_string();
-                            *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
-                            let _ = app.emit("ask:error", message);
-                            break;
-                        }
-                        _ => {}
                     }
                 }
             }
-        }
 
-        done.notify_waiters();
-    });
+            done.notify_waiters();
+        });
 
-    Ok(())
+        Ok(())
+    }
+    .await;
+
+    if result.is_err() {
+        state.clear_starting();
+    }
+    result
 }
 
 #[tauri::command]
@@ -556,6 +737,7 @@ pub async fn stop_ask_dictation(
             .session
             .take()
             .ok_or_else(|| "Ask dictation is not recording".to_string())?;
+        guard.stop_after_start = false;
         guard.processing = true;
         session
     };
@@ -637,11 +819,16 @@ pub async fn stop_ask_dictation(
 }
 
 #[tauri::command]
-pub fn abort_ask_dictation(state: tauri::State<'_, AskDictationState>) -> Result<(), String> {
-    let mut guard = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    guard.processing = false;
-    if let Some(mut session) = guard.session.take() {
+pub fn abort_ask_dictation(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AskDictationState>,
+) -> Result<(), String> {
+    let (session, was_starting) = state.abort_starting_or_recording();
+    if let Some(mut session) = session {
         session.handle.stop();
+        emit_capsule_state(&app, PipelineState::Idle);
+    } else if was_starting {
+        emit_capsule_state(&app, PipelineState::Idle);
     }
     Ok(())
 }
@@ -672,6 +859,35 @@ mod tests {
     }
 
     #[test]
+    fn byok_ask_body_enables_glm_thinking_mode() {
+        let body = build_byok_ask_body("What is OpenTypeless?", "glm-4.7").unwrap();
+
+        assert_eq!(body["max_tokens"], ASK_OUTPUT_TOKEN_LIMIT);
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["temperature"], 1.0);
+        assert_eq!(body["top_p"], 0.95);
+    }
+
+    #[test]
+    fn byok_ask_answer_falls_back_to_reasoning_content() {
+        let body = json!({
+            "choices": [
+                {
+                    "message": {
+                        "content": "",
+                        "reasoning_content": "Use Command+Period to ask."
+                    }
+                }
+            ]
+        });
+
+        assert_eq!(
+            extract_byok_ask_answer(&body).unwrap(),
+            "Use Command+Period to ask."
+        );
+    }
+
+    #[test]
     fn ask_question_validation_rejects_empty_or_oversized_questions() {
         assert!(validate_ask_question("   ").is_err());
         assert!(validate_ask_question(&"x".repeat(ASK_MAX_QUESTION_CHARS + 1)).is_err());
@@ -682,10 +898,22 @@ mod tests {
     }
 
     #[test]
+    fn ask_answer_validation_rejects_empty_answers() {
+        assert!(validate_ask_answer("").is_err());
+        assert!(validate_ask_answer("   ").is_err());
+        assert_eq!(
+            validate_ask_answer("  A concise answer.  ").unwrap(),
+            "A concise answer."
+        );
+    }
+
+    #[test]
     fn ask_dictation_stt_config_uses_cloud_token_and_multi_language() {
-        let mut config = storage::AppConfig::default();
-        config.stt_provider = "cloud".to_string();
-        config.stt_language = "multi".to_string();
+        let config = storage::AppConfig {
+            stt_provider: "cloud".to_string(),
+            stt_language: "multi".to_string(),
+            ..Default::default()
+        };
 
         let stt_config = build_ask_stt_config(
             &config,
@@ -760,5 +988,76 @@ mod tests {
             }
             PendingAskMessage::Result(_) => panic!("expected error"),
         }
+    }
+
+    #[test]
+    fn async_stt_errors_surface_only_for_active_recording_session() {
+        assert!(should_surface_async_recording_error(
+            Some("operation-1"),
+            false,
+            "operation-1"
+        ));
+        assert!(!should_surface_async_recording_error(
+            Some("operation-1"),
+            true,
+            "operation-1"
+        ));
+        assert!(!should_surface_async_recording_error(
+            Some("operation-1"),
+            false,
+            "operation-2"
+        ));
+        assert!(!should_surface_async_recording_error(
+            None,
+            false,
+            "operation-1"
+        ));
+    }
+
+    #[test]
+    fn ask_starting_state_blocks_duplicate_starts() {
+        let state = AskDictationState::default();
+
+        assert!(state.try_begin_starting());
+        assert!(state.is_starting());
+        assert!(state.is_busy());
+        assert!(!state.is_recording());
+        assert!(!state.try_begin_starting());
+
+        state.clear_starting();
+
+        assert!(!state.is_starting());
+        assert!(!state.is_busy());
+    }
+
+    #[test]
+    fn ask_starting_state_tracks_stop_after_start() {
+        let state = AskDictationState::default();
+
+        assert!(!state.request_stop_after_start());
+
+        assert!(state.try_begin_starting());
+        assert!(state.request_stop_after_start());
+        assert!(state.take_stop_after_start());
+        assert!(!state.take_stop_after_start());
+
+        assert!(state.request_stop_after_start());
+        state.clear_starting();
+        assert!(!state.request_stop_after_start());
+        assert!(!state.take_stop_after_start());
+    }
+
+    #[test]
+    fn aborting_ask_does_not_clear_processing_stage() {
+        let state = AskDictationState::default();
+        state.set_processing(true);
+
+        let (_session, was_starting) = state.abort_starting_or_recording();
+
+        assert!(!was_starting);
+        assert!(state.is_busy());
+
+        state.set_processing(false);
+        assert!(!state.is_busy());
     }
 }

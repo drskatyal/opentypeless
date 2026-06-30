@@ -28,11 +28,11 @@ pub fn default_ask_shortcut() -> Shortcut {
     let fallback = {
         #[cfg(target_os = "macos")]
         {
-            Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::Slash)
+            Shortcut::new(Some(Modifiers::SUPER), Code::Period)
         }
         #[cfg(not(target_os = "macos"))]
         {
-            Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Slash)
+            Shortcut::new(Some(Modifiers::CONTROL), Code::Period)
         }
     };
     parse_hotkey(&default_hotkey).unwrap_or(fallback)
@@ -58,11 +58,13 @@ fn show_ask_result_window(handle: &tauri::AppHandle, result: &commands::ask::Ask
     handle
         .state::<commands::ask::AskDictationState>()
         .set_pending_result(result.clone());
-    if let Some(window) = handle.get_webview_window("ask") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-        let _ = window.emit("ask:result", result);
+    match crate::show_ask_popup_window(handle) {
+        Ok(window) => {
+            let _ = window.emit("ask:result", result);
+        }
+        Err(error) => {
+            tracing::error!("Failed to show Ask result window: {}", error);
+        }
     }
 }
 
@@ -70,39 +72,107 @@ fn show_ask_error_window(handle: &tauri::AppHandle, message: String) {
     handle
         .state::<commands::ask::AskDictationState>()
         .set_pending_error(message.clone());
-    if let Some(window) = handle.get_webview_window("ask") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-        let _ = window.emit("ask:error", message);
+    match crate::show_ask_popup_window(handle) {
+        Ok(window) => {
+            let _ = window.emit("ask:error", message);
+        }
+        Err(error) => {
+            tracing::error!("Failed to show Ask error window: {}", error);
+        }
     }
 }
 
-fn handle_ask_shortcut(handle: tauri::AppHandle) {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AskShortcutAction {
+    Start,
+    Stop,
+    StopAfterStart,
+    Ignore,
+}
+
+fn ask_shortcut_action(
+    hotkey_mode: &str,
+    event_state: ShortcutState,
+    is_recording: bool,
+    is_starting: bool,
+    is_busy: bool,
+) -> AskShortcutAction {
+    let is_toggle_mode = hotkey_mode == "toggle";
+
+    match (is_toggle_mode, event_state) {
+        (true, ShortcutState::Released) => AskShortcutAction::Ignore,
+        (true, ShortcutState::Pressed) => {
+            if is_recording {
+                AskShortcutAction::Stop
+            } else if is_busy {
+                AskShortcutAction::Ignore
+            } else {
+                AskShortcutAction::Start
+            }
+        }
+        (false, ShortcutState::Pressed) => {
+            if is_busy {
+                AskShortcutAction::Ignore
+            } else {
+                AskShortcutAction::Start
+            }
+        }
+        (false, ShortcutState::Released) => {
+            if is_recording {
+                AskShortcutAction::Stop
+            } else if is_starting {
+                AskShortcutAction::StopAfterStart
+            } else {
+                AskShortcutAction::Ignore
+            }
+        }
+    }
+}
+
+async fn stop_ask_shortcut(handle: tauri::AppHandle) {
+    if !handle
+        .state::<commands::ask::AskDictationState>()
+        .is_recording()
+    {
+        return;
+    }
+
+    let ask_state = handle.state::<commands::ask::AskDictationState>();
+    let config_state = handle.state::<storage::ConfigManager>();
+    let token_store = handle.state::<SessionTokenStore>();
+    let client = handle.state::<reqwest::Client>();
+
+    match commands::ask::stop_ask_dictation(
+        handle.clone(),
+        ask_state,
+        config_state,
+        token_store,
+        client,
+    )
+    .await
+    {
+        Ok(result) => show_ask_result_window(&handle, &result),
+        Err(message) if message == "Ask dictation is not recording" => {}
+        Err(message) => show_ask_error_window(&handle, message),
+    }
+}
+
+fn start_ask_shortcut(handle: tauri::AppHandle) {
+    let did_reserve_start = {
+        let ask_state = handle.state::<commands::ask::AskDictationState>();
+        ask_state.try_begin_starting()
+    };
+    if !did_reserve_start {
+        return;
+    }
+
     tauri::async_runtime::spawn(async move {
         let ask_state = handle.state::<commands::ask::AskDictationState>();
-        if ask_state.is_busy() && !ask_state.is_recording() {
-            return;
-        }
-
         let config_state = handle.state::<storage::ConfigManager>();
         let token_store = handle.state::<SessionTokenStore>();
         let client = handle.state::<reqwest::Client>();
 
-        if ask_state.is_recording() {
-            match commands::ask::stop_ask_dictation(
-                handle.clone(),
-                ask_state,
-                config_state,
-                token_store,
-                client,
-            )
-            .await
-            {
-                Ok(result) => show_ask_result_window(&handle, &result),
-                Err(message) => show_ask_error_window(&handle, message),
-            }
-        } else if let Err(message) = commands::ask::start_ask_dictation(
+        if let Err(message) = commands::ask::start_reserved_ask_dictation(
             handle.clone(),
             ask_state,
             config_state,
@@ -112,8 +182,31 @@ fn handle_ask_shortcut(handle: tauri::AppHandle) {
         .await
         {
             show_ask_error_window(&handle, message);
+            return;
+        }
+
+        if handle
+            .state::<commands::ask::AskDictationState>()
+            .take_stop_after_start()
+        {
+            stop_ask_shortcut(handle).await;
         }
     });
+}
+
+fn handle_ask_shortcut(handle: tauri::AppHandle, action: AskShortcutAction) {
+    match action {
+        AskShortcutAction::Start => start_ask_shortcut(handle),
+        AskShortcutAction::Stop => {
+            tauri::async_runtime::spawn(stop_ask_shortcut(handle));
+        }
+        AskShortcutAction::StopAfterStart => {
+            let _ = handle
+                .state::<commands::ask::AskDictationState>()
+                .request_stop_after_start();
+        }
+        AskShortcutAction::Ignore => {}
+    }
 }
 
 pub fn build_shortcut_handler(
@@ -125,9 +218,21 @@ pub fn build_shortcut_handler(
     move |_app, shortcut, event| {
         let handle = app_handle.clone();
         if is_ask_shortcut(&handle, shortcut) {
-            if matches!(event.state, ShortcutState::Pressed) {
-                handle_ask_shortcut(handle);
-            }
+            let hotkey_mode = handle
+                .state::<HotkeyModeCache>()
+                .0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            let ask_state = handle.state::<commands::ask::AskDictationState>();
+            let action = ask_shortcut_action(
+                &hotkey_mode,
+                event.state,
+                ask_state.is_recording(),
+                ask_state.is_starting(),
+                ask_state.is_busy(),
+            );
+            handle_ask_shortcut(handle, action);
             return;
         }
 
@@ -201,7 +306,7 @@ pub fn parse_hotkey(s: &str) -> Option<Shortcut> {
             "alt" | "option" => modifiers |= Modifiers::ALT,
             "ctrl" | "control" => modifiers |= Modifiers::CONTROL,
             "shift" => modifiers |= Modifiers::SHIFT,
-            "meta" | "super" | "win" | "cmd" => modifiers |= Modifiers::META,
+            "meta" | "super" | "win" | "cmd" | "command" => modifiers |= Modifiers::SUPER,
             _ => return None,
         }
     }
@@ -272,7 +377,7 @@ pub fn parse_hotkey(s: &str) -> Option<Shortcut> {
         "9" => Code::Digit9,
         "/" | "slash" => Code::Slash,
         "\\" | "backslash" => Code::Backslash,
-        "." | "period" => Code::Period,
+        "." | "period" | "。" => Code::Period,
         "," | "comma" => Code::Comma,
         ";" | "semicolon" => Code::Semicolon,
         "'" | "quote" => Code::Quote,
@@ -333,6 +438,62 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_hotkey_command_period() {
+        for hotkey in ["Command+.", "Command+。"] {
+            let s = parse_hotkey(hotkey);
+            assert!(s.is_some(), "Failed to parse {hotkey}");
+            let s = s.unwrap();
+            assert_eq!(s.mods, Modifiers::SUPER);
+            assert_eq!(s.key, Code::Period);
+        }
+    }
+
+    #[test]
+    fn test_parse_hotkey_ctrl_period() {
+        let s = parse_hotkey("Ctrl+.");
+        assert!(s.is_some());
+        let s = s.unwrap();
+        assert_eq!(s.mods, Modifiers::CONTROL);
+        assert_eq!(s.key, Code::Period);
+    }
+
+    #[test]
+    fn ask_shortcut_follows_hold_mode_press_and_release() {
+        assert_eq!(
+            ask_shortcut_action("hold", ShortcutState::Pressed, false, false, false),
+            AskShortcutAction::Start
+        );
+        assert_eq!(
+            ask_shortcut_action("hold", ShortcutState::Released, true, false, true),
+            AskShortcutAction::Stop
+        );
+        assert_eq!(
+            ask_shortcut_action("hold", ShortcutState::Released, false, true, true),
+            AskShortcutAction::StopAfterStart
+        );
+    }
+
+    #[test]
+    fn ask_shortcut_follows_toggle_mode_press_only() {
+        assert_eq!(
+            ask_shortcut_action("toggle", ShortcutState::Pressed, false, false, false),
+            AskShortcutAction::Start
+        );
+        assert_eq!(
+            ask_shortcut_action("toggle", ShortcutState::Pressed, true, false, true),
+            AskShortcutAction::Stop
+        );
+        assert_eq!(
+            ask_shortcut_action("toggle", ShortcutState::Released, true, false, true),
+            AskShortcutAction::Ignore
+        );
+        assert_eq!(
+            ask_shortcut_action("toggle", ShortcutState::Pressed, false, false, true),
+            AskShortcutAction::Ignore
+        );
+    }
+
+    #[test]
     fn test_parse_hotkey_f_keys() {
         for (key, expected) in [("F1", Code::F1), ("F12", Code::F12)] {
             let s = parse_hotkey(&format!("Ctrl+{}", key));
@@ -343,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_parse_hotkey_meta_modifier() {
-        for name in ["Meta", "Super", "Win", "Cmd"] {
+        for name in ["Meta", "Super", "Win", "Cmd", "Command"] {
             let s = parse_hotkey(&format!("{}+A", name));
             assert!(s.is_some(), "Failed to parse {}+A", name);
             assert_eq!(s.unwrap().mods, Modifiers::SUPER);

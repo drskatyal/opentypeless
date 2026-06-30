@@ -28,7 +28,7 @@ describe('appStore', () => {
       const { config } = getState()
       expect(config.theme).toBe('system')
       expect(config.hotkey).toBe('Ctrl+/')
-      expect(config.ask_hotkey).toBe('Ctrl+Shift+/')
+      expect(config.ask_hotkey).toBe('Ctrl+.')
       expect(config.output_mode).toBe('keyboard')
       expect(config.polish_enabled).toBe(true)
       expect(config.polish_custom_prompt).toBe('')

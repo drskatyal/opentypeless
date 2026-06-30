@@ -68,6 +68,7 @@ pub async fn update_hotkey(
 ) -> Result<(), String> {
     let mut config = config_state.load().await.map_err(|e| e.to_string())?;
     config.hotkey = hotkey;
+    config.normalize_values();
 
     if let Err(e) = register_configured_shortcuts(&app, &config) {
         let message = e.to_string();
@@ -94,6 +95,7 @@ pub async fn update_ask_hotkey(
 ) -> Result<(), String> {
     let mut config = config_state.load().await.map_err(|e| e.to_string())?;
     config.ask_hotkey = hotkey;
+    config.normalize_values();
 
     if let Err(e) = register_configured_shortcuts(&app, &config) {
         let message = e.to_string();
