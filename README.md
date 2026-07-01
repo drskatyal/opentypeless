@@ -64,9 +64,9 @@ It is designed for quick answers with no chat history, no input box, and no extr
 | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | <img src="docs/images/onboarding-stt.png" width="360" alt="OpenTypeless onboarding" /> | <img src="docs/images/app-settings.png" width="360" alt="OpenTypeless settings" /> |
 
-| Lifetime cloud words                                                                                        | Local history                                                                           |
-| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| <img src="docs/images/desktop-upgrade-lifetime.png" width="360" alt="OpenTypeless Lifetime Starter plan" /> | <img src="docs/images/app-history.png" width="360" alt="OpenTypeless history search" /> |
+| Voice workspace                                                                                                      | Local history                                                                           |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| <img src="docs/images/app-main-light.png" width="360" alt="OpenTypeless home dashboard with recording stats" />      | <img src="docs/images/app-history.png" width="360" alt="OpenTypeless history search" /> |
 
 ---
 
