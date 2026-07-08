@@ -1,17 +1,19 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronDown, MessageCircle } from 'lucide-react'
 import { isMacPlatform, useAppStore } from '../../stores/appStore'
-import type { HotkeyMode, OutputMode } from '../../stores/appStore'
+import type { AppConfig, HotkeyMode, OutputMode } from '../../stores/appStore'
 import {
-  updateHotkey,
-  updateAskHotkey,
   pauseHotkey,
   resumeHotkey,
   checkAccessibilityPermission,
   requestAccessibilityPermission,
   waitForAccessibilityPermission,
   getPlatformCapabilities,
+  getHotkeyStatus,
+  startAskFlow,
 } from '../../lib/tauri'
+import type { HotkeyStatus } from '../../lib/tauri'
 import { SegmentedControl } from './shared/SegmentedControl'
 import { Toggle } from './shared/Toggle'
 
@@ -46,13 +48,26 @@ const STANDALONE_KEYS = new Set([
   'F12',
 ])
 
-interface HotkeyRecorderProps {
-  value: string
-  onSave: (hotkey: string) => Promise<void>
-  onSaved: (hotkey: string) => void
+function isFnDictationHotkey(config: AppConfig) {
+  return (
+    config.hotkey.trim().toLowerCase() === 'fn' ||
+    (config.hotkeys.dictation.primary.trim().toLowerCase() === 'fn' &&
+      config.hotkeys.dictation.modifiers.length === 0)
+  )
 }
 
-function HotkeyRecorder({ value, onSave, onSaved }: HotkeyRecorderProps) {
+function needsMacAccessibility(config: AppConfig) {
+  return config.output_mode === 'keyboard' || isFnDictationHotkey(config)
+}
+
+interface HotkeyRecorderProps {
+  value: string
+  onSaved: (hotkey: string) => void
+  validateHotkey?: (hotkey: string) => string | null
+  specialOptions?: Array<{ value: string; label: string }>
+}
+
+function HotkeyRecorder({ value, onSaved, validateHotkey, specialOptions }: HotkeyRecorderProps) {
   const { t } = useTranslation()
   const isMac = isMacPlatform()
   const [recording, setRecording] = useState(false)
@@ -63,21 +78,24 @@ function HotkeyRecorder({ value, onSave, onSaved }: HotkeyRecorderProps) {
 
   const confirmHotkey = useCallback(
     (hotkey: string) => {
+      if (autoConfirmTimer.current) {
+        clearTimeout(autoConfirmTimer.current)
+        autoConfirmTimer.current = null
+      }
       setRecording(false)
-      setError(null)
       setModifierHint(null)
-      onSave(hotkey)
-        .then(() => {
-          onSaved(hotkey)
-          setPending(null)
-        })
-        .catch((e) => {
-          setError(String(e))
-          setPending(null)
-          resumeHotkey().catch(() => {})
-        })
+      setPending(null)
+      const validationError = validateHotkey?.(hotkey)
+      if (validationError) {
+        setError(validationError)
+        resumeHotkey().catch((e) => setError(String(e)))
+        return
+      }
+      setError(null)
+      onSaved(hotkey)
+      resumeHotkey().catch((e) => setError(String(e)))
     },
-    [onSave, onSaved],
+    [onSaved, validateHotkey],
   )
 
   const handleKeyDown = useCallback(
@@ -191,6 +209,20 @@ function HotkeyRecorder({ value, onSave, onSaved }: HotkeyRecorderProps) {
       {recording && pending && (
         <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.clickToConfirm')}</p>
       )}
+      {recording && specialOptions && specialOptions.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {specialOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => confirmHotkey(option.value)}
+              className="rounded-full border border-border bg-bg-secondary px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-border-focus hover:text-text-primary"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
       {error && <p className="text-[11px] text-error mt-1.5">{error}</p>}
     </div>
   )
@@ -204,7 +236,10 @@ export function GeneralPane() {
   const hotkeyRegistrationError = useAppStore((s) => s.hotkeyRegistrationError)
   const { t } = useTranslation()
   const isMac = isMacPlatform()
+  const macAccessibilityNeeded = isMac && needsMacAccessibility(config)
   const [a11yTrusted, setA11yTrusted] = useState<boolean | null>(null)
+  const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus | null>(null)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   useEffect(() => {
     if (platformCapabilities) return
@@ -216,19 +251,55 @@ export function GeneralPane() {
   }, [platformCapabilities, setPlatformCapabilities])
 
   useEffect(() => {
-    if (isMac && config.output_mode === 'keyboard') {
+    if (macAccessibilityNeeded) {
       checkAccessibilityPermission().then(setA11yTrusted)
       const onFocus = () => checkAccessibilityPermission().then(setA11yTrusted)
       window.addEventListener('focus', onFocus)
       return () => window.removeEventListener('focus', onFocus)
     }
-  }, [isMac, config.output_mode])
+  }, [macAccessibilityNeeded])
+
+  useEffect(() => {
+    let cancelled = false
+    getHotkeyStatus()
+      .then((status) => {
+        if (!cancelled) setHotkeyStatus(status)
+      })
+      .catch((err) => {
+        console.error('Failed to load hotkey status:', err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [config.hotkey, config.ask_hotkey, hotkeyRegistrationError])
 
   const handleGrantPermission = useCallback(async () => {
     await requestAccessibilityPermission()
     const trusted = await waitForAccessibilityPermission()
     setA11yTrusted(trusted)
   }, [])
+
+  const handleOpenAsk = useCallback(() => {
+    startAskFlow().catch((err) => {
+      console.error('Failed to start Ask flow:', err)
+    })
+  }, [])
+
+  const hotkeyStatusMessage = hotkeyStatus?.conflict
+    ? t('settings.hotkeyConflict')
+    : hotkeyStatus && (!hotkeyStatus.dictation.valid || !hotkeyStatus.ask.valid)
+      ? t('settings.hotkeyInvalid')
+      : null
+  const dictationSpecialOptions = isMac
+    ? [{ value: 'Fn', label: 'Fn' }]
+    : platformCapabilities?.os === 'windows'
+      ? [{ value: 'RightAlt', label: 'Right Alt' }]
+      : []
+  const askSpecialOptions = isMac
+    ? [{ value: 'Fn+Space', label: 'Fn + Space' }]
+    : platformCapabilities?.os === 'windows'
+      ? [{ value: 'RightAlt+Space', label: 'Right Alt + Space' }]
+      : []
 
   return (
     <div className="space-y-6">
@@ -240,19 +311,40 @@ export function GeneralPane() {
             </p>
             <HotkeyRecorder
               value={config.hotkey}
-              onSave={updateHotkey}
               onSaved={(hotkey) => updateConfig({ hotkey })}
+              specialOptions={dictationSpecialOptions}
+              validateHotkey={(hotkey) =>
+                config.ask_hotkey && hotkey === config.ask_hotkey
+                  ? t('settings.hotkeyConflict')
+                  : null
+              }
             />
           </div>
           <div>
             <p className="mb-1.5 text-[12px] font-medium text-text-secondary">
               {t('settings.askHotkey')}
             </p>
-            <HotkeyRecorder
-              value={config.ask_hotkey}
-              onSave={updateAskHotkey}
-              onSaved={(ask_hotkey) => updateConfig({ ask_hotkey })}
-            />
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <HotkeyRecorder
+                  value={config.ask_hotkey || '—'}
+                  onSaved={(ask_hotkey) => updateConfig({ ask_hotkey })}
+                  specialOptions={askSpecialOptions}
+                  validateHotkey={(ask_hotkey) =>
+                    ask_hotkey === config.hotkey ? t('settings.hotkeyConflict') : null
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                aria-label={t('settings.tryAsk')}
+                title={t('settings.tryAsk')}
+                onClick={handleOpenAsk}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-transparent bg-bg-secondary text-text-tertiary transition-colors hover:border-border hover:text-text-primary"
+              >
+                <MessageCircle size={14} />
+              </button>
+            </div>
           </div>
         </div>
         {!platformCapabilities?.globalHotkeyReliable && (
@@ -263,6 +355,11 @@ export function GeneralPane() {
         {hotkeyRegistrationError && (
           <p className="mt-2 rounded-[8px] border border-error/30 bg-error/10 px-3 py-2 text-[12px] leading-relaxed text-error">
             {t('settings.hotkeyRegistrationFailed')}
+          </p>
+        )}
+        {hotkeyStatusMessage && (
+          <p className="mt-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
+            {hotkeyStatusMessage}
           </p>
         )}
         <div className="mt-3">
@@ -284,7 +381,13 @@ export function GeneralPane() {
             { value: 'clipboard', label: t('settings.clipboardPaste') },
           ]}
           value={config.output_mode}
-          onChange={(v) => updateConfig({ output_mode: v as OutputMode })}
+          onChange={(v) => {
+            const outputMode = v as OutputMode
+            updateConfig({
+              output_mode: outputMode,
+              insertion_strategy: outputMode === 'clipboard' ? 'clipboardPaste' : 'auto',
+            })
+          }}
         />
         {config.output_mode === 'clipboard' &&
           platformCapabilities &&
@@ -295,69 +398,60 @@ export function GeneralPane() {
           )}
       </Section>
 
-      {isMac && config.output_mode === 'keyboard' && a11yTrusted !== null && (
+      {macAccessibilityNeeded && a11yTrusted === false && (
         <Section title={t('settings.accessibilityPermission')}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${a11yTrusted ? 'bg-green-500' : 'bg-amber-500'}`}
-              />
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
               <span className="text-[13px] text-text-primary">
-                {a11yTrusted
-                  ? t('settings.accessibilityGranted')
-                  : t('settings.accessibilityRequired')}
+                {t('settings.accessibilityRequired')}
               </span>
             </div>
-            {!a11yTrusted && (
-              <button
-                onClick={handleGrantPermission}
-                className="px-3 py-1.5 text-[12px] font-medium text-white bg-accent rounded-full border-none cursor-pointer hover:bg-accent-hover transition-colors"
-              >
-                {t('settings.grantPermission')}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleGrantPermission}
+              className="rounded-full border-none bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover"
+            >
+              {t('settings.grantPermission')}
+            </button>
           </div>
         </Section>
       )}
 
-      <Section title={t('settings.maxRecordingDuration', 'Max Recording Duration')}>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={10}
-            max={300}
-            step={10}
-            value={config.max_recording_seconds}
-            onChange={(e) => updateConfig({ max_recording_seconds: Number(e.target.value) })}
-            className="flex-1 accent-accent"
+      <div>
+        <button
+          type="button"
+          aria-expanded={advancedOpen}
+          onClick={() => setAdvancedOpen((open) => !open)}
+          className="flex w-full items-center justify-between rounded-[10px] border border-border bg-bg-secondary/40 px-3 py-2 text-[13px] font-medium text-text-primary transition-colors hover:border-border-focus"
+        >
+          <span>{t('settings.advancedGeneral')}</span>
+          <ChevronDown
+            size={14}
+            className={`text-text-tertiary transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
           />
-          <span className="text-[13px] text-text-secondary font-mono w-12 text-right">
-            {config.max_recording_seconds}s
-          </span>
-        </div>
-      </Section>
+        </button>
 
-      <Section title={t('settings.other')}>
-        <div className="space-y-3">
-          <Toggle
-            checked={config.auto_start}
-            onChange={(checked) => updateConfig({ auto_start: checked })}
-            label={t('settings.launchAtStartup')}
-          />
-          {config.auto_start && (
+        {advancedOpen && (
+          <div className="mt-4 space-y-3">
             <Toggle
-              checked={config.start_minimized}
-              onChange={(checked) => updateConfig({ start_minimized: checked })}
-              label={t('settings.startMinimized')}
+              checked={config.auto_start}
+              onChange={(checked) => updateConfig({ auto_start: checked })}
+              label={t('settings.launchAtStartup')}
             />
-          )}
-          <Toggle
-            checked={config.capsule_auto_hide}
-            onChange={(checked) => updateConfig({ capsule_auto_hide: checked })}
-            label={t('settings.hideCapsuleWhenIdle')}
-          />
-        </div>
-      </Section>
+            <Toggle
+              checked={config.history_enabled}
+              onChange={(checked) => updateConfig({ history_enabled: checked })}
+              label={t('settings.saveHistory')}
+            />
+            <Toggle
+              checked={config.capsule_auto_hide}
+              onChange={(checked) => updateConfig({ capsule_auto_hide: checked })}
+              label={t('settings.hideCapsuleWhenIdle')}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

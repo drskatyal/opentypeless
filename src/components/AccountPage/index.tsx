@@ -17,6 +17,22 @@ import { createDesktopAuthCallbackURL } from '../../lib/desktop-auth-callback'
 
 type Tab = 'signin' | 'signup'
 
+function accountErrorMessage(message: string | null, t: ReturnType<typeof useTranslation>['t']) {
+  if (!message) return null
+  const normalized = message.toLowerCase()
+  if (
+    normalized.includes('load failed') ||
+    normalized.includes('failed to fetch') ||
+    normalized.includes('network')
+  ) {
+    return t(
+      'account.networkError',
+      'Could not reach OpenTypeless cloud. Check your connection and try again.',
+    )
+  }
+  return message
+}
+
 export function AccountPage() {
   const { user, loading } = useAuthStore()
 
@@ -58,7 +74,7 @@ function AuthForm() {
     return () => clearTimeout(timer)
   }, [oauthPending, t])
 
-  const displayError = localError ?? error
+  const displayError = accountErrorMessage(localError ?? error, t)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -153,6 +169,7 @@ function AuthForm() {
     try {
       setOauthPending(provider)
       setLocalError(null)
+      useAuthStore.setState({ error: null })
       const callbackURL = createDesktopAuthCallbackURL()
       // Open the desktop-oauth bridge route in the system browser. The server
       // internally POSTs to Better Auth, then 302-redirects the browser to the
@@ -239,6 +256,12 @@ function AuthForm() {
               {t(
                 'account.oauthPendingDesc',
                 "Finish signing in with your browser. You'll be redirected back automatically.",
+              )}
+            </p>
+            <p className="text-text-tertiary text-[11px] leading-relaxed">
+              {t(
+                'account.oauthPendingHint',
+                'If your browser shows “Load failed”, copy the browser address and use Complete from clipboard below.',
               )}
             </p>
           </div>
@@ -330,7 +353,10 @@ function AuthForm() {
           type="email"
           placeholder={t('account.email')}
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            useAuthStore.setState({ error: null })
+          }}
           className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-secondary text-text-primary text-[13px] outline-none focus:border-accent transition-colors"
           required
         />
@@ -338,7 +364,10 @@ function AuthForm() {
           type="password"
           placeholder={t('account.password')}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value)
+            useAuthStore.setState({ error: null })
+          }}
           minLength={8}
           className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-secondary text-text-primary text-[13px] outline-none focus:border-accent transition-colors"
           required

@@ -83,6 +83,7 @@ export function AccountStep() {
     try {
       setOauthPending(provider)
       setLocalError(null)
+      useAuthStore.setState({ error: null })
       const callbackURL = createDesktopAuthCallbackURL()
       const url = `${API_BASE_URL}/api/auth/desktop-oauth?provider=${provider}&callbackURL=${encodeURIComponent(callbackURL)}`
       await openUrl(url)
@@ -255,6 +256,12 @@ export function AccountStep() {
             </p>
             <p className="text-text-secondary text-[12px]">
               {t('onboarding.account.finishSignIn')}
+            </p>
+            <p className="text-text-tertiary text-[11px] leading-relaxed">
+              {t(
+                'onboarding.account.oauthPendingHint',
+                'If your browser shows “Load failed”, copy the browser address and use Complete from clipboard below.',
+              )}
             </p>
           </div>
           <div className="h-1 rounded-full overflow-hidden bg-bg-secondary mx-4">

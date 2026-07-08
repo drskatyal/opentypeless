@@ -40,6 +40,12 @@ capsule-debug*.png
 jelly-reference*.png
 *.zip
 .playwright-mcp/
+.playwright-cli/
+.codex-target-clippy/
+output/
+
+# Local release artifacts
+.release-assets/
 
 # Database files
 *.db

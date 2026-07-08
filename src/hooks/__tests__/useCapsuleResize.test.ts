@@ -38,6 +38,30 @@ describe('getCapsuleVisibility', () => {
     ).toBe(true)
   })
 
+  it('keeps capsule visible while preparing even when auto-hide is enabled', () => {
+    expect(
+      getCapsuleVisibility({
+        capsuleAutoHide: true,
+        contextMenuOpen: false,
+        capsuleExpanded: false,
+        hasError: false,
+        pipelineState: 'preparing',
+      }),
+    ).toBe(true)
+  })
+
+  it('keeps capsule visible while Ask is recording', () => {
+    expect(
+      getCapsuleVisibility({
+        capsuleAutoHide: true,
+        contextMenuOpen: false,
+        capsuleExpanded: false,
+        hasError: false,
+        pipelineState: 'ask_recording',
+      }),
+    ).toBe(true)
+  })
+
   it('shows idle capsule while the context menu is open', () => {
     expect(
       getCapsuleVisibility({

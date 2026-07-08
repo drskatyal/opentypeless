@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../stores/appStore'
@@ -22,6 +22,7 @@ const paneTitleKeys: Record<PaneId, string> = {
 
 export function Settings() {
   const [activePane, setActivePane] = useState<PaneId>('general')
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const config = useAppStore((s) => s.config)
   const setSavedConfig = useAppStore((s) => s.setSavedConfig)
   const isDirty = useDirtyConfig()
@@ -31,6 +32,10 @@ export function Settings() {
   useEffect(() => {
     setSavedConfig(config)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    contentRef.current?.scrollTo?.({ top: 0 })
+  }, [activePane])
 
   return (
     <div className="w-full h-full bg-bg-primary text-text-primary flex flex-col">
@@ -46,24 +51,21 @@ export function Settings() {
           </div>
 
           {/* Pane content */}
-          <div className="flex-1 overflow-y-auto px-6 py-5">
-            <AnimatePresence mode="sync">
-              <motion.div
-                key={activePane}
-                className="w-full"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.1, ease: 'easeOut' }}
-              >
-                {activePane === 'general' && <GeneralPane />}
-                {activePane === 'stt' && <SttPane />}
-                {activePane === 'llm' && <LlmPane />}
-                {activePane === 'dictionary' && <DictionaryPane />}
-                {activePane === 'scenes' && <ScenesPane />}
-                {activePane === 'about' && <AboutPane />}
-              </motion.div>
-            </AnimatePresence>
+          <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
+            <motion.div
+              key={activePane}
+              className="w-full"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
+            >
+              {activePane === 'general' && <GeneralPane />}
+              {activePane === 'stt' && <SttPane />}
+              {activePane === 'llm' && <LlmPane />}
+              {activePane === 'dictionary' && <DictionaryPane />}
+              {activePane === 'scenes' && <ScenesPane />}
+              {activePane === 'about' && <AboutPane />}
+            </motion.div>
           </div>
         </div>
       </div>

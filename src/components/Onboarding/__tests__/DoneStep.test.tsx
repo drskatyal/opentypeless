@@ -1,7 +1,14 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import React from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DoneStep } from '../DoneStep'
+
+const mockConfig = {
+  hotkey: 'Fn',
+  ask_hotkey: 'Fn+Space',
+  hotkey_mode: 'toggle',
+  output_mode: 'clipboard',
+}
 
 vi.mock('framer-motion', () => ({
   motion: new Proxy(
@@ -24,14 +31,15 @@ vi.mock('react-i18next', () => ({
           'The capsule appears while recording and processing.',
         'onboarding.done.holdPress': 'Hold / Press',
         'onboarding.done.holdPressSub': 'Use your hotkey to start and stop recording',
+        'onboarding.test.hold': 'Hold',
+        'onboarding.test.press': 'Press',
         'onboarding.done.askAnything': 'Ask Anything',
         'onboarding.done.askAnythingSub':
           'Use the Ask hotkey to record a question; stop to get one answer.',
-        'onboarding.done.clickCapsule': 'Click Capsule',
-        'onboarding.done.clickCapsuleSub': 'When visible, click the capsule to toggle recording.',
         'onboarding.done.dragToReposition': 'Drag to Reposition',
         'onboarding.done.dragToRepositionSub': 'When visible, drag the capsule anywhere on screen.',
         'onboarding.done.rightClickMenu': 'Right-click Menu',
+        'onboarding.done.rightClickMenuSub': 'Right-click the capsule for more options',
         'onboarding.done.restoreCapsuleSub':
           'Use the tray or Settings to keep the capsule visible while idle.',
       })[key] ?? key,
@@ -41,11 +49,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../../stores/appStore', () => ({
   useAppStore: (selector: any) =>
     selector({
-      config: {
-        hotkey: 'Option+/',
-        ask_hotkey: 'Command+.',
-        output_mode: 'clipboard',
-      },
+      config: mockConfig,
     }),
 }))
 
@@ -55,15 +59,59 @@ vi.mock('../../../lib/tauri', () => ({
   waitForAccessibilityPermission: vi.fn().mockResolvedValue(true),
 }))
 
+beforeEach(() => {
+  Object.assign(mockConfig, {
+    hotkey: 'Fn',
+    ask_hotkey: 'Fn+Space',
+    hotkey_mode: 'toggle',
+    output_mode: 'clipboard',
+  })
+})
+
 afterEach(() => cleanup())
 
 describe('DoneStep', () => {
-  it('teaches the Ask Anything voice question shortcut during onboarding', () => {
+  it.each([
+    ['macOS', 'Fn', 'Fn+Space', 'toggle', 'Press Fn', 'Ask Anything Fn+Space'],
+    [
+      'Windows',
+      'RightAlt',
+      'RightAlt+Space',
+      'toggle',
+      'Press RightAlt',
+      'Ask Anything RightAlt+Space',
+    ],
+    ['Linux', 'Ctrl+/', 'Ctrl+.', 'hold', 'Hold Ctrl+/', 'Ask Anything Ctrl+.'],
+  ])(
+    'teaches current %s shortcuts and capsule controls during onboarding',
+    (_platform, hotkey, askHotkey, mode, dictationTitle, askTitle) => {
+      Object.assign(mockConfig, {
+        hotkey,
+        ask_hotkey: askHotkey,
+        hotkey_mode: mode,
+      })
+
+      render(<DoneStep />)
+
+      expect(screen.getByText(dictationTitle)).toBeInTheDocument()
+      expect(screen.getByText(askTitle)).toBeInTheDocument()
+      expect(
+        screen.getByText('Use the Ask hotkey to record a question; stop to get one answer.'),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Drag to Reposition')).toBeInTheDocument()
+      expect(screen.getByText('Right-click the capsule for more options')).toBeInTheDocument()
+      expect(screen.queryByText('Click Capsule')).not.toBeInTheDocument()
+    },
+  )
+
+  it('does not show Ask Anything guidance when the shortcut is disabled', () => {
+    Object.assign(mockConfig, {
+      ask_hotkey: '',
+    })
+
     render(<DoneStep />)
 
-    expect(screen.getByText('Ask Anything Command+.')).toBeInTheDocument()
-    expect(
-      screen.getByText('Use the Ask hotkey to record a question; stop to get one answer.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Press Fn')).toBeInTheDocument()
+    expect(screen.queryByText(/Ask Anything/)).not.toBeInTheDocument()
   })
 })

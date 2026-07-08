@@ -50,6 +50,19 @@ export function History() {
     }
   }
 
+  const outputStatusLabel = (status: string | null) => {
+    switch (status) {
+      case 'partial':
+        return t('history.outputStatus.partial')
+      case 'fallback':
+        return t('history.outputStatus.fallback')
+      case 'clipboard_fallback':
+        return t('history.outputStatus.clipboardFallback')
+      default:
+        return null
+    }
+  }
+
   // Group by date
   const grouped = useMemo(() => {
     const map = new Map<string, typeof filtered>()
@@ -125,6 +138,12 @@ export function History() {
                         <p className="text-[11px] text-text-tertiary mt-1">
                           {entry.created_at.split('T')[1]?.slice(0, 5) || ''} · {entry.app_name}
                         </p>
+                        {entry.output_status && outputStatusLabel(entry.output_status) && (
+                          <p className="text-[11px] text-warning mt-1 leading-snug break-words">
+                            {outputStatusLabel(entry.output_status)}
+                            {entry.output_error ? ` · ${entry.output_error}` : ''}
+                          </p>
+                        )}
                       </div>
                       <motion.button
                         onClick={() => handleCopy(entry.id, entry.polished_text)}

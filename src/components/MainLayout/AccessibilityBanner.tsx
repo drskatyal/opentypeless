@@ -3,11 +3,24 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ShieldAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../stores/appStore'
+import type { AppConfig } from '../../stores/appStore'
 import {
   checkAccessibilityPermission,
   requestAccessibilityPermission,
   waitForAccessibilityPermission,
 } from '../../lib/tauri'
+
+function isFnDictationHotkey(config: AppConfig) {
+  return (
+    config.hotkey.trim().toLowerCase() === 'fn' ||
+    (config.hotkeys.dictation.primary.trim().toLowerCase() === 'fn' &&
+      config.hotkeys.dictation.modifiers.length === 0)
+  )
+}
+
+function needsMacAccessibility(config: AppConfig) {
+  return config.output_mode === 'keyboard' || isFnDictationHotkey(config)
+}
 
 export function AccessibilityBanner() {
   const { t } = useTranslation()
@@ -17,8 +30,9 @@ export function AccessibilityBanner() {
   const isMac =
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const [dismissed, setDismissed] = useState(false)
+  const macAccessibilityNeeded = isMac && needsMacAccessibility(config)
 
-  const show = isMac && !accessibilityTrusted && config.output_mode === 'keyboard' && !dismissed
+  const show = macAccessibilityNeeded && !accessibilityTrusted && !dismissed
 
   // Re-show banner when accessibility error fires (user just hit the issue)
   useEffect(() => {
@@ -26,12 +40,12 @@ export function AccessibilityBanner() {
   }, [accessibilityTrusted])
 
   useEffect(() => {
-    if (isMac && !accessibilityTrusted) {
+    if (macAccessibilityNeeded && !accessibilityTrusted) {
       const onFocus = () => checkAccessibilityPermission().then(setAccessibilityTrusted)
       window.addEventListener('focus', onFocus)
       return () => window.removeEventListener('focus', onFocus)
     }
-  }, [isMac, accessibilityTrusted, setAccessibilityTrusted])
+  }, [macAccessibilityNeeded, accessibilityTrusted, setAccessibilityTrusted])
 
   const handleGrant = useCallback(async () => {
     await requestAccessibilityPermission()

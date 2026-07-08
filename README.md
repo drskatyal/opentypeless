@@ -46,9 +46,19 @@
 
 ## Ask Anything
 
-Ask Anything is a shortcut-first voice Q&A flow, not a chat tab. Press the Ask Anything hotkey, speak a question, stop recording, and OpenTypeless transcribes it, sends a one-shot request to the LLM, then shows only the final answer in a small result panel.
+Ask Anything is a shortcut-first voice Q&A flow, not a chat tab. Press the Ask Anything hotkey, speak a question, stop recording, and OpenTypeless transcribes it, sends a one-shot request to the LLM, then shows only the final answer in a small floating note.
 
-It is designed for quick answers with no chat history, no input box, and no extra send step.
+It is designed for quick answers with no chat history, no input box, and no extra send step. If selected-text context is enabled, Ask can also answer questions about the text currently selected in another app.
+
+Default shortcuts now follow the Typeless-style flow:
+
+| Platform | Dictation | Ask Anything | Translate selected text |
+| -------- | --------- | ------------ | ----------------------- |
+| macOS    | `Fn`      | `Fn+Space`   | `Fn+LeftShift`          |
+| Windows  | `Right Alt` | `Right Alt+Space` | `Right Alt+LeftShift` |
+| Linux    | `Ctrl+/`  | `Ctrl+.`     | configurable            |
+
+Linux keeps conservative Ctrl-based defaults because global Right Alt handling is less reliable across desktop environments, especially on Wayland.
 
 ## Visual Tour
 
@@ -120,15 +130,20 @@ Most desktop dictation tools stop at transcription. OpenTypeless adds the AI rew
 
 | Area              | Highlights                                                                                                                                  |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Voice capture     | Global hotkeys, hold-to-record or toggle mode, floating always-on-top capsule, separate Ask Anything shortcut                               |
-| AI rewriting      | Streaming polish, selected-text context, custom polish instructions, per-app formatting, translation mode                                   |
-| Ask Anything      | One-shot voice question flow: record, transcribe, think, then show only the answer                                                          |
-| STT providers     | Cloud STT, Deepgram, AssemblyAI, GLM-ASR, OpenAI Whisper, Groq Whisper, SiliconFlow, Volcengine Doubao, custom Whisper-compatible endpoints |
+| Voice capture     | Native Fn / Right Alt hotkeys on macOS/Windows, Linux Ctrl defaults, hold or toggle mode, floating capsule states, idle auto-hide, separate Ask Anything shortcut |
+| AI rewriting      | Polish styles, streaming polish, selected-text context, custom instructions, per-app formatting, translation mode                           |
+| Ask Anything      | One-shot voice question flow: record in the capsule, think, then show a small answer note with copy support                                 |
+| STT providers     | Cloud STT, Apple Speech on macOS, Deepgram, AssemblyAI, GLM-ASR, OpenAI Whisper, Groq Whisper, SiliconFlow, Volcengine Doubao, custom endpoints |
 | LLM providers     | Cloud LLM or OpenAI-compatible APIs including OpenAI, DeepSeek, Claude via OpenRouter, Gemini, Groq, Qwen, Moonshot, Ollama, and more       |
-| Output            | Keyboard simulation or clipboard output, with Wayland-safe copy-only behavior where global input automation is restricted                   |
+| Output            | Keyboard simulation, clipboard paste/copy-only, Windows SendInput, clipboard restore, and output-failure diagnostics                       |
 | Language          | Auto-detect speech, translate into 20+ target languages, customize domain vocabulary                                                        |
+| Dictionary        | Custom terms plus local correction rules for recurring transcription mistakes                                                               |
+| Scenes            | Built-in scenes, local custom scenes, active scene metadata, import/export for reusable writing styles                                      |
+| Privacy           | Provider keys stored in the OS credential vault where available, with BYOK and local/self-hosted paths preserved                            |
 | Account and quota | Optional Pro and Lifetime Starter plans with shared cloud words for voice and AI                                                            |
 | Desktop polish    | Dark/light/system theme, onboarding, local history search, auto-start, auto-update, cross-platform Tauri app                                |
+
+UI localization currently ships with complete English and Chinese copy, plus additional locale files that may still fall back to English for newer advanced features.
 
 ## How The App Thinks
 
@@ -254,13 +269,13 @@ The built application will be in `src-tauri/target/release/bundle/`.
 All settings are accessible from the in-app Settings panel:
 
 - **Speech Recognition** — choose STT provider and enter your API key
-- **AI Polish** — choose LLM provider, model, API key, custom polish instructions, translation, and selected-text context
-- **General** — dictation hotkey, Ask Anything hotkey, output mode, theme, auto-start
-- **Dictionary** — add custom terms for better transcription accuracy
-- **Scenes** — prompt templates for different use cases
+- **AI Polish** — choose LLM provider, model, API key, polish style, custom instructions, translation, and selected-text context
+- **General** — dictation hotkey, Ask Anything hotkey, output mode, auto-start, and idle capsule visibility
+- **Dictionary** — add custom terms and correction rules for recurring transcription mistakes
+- **Scenes** — built-in and local prompt templates with import/export for reusable writing styles
 - **Account / Upgrade** — sign in, check cloud words, manage Pro or Lifetime Starter access
 
-API keys are stored locally via `tauri-plugin-store`. No keys are sent to OpenTypeless servers — all STT/LLM requests go directly to the provider you configure.
+API keys are stored locally in the OS credential vault where available, with a local fallback for unsupported environments. No BYOK keys are sent to OpenTypeless servers — STT/LLM requests go directly to the provider you configure.
 
 ### Cloud Option
 

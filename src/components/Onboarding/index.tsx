@@ -128,8 +128,12 @@ export function Onboarding() {
       return
     }
     // Original behavior for other steps — skip entire onboarding
-    await saveConfig(config)
-    await saveOnboardingCompleted()
+    try {
+      await saveConfig(config)
+      await saveOnboardingCompleted()
+    } catch {
+      // Best-effort save — still let the user continue into the app.
+    }
     setOnboardingCompleted(true)
   }
 

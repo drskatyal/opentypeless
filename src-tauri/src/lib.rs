@@ -1,14 +1,17 @@
 pub mod app_detector;
 pub mod audio;
 pub mod commands;
+pub mod credentials;
 pub mod error;
 pub mod hotkey;
 #[cfg(target_os = "linux")]
 mod linux_x11;
 pub mod llm;
+pub mod native_hotkey;
 pub mod output;
 pub mod pipeline;
 pub mod platform;
+pub mod selection;
 pub mod storage;
 pub mod stt;
 pub mod tray;
@@ -19,7 +22,6 @@ pub use tray::{refresh_tray, TrayHandle};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::MacosLauncher;
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_store::StoreExt;
 use tracing_subscriber::EnvFilter;
 
@@ -49,6 +51,9 @@ pub struct HotkeyModeCache(pub Arc<Mutex<String>>);
 /// Cached Ask Anything hotkey to route global-shortcut events without disk I/O.
 pub struct AskHotkeyCache(pub Arc<Mutex<String>>);
 
+/// Cached registered hotkey roles to route global-shortcut events without disk I/O.
+pub struct HotkeyRoleCache(pub Arc<Mutex<hotkey::HotkeyRegistrationPlan>>);
+
 /// Cached close_to_tray setting to avoid blocking I/O in the window close handler.
 pub struct CloseToTrayCache(pub Arc<Mutex<bool>>);
 
@@ -58,6 +63,82 @@ pub struct HotkeyRegistrationError(pub Arc<Mutex<Option<String>>>);
 /// Session token for cloud providers. Set by the frontend after Better Auth login.
 /// The Rust pipeline reads this when creating cloud STT/LLM providers.
 pub struct SessionTokenStore(pub Arc<Mutex<String>>);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AutoStartSyncOutcome {
+    config_auto_start: bool,
+    error: Option<String>,
+}
+
+fn reconcile_auto_start_preference(
+    desired_enabled: bool,
+    current_enabled: Result<bool, String>,
+    apply: impl FnOnce(bool) -> Result<(), String>,
+) -> AutoStartSyncOutcome {
+    let current_enabled = match current_enabled {
+        Ok(enabled) => enabled,
+        Err(error) => {
+            return AutoStartSyncOutcome {
+                config_auto_start: desired_enabled,
+                error: Some(format!("Failed to read launch at startup status: {error}")),
+            };
+        }
+    };
+
+    if current_enabled == desired_enabled {
+        return AutoStartSyncOutcome {
+            config_auto_start: desired_enabled,
+            error: None,
+        };
+    }
+
+    match apply(desired_enabled) {
+        Ok(()) => AutoStartSyncOutcome {
+            config_auto_start: desired_enabled,
+            error: None,
+        },
+        Err(error) => {
+            let action = if desired_enabled { "enable" } else { "disable" };
+            AutoStartSyncOutcome {
+                config_auto_start: current_enabled,
+                error: Some(format!("Failed to {action} launch at startup: {error}")),
+            }
+        }
+    }
+}
+
+fn sync_auto_start_preference(
+    app: &tauri::AppHandle,
+    config_manager: &storage::ConfigManager,
+    config: &mut storage::AppConfig,
+) {
+    use tauri_plugin_autostart::ManagerExt;
+
+    let autolaunch = app.autolaunch();
+    let outcome = reconcile_auto_start_preference(
+        config.auto_start,
+        autolaunch.is_enabled().map_err(|e| e.to_string()),
+        |enabled| {
+            if enabled {
+                autolaunch.enable()
+            } else {
+                autolaunch.disable()
+            }
+            .map_err(|e| e.to_string())
+        },
+    );
+
+    if let Some(error) = &outcome.error {
+        tracing::warn!("{error}");
+    }
+
+    if config.auto_start != outcome.config_auto_start {
+        config.auto_start = outcome.config_auto_start;
+        if let Err(error) = tauri::async_runtime::block_on(config_manager.save(config)) {
+            tracing::warn!("Failed to persist launch at startup status after sync: {error}");
+        }
+    }
+}
 
 fn should_restore_main_window_on_reopen(_has_visible_windows: bool) -> bool {
     true
@@ -106,9 +187,12 @@ fn build_ask_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWi
         tauri::WebviewUrl::App("index.html#ask".into()),
     )
     .title("OpenTypeless Ask")
-    .inner_size(420.0, 320.0)
-    .min_inner_size(360.0, 260.0)
-    .resizable(true)
+    .inner_size(400.0, 220.0)
+    .min_inner_size(360.0, 180.0)
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
     .always_on_top(true)
     .skip_taskbar(true)
     .center()
@@ -144,9 +228,25 @@ pub fn show_ask_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::
     Ok(window)
 }
 
+#[tauri::command]
+async fn show_ask_window(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, commands::ask::AskDictationState>,
+    config_state: tauri::State<'_, storage::ConfigManager>,
+    token_store: tauri::State<'_, SessionTokenStore>,
+    client: tauri::State<'_, reqwest::Client>,
+) -> Result<(), String> {
+    commands::ask::start_ask_flow(app, state, config_state, token_store, client).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn text_mentions(text: &str, keywords: &[&str]) -> bool {
+        let normalized = text.to_ascii_lowercase();
+        keywords.iter().any(|keyword| normalized.contains(keyword))
+    }
 
     #[test]
     fn dock_reopen_restores_main_window_when_no_windows_are_visible() {
@@ -177,6 +277,85 @@ mod tests {
             tauri::WebviewUrl::App(path) => assert_eq!(path.to_string_lossy(), "index.html#ask"),
             _ => panic!("expected app url"),
         }
+    }
+
+    #[test]
+    fn ask_window_config_uses_floating_note_chrome() {
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let tauri_config: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(manifest_dir.join("tauri.conf.json")).unwrap(),
+        )
+        .unwrap();
+        let ask = tauri_config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|window| window["label"].as_str() == Some("ask"))
+            .unwrap();
+
+        assert_eq!(ask["decorations"].as_bool(), Some(false));
+        assert_eq!(ask["transparent"].as_bool(), Some(true));
+        assert_eq!(ask["shadow"].as_bool(), Some(false));
+        assert_eq!(ask["resizable"].as_bool(), Some(false));
+        assert_eq!(ask["width"].as_i64(), Some(400));
+        assert_eq!(ask["height"].as_i64(), Some(220));
+    }
+
+    #[test]
+    fn auto_start_sync_uses_actual_state_when_enable_fails() {
+        let outcome = reconcile_auto_start_preference(true, Ok(false), |_| {
+            Err("Login item failed".to_string())
+        });
+
+        assert!(!outcome.config_auto_start);
+        assert_eq!(
+            outcome.error.as_deref(),
+            Some("Failed to enable launch at startup: Login item failed")
+        );
+    }
+
+    #[test]
+    fn auto_start_sync_keeps_preference_when_apply_succeeds() {
+        let outcome = reconcile_auto_start_preference(true, Ok(false), |_| Ok(()));
+
+        assert!(outcome.config_auto_start);
+        assert_eq!(outcome.error, None);
+    }
+
+    #[test]
+    fn macos_bundle_merges_info_plist_with_local_speech_permissions() {
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let tauri_config: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(manifest_dir.join("tauri.conf.json")).unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            tauri_config
+                .pointer("/bundle/macOS/infoPlist")
+                .and_then(serde_json::Value::as_str),
+            Some("./Info.plist")
+        );
+
+        let info_plist = plist::Value::from_file(manifest_dir.join("Info.plist")).unwrap();
+        let info_plist = info_plist.as_dictionary().unwrap();
+        let microphone_usage = info_plist
+            .get("NSMicrophoneUsageDescription")
+            .and_then(plist::Value::as_string)
+            .unwrap_or_default();
+        let speech_usage = info_plist
+            .get("NSSpeechRecognitionUsageDescription")
+            .and_then(plist::Value::as_string)
+            .unwrap_or_default();
+
+        assert!(text_mentions(
+            microphone_usage,
+            &["microphone", "voice", "speech"]
+        ));
+        assert!(text_mentions(
+            speech_usage,
+            &["speech", "transcrib", "dictation", "voice"]
+        ));
     }
 }
 
@@ -222,6 +401,89 @@ fn apply_linux_workarounds() {
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         }
     }
+}
+
+fn set_hotkey_registration_error_state(app: &tauri::AppHandle, message: Option<String>) {
+    if let Some(state) = app.try_state::<HotkeyRegistrationError>() {
+        *state.0.lock().unwrap_or_else(|e| e.into_inner()) = message;
+    }
+}
+
+fn record_hotkey_registration_result(
+    app: &tauri::AppHandle,
+    supervisor: &hotkey::HotkeySupervisor,
+    generation: u64,
+    result: Result<(), String>,
+) -> Result<(), String> {
+    if !supervisor.is_current_generation(generation) {
+        return Err(commands::misc::HOTKEY_REGISTRATION_SUPERSEDED_ERROR.to_string());
+    }
+
+    match result {
+        Ok(()) => {
+            supervisor.record_registration_success(generation);
+            set_hotkey_registration_error_state(app, None);
+            let _ = app.emit("hotkey:registration-recovered", ());
+            Ok(())
+        }
+        Err(message) => {
+            supervisor.record_registration_failure(generation, message.clone());
+            set_hotkey_registration_error_state(app, Some(message.clone()));
+            let _ = app.emit("hotkey:registration-failed", message.clone());
+            Err(message)
+        }
+    }
+}
+
+fn spawn_hotkey_supervisor(app_handle: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let delay = app_handle
+                .state::<hotkey::HotkeySupervisor>()
+                .next_retry_delay()
+                .unwrap_or_else(|| {
+                    std::time::Duration::from_secs(hotkey::HOTKEY_SUPERVISOR_RETRY_DELAY_SECS)
+                });
+            tokio::time::sleep(delay).await;
+
+            let supervisor = app_handle.state::<hotkey::HotkeySupervisor>();
+            let Some(generation) = supervisor.begin_retry_registration_attempt() else {
+                continue;
+            };
+
+            let config = match app_handle.state::<storage::ConfigManager>().load().await {
+                Ok(config) => config,
+                Err(error) => {
+                    if !supervisor.is_current_generation(generation) {
+                        continue;
+                    }
+                    let message = format!("Failed to load hotkey config for retry: {error}");
+                    supervisor.record_registration_failure(generation, message.clone());
+                    set_hotkey_registration_error_state(&app_handle, Some(message.clone()));
+                    let _ = app_handle.emit("hotkey:registration-failed", message);
+                    continue;
+                }
+            };
+
+            if !supervisor.is_current_generation(generation) {
+                continue;
+            }
+
+            let result = commands::misc::register_configured_shortcuts_for_generation(
+                &app_handle,
+                &config,
+                &supervisor,
+                generation,
+            );
+            if let Err(message) =
+                record_hotkey_registration_result(&app_handle, &supervisor, generation, result)
+            {
+                tracing::warn!("Hotkey supervisor retry failed: {message}");
+            } else {
+                tracing::info!("Hotkey supervisor recovered global shortcut registration");
+            }
+        }
+    });
 }
 
 pub fn run() {
@@ -310,13 +572,9 @@ pub fn run() {
                 pipeline::PipelineHandle::new(app_handle.clone(), shared_client.clone());
 
             // Load initial config to get hotkey
-            let initial_config =
+            let mut initial_config =
                 tauri::async_runtime::block_on(config_manager.load()).unwrap_or_default();
-            let shortcut =
-                parse_hotkey(&initial_config.hotkey).unwrap_or_else(hotkey::default_shortcut);
-            let ask_shortcut = parse_hotkey(&initial_config.ask_hotkey)
-                .unwrap_or_else(hotkey::default_ask_shortcut);
-
+            sync_auto_start_preference(&app_handle, &config_manager, &mut initial_config);
             app.manage(config_manager);
             app.manage(history_store);
             app.manage(dictionary_store);
@@ -329,24 +587,19 @@ pub fn run() {
             app.manage(AskHotkeyCache(Arc::new(Mutex::new(
                 initial_config.ask_hotkey.clone(),
             ))));
+            app.manage(HotkeyRoleCache(Arc::new(Mutex::new(
+                hotkey::hotkey_registration_plan_from_config(&initial_config.hotkeys)
+                    .unwrap_or_default(),
+            ))));
+            app.manage(native_hotkey::NativeHotkeyRuntime::default());
             let hotkey_registration_error = Arc::new(Mutex::new(None));
             app.manage(HotkeyRegistrationError(hotkey_registration_error.clone()));
+            let hotkey_supervisor = hotkey::HotkeySupervisor::default();
+            app.manage(hotkey_supervisor.clone());
             app.manage(CloseToTrayCache(Arc::new(Mutex::new(
                 initial_config.close_to_tray,
             ))));
             app.manage(SessionTokenStore(Arc::new(Mutex::new(String::new()))));
-
-            // Sync auto-start state with system
-            {
-                use tauri_plugin_autostart::ManagerExt;
-                let autolaunch = app.handle().autolaunch();
-                let is_enabled = autolaunch.is_enabled().unwrap_or(false);
-                if initial_config.auto_start && !is_enabled {
-                    let _ = autolaunch.enable();
-                } else if !initial_config.auto_start && is_enabled {
-                    let _ = autolaunch.disable();
-                }
-            }
 
             // Register global shortcut from config
             let handler = hotkey::build_shortcut_handler(app_handle.clone());
@@ -355,36 +608,16 @@ pub fn run() {
                     .with_handler(handler)
                     .build(),
             )?;
-            if let Err(e) = app.global_shortcut().register(shortcut) {
-                let message = format!(
-                    "Failed to register shortcut '{}' (may be occupied): {e}",
-                    initial_config.hotkey
-                );
-                tracing::warn!(
-                    "Failed to register shortcut '{}' (may be occupied): {e}",
-                    initial_config.hotkey
-                );
-                *hotkey_registration_error
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner()) = Some(message.clone());
-                let _ = app_handle.emit("hotkey:registration-failed", message);
+            let generation = hotkey_supervisor.begin_registration_attempt();
+            if let Err(message) = record_hotkey_registration_result(
+                &app_handle,
+                &hotkey_supervisor,
+                generation,
+                commands::misc::register_configured_shortcuts(&app_handle, &initial_config),
+            ) {
+                tracing::warn!("Initial global shortcut registration failed: {message}");
             }
-            if shortcut.key != ask_shortcut.key || shortcut.mods != ask_shortcut.mods {
-                if let Err(e) = app.global_shortcut().register(ask_shortcut) {
-                    let message = format!(
-                        "Failed to register Ask shortcut '{}' (may be occupied): {e}",
-                        initial_config.ask_hotkey
-                    );
-                    tracing::warn!(
-                        "Failed to register Ask shortcut '{}' (may be occupied): {e}",
-                        initial_config.ask_hotkey
-                    );
-                    *hotkey_registration_error
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner()) = Some(message.clone());
-                    let _ = app_handle.emit("hotkey:registration-failed", message);
-                }
-            }
+            spawn_hotkey_supervisor(app_handle.clone());
 
             // System tray
             let tray_menu =
@@ -603,12 +836,21 @@ pub fn run() {
             commands::ask::ask_anything,
             commands::ask::start_ask_dictation,
             commands::ask::stop_ask_dictation,
+            commands::ask::start_ask_flow,
+            commands::ask::stop_ask_flow,
             commands::ask::abort_ask_dictation,
             commands::ask::take_pending_ask_message,
+            show_ask_window,
             commands::misc::check_accessibility_permission,
             commands::misc::request_accessibility_permission,
             commands::config::get_config,
             commands::config::update_config,
+            commands::credentials::get_credential_status,
+            commands::credentials::read_credential,
+            commands::credentials::set_credential,
+            commands::credentials::clear_credential,
+            commands::credentials::migrate_legacy_credentials,
+            commands::stt::get_stt_provider_diagnostics,
             commands::stt::test_stt_connection,
             commands::llm::test_llm_connection,
             commands::llm::bench_llm_connection,
@@ -619,6 +861,10 @@ pub fn run() {
             commands::dictionary::get_dictionary,
             commands::dictionary::add_dictionary_entry,
             commands::dictionary::remove_dictionary_entry,
+            commands::dictionary::get_correction_rules,
+            commands::dictionary::add_correction_rule,
+            commands::dictionary::remove_correction_rule,
+            commands::dictionary::set_correction_rule_enabled,
             commands::misc::update_hotkey,
             commands::misc::update_ask_hotkey,
             commands::misc::pause_hotkey,
@@ -626,6 +872,8 @@ pub fn run() {
             commands::misc::refresh_tray_labels,
             commands::misc::get_platform_capabilities,
             commands::misc::get_hotkey_registration_error,
+            commands::misc::get_hotkey_status,
+            commands::misc::get_system_diagnostics,
             commands::config::set_auto_start,
             commands::config::set_capsule_auto_hide,
             commands::config::set_session_token,

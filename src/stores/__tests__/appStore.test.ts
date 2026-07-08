@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAppStore } from '../appStore'
-import type { HistoryEntry, DictionaryEntry } from '../appStore'
+import type { HistoryEntry, DictionaryEntry, CorrectionRule } from '../appStore'
 
 function getState() {
   return useAppStore.getState()
@@ -21,20 +21,67 @@ describe('appStore', () => {
       getState().setPipelineState('recording')
       expect(getState().pipelineState).toBe('recording')
     })
+
+    it('tracks the last structured insert result', () => {
+      expect(getState().lastInsertResult).toBeNull()
+
+      getState().setLastInsertResult({
+        status: 'inserted',
+        strategyUsed: 'keyboard',
+        charsInserted: 5,
+        charsCopied: 0,
+        warningCode: null,
+        message: null,
+      })
+
+      expect(getState().lastInsertResult).toEqual({
+        status: 'inserted',
+        strategyUsed: 'keyboard',
+        charsInserted: 5,
+        charsCopied: 0,
+        warningCode: null,
+        message: null,
+      })
+    })
   })
 
   describe('config', () => {
     it('has sensible defaults', () => {
       const { config } = getState()
+      const isMac =
+        typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
+      const isWindows =
+        typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('WIN')
       expect(config.theme).toBe('system')
-      expect(config.hotkey).toBe('Ctrl+/')
-      expect(config.ask_hotkey).toBe('Ctrl+.')
+      expect(config.hotkey).toBe(isMac ? 'Fn' : isWindows ? 'RightAlt' : 'Ctrl+/')
+      expect(config.ask_hotkey).toBe(isMac ? 'Fn+Space' : isWindows ? 'RightAlt+Space' : 'Ctrl+.')
+      expect(config.hotkeys.dictation).toEqual(
+        isMac
+          ? { primary: 'Fn', modifiers: [] }
+          : isWindows
+            ? { primary: 'RightAlt', modifiers: [] }
+            : { primary: '/', modifiers: ['Ctrl'] },
+      )
+      expect(config.hotkeys.ask).toEqual(
+        isMac
+          ? { primary: 'Space', modifiers: ['Fn'] }
+          : isWindows
+            ? { primary: 'Space', modifiers: ['RightAlt'] }
+            : { primary: '.', modifiers: ['Ctrl'] },
+      )
+      expect(config.hotkeys.dictationMode).toBe(isMac || isWindows ? 'toggle' : 'hold')
       expect(config.output_mode).toBe('keyboard')
+      expect(config.insertion_strategy).toBe('auto')
+      expect(config.windows_sendinput_newline_mode).toBe('enter')
       expect(config.polish_enabled).toBe(true)
+      expect(config.polish_style).toBe('clean')
       expect(config.polish_custom_prompt).toBe('')
       expect(config.polish_chinese_script).toBe('preserve')
+      expect(config.custom_scenes).toEqual([])
+      expect(config.active_scene).toBeNull()
       expect(config.stt_custom_api_key).toBe('')
       expect(config.capsule_auto_hide).toBe(true)
+      expect(config.auto_start).toBe(true)
     })
 
     it('setConfig replaces entire config', () => {
@@ -49,8 +96,64 @@ describe('appStore', () => {
       const updated = getState().config
 
       expect(updated.theme).toBe('dark')
-      expect(updated.hotkey).toBe('Ctrl+/') // unchanged
+      expect(updated.hotkey).toBe(original.hotkey) // unchanged
       expect(updated).not.toBe(original) // new object
+    })
+
+    it('updateConfig keeps legacy and typed hotkey fields in sync', () => {
+      getState().updateConfig({
+        hotkey: 'Ctrl+Shift+;',
+        ask_hotkey: 'Ctrl+.',
+        hotkey_mode: 'toggle',
+      })
+
+      const { config } = getState()
+      expect(config.hotkeys.dictation).toEqual({
+        primary: ';',
+        modifiers: ['Ctrl', 'Shift'],
+      })
+      expect(config.hotkeys.ask).toEqual({
+        primary: '.',
+        modifiers: ['Ctrl'],
+      })
+      expect(config.hotkeys.dictationMode).toBe('toggle')
+    })
+
+    it('updateConfig keeps native single-key hotkeys in sync', () => {
+      getState().updateConfig({
+        hotkey: 'RightAlt',
+        ask_hotkey: 'Ctrl+.',
+        hotkey_mode: 'toggle',
+      })
+
+      const { config } = getState()
+      expect(config.hotkey).toBe('RightAlt')
+      expect(config.hotkeys.dictation).toEqual({
+        primary: 'RightAlt',
+        modifiers: [],
+      })
+      expect(config.hotkeys.dictationMode).toBe('toggle')
+    })
+
+    it('updateConfig keeps disabled typed Ask hotkey disabled in legacy fields', () => {
+      getState().updateConfig({
+        hotkeys: {
+          ...getState().config.hotkeys,
+          ask: null,
+        },
+      })
+
+      const { config } = getState()
+      expect(config.hotkeys.ask).toBeNull()
+      expect(config.ask_hotkey).toBe('')
+    })
+
+    it('updateConfig treats empty legacy Ask hotkey as disabled', () => {
+      getState().updateConfig({ ask_hotkey: '' })
+
+      const { config } = getState()
+      expect(config.ask_hotkey).toBe('')
+      expect(config.hotkeys.ask).toBeNull()
     })
   })
 
@@ -70,6 +173,13 @@ describe('appStore', () => {
           polished_text: 'Hello.',
           language: 'en',
           duration_ms: 1200,
+          active_scene_id: null,
+          active_scene_source: null,
+          active_scene_name: null,
+          active_scene_prompt_chars: null,
+          active_scene_prompt_truncated: false,
+          output_status: null,
+          output_error: null,
         },
       ]
       getState().setHistory(entries)
@@ -81,6 +191,7 @@ describe('appStore', () => {
   describe('dictionary', () => {
     it('defaults to empty array', () => {
       expect(getState().dictionary).toEqual([])
+      expect(getState().correctionRules).toEqual([])
     })
 
     it('setDictionary replaces dictionary', () => {
@@ -88,6 +199,15 @@ describe('appStore', () => {
       getState().setDictionary(entries)
       expect(getState().dictionary).toHaveLength(1)
       expect(getState().dictionary[0].word).toBe('API')
+    })
+
+    it('setCorrectionRules replaces correction rules', () => {
+      const rules: CorrectionRule[] = [
+        { id: 1, pattern: '拓肯', replacement: 'Token', enabled: true },
+      ]
+      getState().setCorrectionRules(rules)
+      expect(getState().correctionRules).toHaveLength(1)
+      expect(getState().correctionRules[0].replacement).toBe('Token')
     })
   })
 

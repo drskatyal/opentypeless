@@ -1,6 +1,9 @@
 use crate::storage;
+use crate::AskHotkeyCache;
 use crate::CloseToTrayCache;
 use crate::HotkeyModeCache;
+use crate::HotkeyRegistrationError;
+use crate::HotkeyRoleCache;
 use crate::SessionTokenStore;
 use serde_json::{json, Map, Value};
 use tauri::Emitter;
@@ -19,6 +22,21 @@ fn config_patch_between(previous: &storage::AppConfig, next: &storage::AppConfig
             json!(next.max_recording_seconds),
         );
     }
+    if previous.history_enabled != next.history_enabled {
+        patch.insert("history_enabled".to_string(), json!(next.history_enabled));
+    }
+    if previous.history_retention_days != next.history_retention_days {
+        patch.insert(
+            "history_retention_days".to_string(),
+            json!(next.history_retention_days),
+        );
+    }
+    if previous.history_max_entries != next.history_max_entries {
+        patch.insert(
+            "history_max_entries".to_string(),
+            json!(next.history_max_entries),
+        );
+    }
     if previous.ui_language != next.ui_language {
         patch.insert("ui_language".to_string(), json!(next.ui_language));
     }
@@ -29,6 +47,87 @@ fn emit_config_patch(app: &tauri::AppHandle, patch: &Value) {
     if patch.as_object().is_some_and(|object| !object.is_empty()) {
         let _ = app.emit("config:patch", patch.clone());
     }
+}
+
+fn prepare_config_for_save(mut config: storage::AppConfig) -> Result<storage::AppConfig, String> {
+    sync_hotkey_fields_before_save(&mut config);
+    config.normalize_values();
+    crate::hotkey::validate_hotkey_config(&config.hotkeys).map_err(|e| e.to_string())?;
+    Ok(config)
+}
+
+fn sync_hotkey_fields_before_save(config: &mut storage::AppConfig) {
+    let default = storage::AppConfig::default();
+    let typed_was_changed = config.hotkeys != default.hotkeys;
+    let legacy_was_changed = config.hotkey != default.hotkey
+        || config.ask_hotkey != default.ask_hotkey
+        || config.hotkey_mode != default.hotkey_mode;
+
+    if typed_was_changed || !legacy_was_changed {
+        config.hotkey = config
+            .hotkeys
+            .dictation
+            .to_hotkey_string()
+            .unwrap_or_else(|| config.hotkey.clone());
+        config.ask_hotkey = config
+            .hotkeys
+            .ask
+            .as_ref()
+            .and_then(storage::ShortcutBinding::to_hotkey_string)
+            .unwrap_or_default();
+        config.hotkey_mode = config.hotkeys.dictation_mode.clone();
+    }
+}
+
+fn hotkey_runtime_config_changed(previous: &storage::AppConfig, next: &storage::AppConfig) -> bool {
+    previous.hotkey != next.hotkey
+        || previous.ask_hotkey != next.ask_hotkey
+        || previous.hotkey_mode != next.hotkey_mode
+        || previous.hotkeys != next.hotkeys
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HotkeyRuntimeRefreshError {
+    pub registration_error: String,
+    pub rollback_error: Option<String>,
+}
+
+pub(crate) fn refresh_hotkey_runtime_with_rollback(
+    previous: &storage::AppConfig,
+    next: &storage::AppConfig,
+    mut register: impl FnMut(&storage::AppConfig) -> Result<(), String>,
+) -> Result<(), HotkeyRuntimeRefreshError> {
+    match register(next) {
+        Ok(()) => Ok(()),
+        Err(registration_error) => {
+            let rollback_error = register(previous).err();
+            Err(HotkeyRuntimeRefreshError {
+                registration_error,
+                rollback_error,
+            })
+        }
+    }
+}
+
+fn update_runtime_caches(
+    hotkey_mode_cache: &HotkeyModeCache,
+    ask_cache: &AskHotkeyCache,
+    role_cache: &HotkeyRoleCache,
+    close_tray_cache: &CloseToTrayCache,
+    config: &storage::AppConfig,
+) {
+    *hotkey_mode_cache
+        .0
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = config.hotkey_mode.clone();
+    *ask_cache.0.lock().unwrap_or_else(|e| e.into_inner()) = config.ask_hotkey.clone();
+    *role_cache.0.lock().unwrap_or_else(|e| e.into_inner()) =
+        crate::hotkey::hotkey_registration_plan_from_config(&config.hotkeys).unwrap_or_default();
+    *close_tray_cache.0.lock().unwrap_or_else(|e| e.into_inner()) = config.close_to_tray;
+}
+
+fn set_hotkey_registration_error(hotkey_error: &HotkeyRegistrationError, message: Option<String>) {
+    *hotkey_error.0.lock().unwrap_or_else(|e| e.into_inner()) = message;
 }
 
 pub(crate) async fn save_capsule_auto_hide(
@@ -56,18 +155,59 @@ pub async fn get_config(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn update_config(
     app: tauri::AppHandle,
     state: tauri::State<'_, storage::ConfigManager>,
     cache: tauri::State<'_, HotkeyModeCache>,
+    ask_cache: tauri::State<'_, AskHotkeyCache>,
+    hotkey_error: tauri::State<'_, HotkeyRegistrationError>,
+    hotkey_supervisor: tauri::State<'_, crate::hotkey::HotkeySupervisor>,
+    role_cache: tauri::State<'_, HotkeyRoleCache>,
     close_tray_cache: tauri::State<'_, CloseToTrayCache>,
     config: storage::AppConfig,
 ) -> Result<(), String> {
     let previous = state.load().await.map_err(|e| e.to_string())?;
+    let config = prepare_config_for_save(config)?;
     let patch = config_patch_between(&previous, &config);
-    *cache.0.lock().unwrap_or_else(|e| e.into_inner()) = config.hotkey_mode.clone();
-    *close_tray_cache.0.lock().unwrap_or_else(|e| e.into_inner()) = config.close_to_tray;
-    state.save(&config).await.map_err(|e| e.to_string())?;
+    let refresh_hotkeys = hotkey_runtime_config_changed(&previous, &config);
+
+    if refresh_hotkeys {
+        let generation = hotkey_supervisor.wake_for_settings_change();
+        if let Err(error) = refresh_hotkey_runtime_with_rollback(&previous, &config, |candidate| {
+            crate::commands::misc::register_configured_shortcuts(&app, candidate)
+        }) {
+            if let Some(rollback_error) = error.rollback_error {
+                hotkey_supervisor.record_registration_failure(generation, rollback_error.clone());
+                set_hotkey_registration_error(&hotkey_error, Some(rollback_error));
+            } else {
+                hotkey_supervisor.record_registration_success(generation);
+                set_hotkey_registration_error(&hotkey_error, None);
+            }
+            return Err(error.registration_error);
+        }
+        hotkey_supervisor.record_registration_success(generation);
+        set_hotkey_registration_error(&hotkey_error, None);
+    }
+
+    if let Err(error) = state.save(&config).await.map_err(|e| e.to_string()) {
+        if refresh_hotkeys {
+            let rollback_generation = hotkey_supervisor.wake_for_settings_change();
+            let rollback_error =
+                crate::commands::misc::register_configured_shortcuts(&app, &previous).err();
+            if let Some(rollback_error) = rollback_error {
+                hotkey_supervisor
+                    .record_registration_failure(rollback_generation, rollback_error.clone());
+                set_hotkey_registration_error(&hotkey_error, Some(rollback_error));
+            } else {
+                hotkey_supervisor.record_registration_success(rollback_generation);
+                set_hotkey_registration_error(&hotkey_error, None);
+            }
+        }
+        return Err(error);
+    }
+
+    update_runtime_caches(&cache, &ask_cache, &role_cache, &close_tray_cache, &config);
     emit_config_patch(&app, &patch);
     if patch.get("ui_language").is_some() || patch.get("capsule_auto_hide").is_some() {
         crate::refresh_tray(&app);
@@ -150,5 +290,122 @@ mod tests {
         let patch = config_patch_between(&previous, &next);
 
         assert_eq!(patch["max_recording_seconds"], 45);
+    }
+
+    #[test]
+    fn config_patch_includes_history_privacy_changes() {
+        let previous = storage::AppConfig::default();
+        let mut next = previous.clone();
+        next.history_enabled = false;
+        next.history_retention_days = 30;
+        next.history_max_entries = 250;
+
+        let patch = config_patch_between(&previous, &next);
+
+        assert_eq!(patch["history_enabled"], false);
+        assert_eq!(patch["history_retention_days"], 30);
+        assert_eq!(patch["history_max_entries"], 250);
+    }
+
+    #[test]
+    fn prepare_config_for_save_rejects_conflicting_hotkeys() {
+        let config = storage::AppConfig {
+            hotkey: "Ctrl+/".to_string(),
+            ask_hotkey: "Ctrl+/".to_string(),
+            ..storage::AppConfig::default()
+        };
+
+        let error = prepare_config_for_save(config).unwrap_err();
+
+        assert!(error.contains("Dictation and Ask hotkeys"));
+    }
+
+    #[test]
+    fn prepare_config_for_save_normalizes_typed_hotkeys_before_save() {
+        let mut config = storage::AppConfig::default();
+        config.hotkeys.dictation = storage::ShortcutBinding {
+            primary: ";".to_string(),
+            modifiers: vec!["shift".to_string(), "control".to_string()],
+        };
+        config.hotkeys.ask = Some(storage::ShortcutBinding {
+            primary: ".".to_string(),
+            modifiers: vec!["control".to_string()],
+        });
+        config.hotkeys.dictation_mode = "toggle".to_string();
+
+        let prepared = prepare_config_for_save(config).unwrap();
+
+        assert_eq!(prepared.hotkey, "Ctrl+Shift+;");
+        assert_eq!(prepared.ask_hotkey, "Ctrl+.");
+        assert_eq!(prepared.hotkey_mode, "toggle");
+    }
+
+    #[test]
+    fn prepare_config_for_save_preserves_disabled_ask_hotkey() {
+        let mut config = storage::AppConfig::default();
+        config.hotkeys.ask = None;
+        config.ask_hotkey = String::new();
+
+        let prepared = prepare_config_for_save(config).unwrap();
+
+        assert_eq!(prepared.hotkeys.ask, None);
+        assert_eq!(prepared.ask_hotkey, "");
+    }
+
+    #[test]
+    fn hotkey_runtime_config_changed_detects_shortcut_and_mode_changes() {
+        let previous = storage::AppConfig::default();
+
+        let mut changed_dictation = previous.clone();
+        changed_dictation.hotkey = "Ctrl+Shift+;".to_string();
+        changed_dictation = prepare_config_for_save(changed_dictation).unwrap();
+        assert!(hotkey_runtime_config_changed(&previous, &changed_dictation));
+
+        let mut changed_ask = previous.clone();
+        changed_ask.ask_hotkey = "Ctrl+,".to_string();
+        changed_ask = prepare_config_for_save(changed_ask).unwrap();
+        assert!(hotkey_runtime_config_changed(&previous, &changed_ask));
+
+        let mut changed_mode = previous.clone();
+        changed_mode.hotkey_mode = if previous.hotkey_mode == "toggle" {
+            "hold".to_string()
+        } else {
+            "toggle".to_string()
+        };
+        changed_mode = prepare_config_for_save(changed_mode).unwrap();
+        assert!(hotkey_runtime_config_changed(&previous, &changed_mode));
+    }
+
+    #[test]
+    fn hotkey_runtime_config_changed_ignores_unrelated_settings() {
+        let previous = storage::AppConfig::default();
+        let mut next = previous.clone();
+        next.max_recording_seconds = 120;
+        next = prepare_config_for_save(next).unwrap();
+
+        assert!(!hotkey_runtime_config_changed(&previous, &next));
+    }
+
+    #[test]
+    fn hotkey_runtime_refresh_rolls_back_previous_config_when_new_registration_fails() {
+        let previous = storage::AppConfig::default();
+        let mut next = previous.clone();
+        next.hotkey = "Ctrl+Shift+;".to_string();
+        next = prepare_config_for_save(next).unwrap();
+        let mut attempts = Vec::new();
+
+        let error = refresh_hotkey_runtime_with_rollback(&previous, &next, |config| {
+            attempts.push(config.hotkey.clone());
+            if config.hotkey == next.hotkey {
+                Err("shortcut occupied".to_string())
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+
+        assert_eq!(attempts, vec![next.hotkey, previous.hotkey]);
+        assert_eq!(error.registration_error, "shortcut occupied");
+        assert_eq!(error.rollback_error, None);
     }
 }

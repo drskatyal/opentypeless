@@ -3,10 +3,20 @@ import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useAppStore } from '../stores/appStore'
-import type { AppConfig, PipelineState } from '../stores/appStore'
+import type { AppConfig, InsertResult, PipelineState } from '../stores/appStore'
 import { getHistory } from '../lib/tauri'
 import { toast } from '../components/Toast'
 import { capsuleErrorKeyFromPayload, type PipelineErrorPayload } from '../lib/capsuleError'
+
+type Unlisten = () => void | Promise<void>
+
+function safeUnlisten(unlisten: Unlisten) {
+  try {
+    Promise.resolve(unlisten()).catch(() => {})
+  } catch {
+    // Dev HMR can leave Tauri listener handles stale.
+  }
+}
 
 export function useTauriEvents() {
   const { t } = useTranslation()
@@ -17,6 +27,7 @@ export function useTauriEvents() {
     appendPolishedChunk,
     setPipelineState,
     setTargetApp,
+    setLastInsertResult,
     setPipelineError,
     setAccessibilityTrusted,
     setHistory,
@@ -26,13 +37,13 @@ export function useTauriEvents() {
 
   useEffect(() => {
     let cancelled = false
-    const unlisteners: Array<() => void> = []
+    const unlisteners: Unlisten[] = []
 
     function addListener<T>(event: string, handler: (payload: T) => void) {
       listen<T>(event, (e) => handler(e.payload))
         .then((unlisten) => {
           if (cancelled) {
-            unlisten()
+            safeUnlisten(unlisten)
           } else {
             unlisteners.push(unlisten)
           }
@@ -48,7 +59,7 @@ export function useTauriEvents() {
     addListener<string>('llm:chunk', appendPolishedChunk)
     addListener<PipelineState>('pipeline:state', (state) => {
       setPipelineState(state)
-      if (state === 'recording') {
+      if (state === 'preparing' || state === 'recording' || state === 'ask_recording') {
         // Clear any previous error when starting a new pipeline run
         setPipelineError(null)
       }
@@ -64,6 +75,7 @@ export function useTauriEvents() {
       }
     })
     addListener<string>('pipeline:target_app', setTargetApp)
+    addListener<InsertResult>('pipeline:insert_result', setLastInsertResult)
     addListener<PipelineErrorPayload>('pipeline:error', (payload) => {
       const capsuleErrorKey = capsuleErrorKeyFromPayload(payload)
       setPipelineError(t(`capsule.errors.${capsuleErrorKey}`))
@@ -77,6 +89,9 @@ export function useTauriEvents() {
     })
     addListener<string>('hotkey:registration-failed', (payload) => {
       setHotkeyRegistrationError(payload)
+    })
+    addListener<void>('hotkey:registration-recovered', () => {
+      setHotkeyRegistrationError(null)
     })
     addListener<Partial<AppConfig>>('config:patch', (patch) => {
       applyPersistedConfigPatch(patch)
@@ -101,7 +116,7 @@ export function useTauriEvents() {
 
     return () => {
       cancelled = true
-      unlisteners.forEach((unlisten) => unlisten())
+      unlisteners.forEach(safeUnlisten)
     }
   }, [
     setAudioVolume,
@@ -110,6 +125,7 @@ export function useTauriEvents() {
     appendPolishedChunk,
     setPipelineState,
     setTargetApp,
+    setLastInsertResult,
     setPipelineError,
     setAccessibilityTrusted,
     setHistory,

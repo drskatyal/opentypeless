@@ -1,16 +1,17 @@
 use anyhow::Result;
-#[cfg(not(target_os = "macos"))]
-use enigo::{Direction, Enigo, Key, Keyboard, Settings as EnigoSettings};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri::Manager;
-use tokio::sync::Notify;
+use tokio::sync::{mpsc, Notify};
 
 use crate::app_detector;
 use crate::audio::{AudioCaptureHandle, AudioConfig};
+use crate::credentials::{
+    resolve_llm_config_secret, resolve_stt_config_secret, SystemCredentialVault,
+};
 use crate::llm::{self, LlmConfig, PolishRequest};
-use crate::output::{self, OutputMode};
+use crate::output;
 use crate::storage;
 use crate::stt::{self, SttConfig, TranscriptEvent};
 use crate::SessionTokenStore;
@@ -116,8 +117,6 @@ fn request_accessibility_permission_prompt() -> bool {
 
 /// Delay before capturing selected text to ensure hotkey modifiers are released.
 const SELECTED_TEXT_CAPTURE_DELAY_MS: u64 = 60;
-/// Delay after simulating Ctrl+C to let the clipboard update.
-const CLIPBOARD_COPY_SETTLE_MS: u64 = 100;
 /// Interval for polling audio volume during recording.
 const VOLUME_POLL_INTERVAL_MS: u64 = 50;
 /// Timeout for STT finalization after recording stops.
@@ -146,29 +145,38 @@ fn generate_cloud_operation_id() -> String {
 #[serde(rename_all = "snake_case")]
 pub enum PipelineState {
     Idle,
+    Preparing,
     Recording,
     Transcribing,
     Polishing,
     Outputting,
+    AskRecording,
+    AskThinking,
 }
 
 impl PipelineState {
     fn as_u8(self) -> u8 {
         match self {
             Self::Idle => 0,
-            Self::Recording => 1,
-            Self::Transcribing => 2,
-            Self::Polishing => 3,
-            Self::Outputting => 4,
+            Self::Preparing => 1,
+            Self::Recording => 2,
+            Self::Transcribing => 3,
+            Self::Polishing => 4,
+            Self::Outputting => 5,
+            Self::AskRecording => 6,
+            Self::AskThinking => 7,
         }
     }
 
     fn from_u8(v: u8) -> Self {
         match v {
-            1 => Self::Recording,
-            2 => Self::Transcribing,
-            3 => Self::Polishing,
-            4 => Self::Outputting,
+            1 => Self::Preparing,
+            2 => Self::Recording,
+            3 => Self::Transcribing,
+            4 => Self::Polishing,
+            5 => Self::Outputting,
+            6 => Self::AskRecording,
+            7 => Self::AskThinking,
             _ => Self::Idle,
         }
     }
@@ -230,6 +238,350 @@ fn output_user_error(error: &anyhow::Error) -> crate::error::UserError {
     }
 }
 
+fn accessibility_required_user_error() -> crate::error::UserError {
+    crate::error::UserError {
+        code: "accessibility_required".to_string(),
+        details: None,
+        retry_count: 0,
+    }
+}
+
+fn strategy_uses_automated_input(strategy: output::InsertionStrategy) -> bool {
+    matches!(
+        strategy,
+        output::InsertionStrategy::Auto
+            | output::InsertionStrategy::Keyboard
+            | output::InsertionStrategy::ClipboardPaste
+            | output::InsertionStrategy::WindowsSendInput
+    )
+}
+
+fn effective_strategy_for_accessibility(
+    strategy: output::InsertionStrategy,
+    accessibility_trusted: bool,
+) -> (output::InsertionStrategy, Option<crate::error::UserError>) {
+    if !accessibility_trusted && strategy_uses_automated_input(strategy) {
+        return (
+            output::InsertionStrategy::ClipboardCopyOnly,
+            Some(accessibility_required_user_error()),
+        );
+    }
+
+    (strategy, None)
+}
+
+fn streaming_insert_user_error(details: Option<String>) -> crate::error::UserError {
+    crate::error::UserError {
+        code: "output_streaming_partial".to_string(),
+        details,
+        retry_count: 0,
+    }
+}
+
+fn selected_text_has_content(selected_text: Option<&str>) -> bool {
+    selected_text.is_some_and(|text| !text.trim().is_empty())
+}
+
+fn selected_text_command_requires_llm(selected_text: Option<&str>) -> bool {
+    selected_text_has_content(selected_text)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SelectedTextOutputPolicy {
+    PopupAnswer,
+    ReplaceSelection,
+    CopyToClipboard,
+}
+
+fn selected_text_output_policy(
+    raw_instruction: &str,
+    selected_text: Option<&str>,
+) -> SelectedTextOutputPolicy {
+    if !selected_text_has_content(selected_text) {
+        return SelectedTextOutputPolicy::ReplaceSelection;
+    }
+
+    match crate::selection::route_selected_text_command(raw_instruction, selected_text).output {
+        crate::selection::SelectedTextCommandOutput::PopupAnswer => {
+            SelectedTextOutputPolicy::PopupAnswer
+        }
+        crate::selection::SelectedTextCommandOutput::ReplaceSelection
+        | crate::selection::SelectedTextCommandOutput::InsertAtCursor => {
+            SelectedTextOutputPolicy::ReplaceSelection
+        }
+        crate::selection::SelectedTextCommandOutput::CopyToClipboard => {
+            SelectedTextOutputPolicy::CopyToClipboard
+        }
+    }
+}
+
+fn streaming_insert_strategy_for_config(
+    config: &storage::AppConfig,
+    has_selected_text: bool,
+    accessibility_trusted: bool,
+    keyboard_available: bool,
+) -> Option<output::InsertionStrategy> {
+    if !config.streaming_insert_enabled || has_selected_text || !accessibility_trusted {
+        return None;
+    }
+
+    let strategy = output::InsertionStrategy::from_config_value(&config.insertion_strategy)
+        .direct_streaming_strategy()?;
+    if strategy == output::InsertionStrategy::Keyboard && !keyboard_available {
+        return None;
+    }
+
+    Some(strategy)
+}
+
+fn streaming_insert_strategy_for_runtime(
+    config: &storage::AppConfig,
+    selected_text: Option<&str>,
+) -> Option<output::InsertionStrategy> {
+    let keyboard_available = output::keyboard::check_keyboard_available().is_ok();
+    streaming_insert_strategy_for_config(
+        config,
+        selected_text_has_content(selected_text),
+        is_accessibility_trusted(),
+        keyboard_available,
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActiveSceneHistoryDiagnostics {
+    id: Option<String>,
+    source: Option<String>,
+    name: Option<String>,
+    prompt_chars: Option<i64>,
+    prompt_truncated: bool,
+}
+
+fn active_scene_history_diagnostics(
+    active_scene: Option<&storage::ActiveScene>,
+) -> ActiveSceneHistoryDiagnostics {
+    match active_scene {
+        Some(scene) => {
+            let sanitized_prompt = scene.prompt_template.replace('\0', "").trim().to_string();
+            let prompt_chars = sanitized_prompt.chars().count();
+            ActiveSceneHistoryDiagnostics {
+                id: Some(scene.id.clone()),
+                source: Some(scene.source.clone()),
+                name: Some(scene.name.clone()),
+                prompt_chars: Some(prompt_chars.min(storage::SCENE_PROMPT_MAX_CHARS) as i64),
+                prompt_truncated: prompt_chars > storage::SCENE_PROMPT_MAX_CHARS,
+            }
+        }
+        None => ActiveSceneHistoryDiagnostics {
+            id: None,
+            source: None,
+            name: None,
+            prompt_chars: None,
+            prompt_truncated: false,
+        },
+    }
+}
+
+#[derive(Debug, Clone)]
+struct StreamingInsertReport {
+    strategy: output::InsertionStrategy,
+    inserted_text: String,
+    attempted_chunks: usize,
+    failed: bool,
+    target_lost: bool,
+    error_message: Option<String>,
+}
+
+impl StreamingInsertReport {
+    fn new(strategy: output::InsertionStrategy) -> Self {
+        Self {
+            strategy,
+            inserted_text: String::new(),
+            attempted_chunks: 0,
+            failed: false,
+            target_lost: false,
+            error_message: None,
+        }
+    }
+
+    fn chars_inserted(&self) -> usize {
+        self.inserted_text.chars().count()
+    }
+
+    fn has_inserted_text(&self) -> bool {
+        !self.inserted_text.is_empty()
+    }
+}
+
+fn streaming_target_app_still_trusted(expected_app_name: &str, current_app_name: &str) -> bool {
+    let expected = expected_app_name.trim();
+    let current = current_app_name.trim();
+    expected.is_empty() || current.is_empty() || expected == current
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum StreamingRecoveryAction {
+    AlreadyComplete,
+    InsertSuffix { suffix: String },
+    CopyFullToClipboard { reason: String },
+    CopyPartialToClipboard { reason: String },
+    NoRecoveryNeeded,
+}
+
+fn streaming_recovery_action(
+    report: &StreamingInsertReport,
+    polished_text: Option<&str>,
+    llm_succeeded: bool,
+    target_still_trusted: bool,
+) -> StreamingRecoveryAction {
+    if !report.has_inserted_text() {
+        return StreamingRecoveryAction::NoRecoveryNeeded;
+    }
+
+    if !llm_succeeded {
+        return StreamingRecoveryAction::CopyPartialToClipboard {
+            reason: "LLM failed after partial streaming insert".to_string(),
+        };
+    }
+
+    let Some(polished_text) = polished_text else {
+        return StreamingRecoveryAction::CopyFullToClipboard {
+            reason: "missing polished text after successful LLM response".to_string(),
+        };
+    };
+
+    if report.inserted_text == polished_text {
+        return StreamingRecoveryAction::AlreadyComplete;
+    }
+
+    if polished_text.starts_with(&report.inserted_text) {
+        if !target_still_trusted {
+            return StreamingRecoveryAction::CopyFullToClipboard {
+                reason: "target app changed after partial streaming insert".to_string(),
+            };
+        }
+
+        let suffix: String = polished_text
+            .chars()
+            .skip(report.inserted_text.chars().count())
+            .collect();
+        return StreamingRecoveryAction::InsertSuffix { suffix };
+    }
+
+    StreamingRecoveryAction::CopyFullToClipboard {
+        reason: "streaming prefix did not match final output".to_string(),
+    }
+}
+
+struct StreamingInsertWorker {
+    sender: mpsc::UnboundedSender<String>,
+    handle: tokio::task::JoinHandle<StreamingInsertReport>,
+}
+
+impl StreamingInsertWorker {
+    async fn finish(self) -> Option<StreamingInsertReport> {
+        drop(self.sender);
+        match self.handle.await {
+            Ok(report) => Some(report),
+            Err(error) => {
+                tracing::warn!("Streaming insert worker failed to join: {error}");
+                None
+            }
+        }
+    }
+}
+
+fn spawn_streaming_insert_worker(
+    app_handle: tauri::AppHandle,
+    abort_flag: Arc<AtomicBool>,
+    strategy: output::InsertionStrategy,
+    windows_sendinput_options: output::windows_sendinput::WindowsSendInputOptions,
+    expected_target_app_name: String,
+) -> StreamingInsertWorker {
+    let (sender, receiver) = mpsc::unbounded_channel();
+    let handle = tokio::spawn(run_streaming_insert_worker(
+        app_handle,
+        abort_flag,
+        strategy,
+        windows_sendinput_options,
+        expected_target_app_name,
+        receiver,
+    ));
+    StreamingInsertWorker { sender, handle }
+}
+
+async fn run_streaming_insert_worker(
+    app_handle: tauri::AppHandle,
+    abort_flag: Arc<AtomicBool>,
+    strategy: output::InsertionStrategy,
+    windows_sendinput_options: output::windows_sendinput::WindowsSendInputOptions,
+    expected_target_app_name: String,
+    mut receiver: mpsc::UnboundedReceiver<String>,
+) -> StreamingInsertReport {
+    let mut report = StreamingInsertReport::new(strategy);
+
+    while let Some(chunk) = receiver.recv().await {
+        if abort_flag.load(Ordering::SeqCst) {
+            break;
+        }
+        if chunk.is_empty() {
+            continue;
+        }
+
+        let current_app = app_detector::detect_current_app();
+        if !streaming_target_app_still_trusted(&expected_target_app_name, &current_app.app_name) {
+            report.failed = true;
+            report.target_lost = true;
+            report.error_message = Some(format!(
+                "Target app changed from '{}' to '{}'",
+                expected_target_app_name, current_app.app_name
+            ));
+            break;
+        }
+
+        report.attempted_chunks += 1;
+        match output::output_stream_chunk(&app_handle, &chunk, strategy, windows_sendinput_options)
+            .await
+        {
+            Ok(insert_result)
+                if insert_result.status == output::InsertStatus::Inserted
+                    && insert_result.chars_inserted == chunk.chars().count() =>
+            {
+                report.inserted_text.push_str(&chunk);
+            }
+            Ok(insert_result) if insert_result.chars_inserted > 0 => {
+                let partial_text: String =
+                    chunk.chars().take(insert_result.chars_inserted).collect();
+                report.inserted_text.push_str(&partial_text);
+                report.failed = true;
+                report.error_message = insert_result.message.or_else(|| {
+                    Some(format!(
+                        "Streaming insert stopped with status {:?}",
+                        insert_result.status
+                    ))
+                });
+                break;
+            }
+            Ok(insert_result) => {
+                report.failed = true;
+                report.error_message = insert_result.message.or_else(|| {
+                    Some(format!(
+                        "Streaming insert stopped with status {:?}",
+                        insert_result.status
+                    ))
+                });
+                break;
+            }
+            Err(error) => {
+                report.failed = true;
+                report.error_message = Some(error);
+                break;
+            }
+        }
+    }
+
+    report
+}
+
 fn take_matching_stt_error(
     stt_error: &Mutex<Option<(u64, crate::error::UserError)>>,
     session_id: u64,
@@ -244,61 +596,19 @@ fn take_matching_stt_error(
     None
 }
 
-fn selected_text_from_clipboard_result(selected: Option<String>, sentinel: &str) -> Option<String> {
-    match selected {
-        Some(text) if !text.trim().is_empty() && text != sentinel => Some(text),
-        _ => None,
-    }
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PipelineStartOptions {
+    pub force_translate: bool,
 }
 
-fn clipboard_copy_sentinel() -> String {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or_default();
-    format!(
-        "__opentypeless_copy_sentinel_{}_{}__",
-        std::process::id(),
-        nanos
-    )
-}
-
-#[cfg(target_os = "macos")]
-fn copy_selected_text_to_clipboard() -> bool {
-    match std::process::Command::new("/usr/bin/osascript")
-        .args([
-            "-e",
-            r#"tell application "System Events" to keystroke "c" using command down"#,
-        ])
-        .status()
-    {
-        Ok(status) if status.success() => true,
-        Ok(status) => {
-            tracing::warn!(
-                "macOS selected-text copy failed with exit code: {:?}",
-                status.code()
-            );
-            false
-        }
-        Err(e) => {
-            tracing::warn!("Failed to run osascript for selected-text copy: {}", e);
-            false
-        }
+fn apply_pipeline_start_options(
+    mut config: storage::AppConfig,
+    options: PipelineStartOptions,
+) -> storage::AppConfig {
+    if options.force_translate {
+        config.translate_enabled = true;
     }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn copy_selected_text_to_clipboard() -> bool {
-    let Ok(mut enigo) = Enigo::new(&EnigoSettings::default()) else {
-        return false;
-    };
-
-    let pressed = enigo.key(Key::Control, Direction::Press).is_ok();
-    if pressed {
-        let _ = enigo.key(Key::Unicode('c'), Direction::Click);
-        let _ = enigo.key(Key::Control, Direction::Release);
-    }
-    pressed
+    config
 }
 
 pub struct PipelineHandle {
@@ -314,6 +624,7 @@ pub struct PipelineHandle {
     preloaded_config: Arc<Mutex<Option<storage::AppConfig>>>,
     preloaded_app_ctx: Arc<Mutex<Option<app_detector::AppContext>>>,
     preloaded_dictionary: Arc<Mutex<Option<Vec<String>>>>,
+    preloaded_correction_rules: Arc<Mutex<Option<Vec<llm::CorrectionRule>>>>,
     preloaded_selected_text: Arc<Mutex<Option<String>>>,
     cloud_operation_id: Arc<Mutex<Option<String>>>,
     recording_start: Arc<Mutex<Option<std::time::Instant>>>,
@@ -330,9 +641,48 @@ struct PolishTextInput<'a> {
     config: &'a storage::AppConfig,
     app_ctx: &'a app_detector::AppContext,
     dictionary_words: Vec<String>,
+    correction_rules: Vec<llm::CorrectionRule>,
     selected_text: Option<String>,
     session_token: String,
     operation_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct PolishTextOutcome {
+    final_text: String,
+    llm_elapsed: std::time::Duration,
+    history_output_status: Option<String>,
+    history_output_error: Option<String>,
+}
+
+struct HistoryOutputMetadata {
+    status: Option<String>,
+    error: Option<String>,
+}
+
+impl PolishTextOutcome {
+    fn normal(final_text: String, llm_elapsed: std::time::Duration) -> Self {
+        Self {
+            final_text,
+            llm_elapsed,
+            history_output_status: None,
+            history_output_error: None,
+        }
+    }
+
+    fn with_history_status(
+        final_text: String,
+        llm_elapsed: std::time::Duration,
+        status: &'static str,
+        error: impl Into<String>,
+    ) -> Self {
+        Self {
+            final_text,
+            llm_elapsed,
+            history_output_status: Some(status.to_string()),
+            history_output_error: Some(error.into()),
+        }
+    }
 }
 
 impl PipelineHandle {
@@ -350,6 +700,7 @@ impl PipelineHandle {
             preloaded_config: Arc::new(Mutex::new(None)),
             preloaded_app_ctx: Arc::new(Mutex::new(None)),
             preloaded_dictionary: Arc::new(Mutex::new(None)),
+            preloaded_correction_rules: Arc::new(Mutex::new(None)),
             preloaded_selected_text: Arc::new(Mutex::new(None)),
             cloud_operation_id: Arc::new(Mutex::new(None)),
             recording_start: Arc::new(Mutex::new(None)),
@@ -365,10 +716,13 @@ impl PipelineHandle {
         // Update tray tooltip + menu to reflect pipeline state
         if let Some(tray_handle) = self.app_handle.try_state::<crate::TrayHandle>() {
             let tooltip = match new_state {
+                PipelineState::Preparing => "OpenTypeless - Preparing...",
                 PipelineState::Recording => "OpenTypeless - Recording...",
                 PipelineState::Transcribing => "OpenTypeless - Transcribing...",
                 PipelineState::Polishing => "OpenTypeless - Polishing...",
                 PipelineState::Outputting => "OpenTypeless - Outputting...",
+                PipelineState::AskRecording => "OpenTypeless - Ask...",
+                PipelineState::AskThinking => "OpenTypeless - Answering...",
                 PipelineState::Idle => "OpenTypeless",
             };
             if let Ok(t) = tray_handle.tray.lock() {
@@ -439,39 +793,7 @@ impl PipelineHandle {
     /// Must be called when no hotkey modifier keys are physically held down.
     /// Called from async context via block_in_place, so std::thread::sleep is acceptable.
     fn capture_selected_text(&self) -> Option<String> {
-        let mut clipboard = arboard::Clipboard::new().ok()?;
-        let backup = clipboard.get_text().ok();
-        let sentinel = clipboard_copy_sentinel();
-        let _ = clipboard.set_text(&sentinel);
-
-        if !copy_selected_text_to_clipboard() {
-            tracing::debug!("Selected text copy shortcut could not be sent");
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(CLIPBOARD_COPY_SETTLE_MS));
-
-        let selected = clipboard.get_text().ok();
-
-        // Always restore clipboard
-        if let Some(ref b) = backup {
-            let _ = clipboard.set_text(b);
-        } else {
-            let _ = clipboard.set_text("");
-        }
-
-        tracing::info!(
-            "Selected text capture: backup_len={}, selected_len={}",
-            backup.as_deref().map(|s| s.len()).unwrap_or(0),
-            selected.as_deref().map(|s| s.len()).unwrap_or(0)
-        );
-
-        // If Ctrl/Cmd+C had no effect, the clipboard still contains our sentinel.
-        // Ignore it so stale clipboard content is not treated as selected text.
-        let result = selected_text_from_clipboard_result(selected, &sentinel);
-        if result.is_none() {
-            tracing::debug!("Selected text capture did not produce fresh clipboard text");
-        }
-        result
+        crate::selection::capture_selected_text()
     }
 
     async fn load_config(&self) -> storage::AppConfig {
@@ -483,6 +805,11 @@ impl PipelineHandle {
     }
 
     pub async fn start(&self) -> Result<()> {
+        self.start_with_options(PipelineStartOptions::default())
+            .await
+    }
+
+    pub async fn start_with_options(&self, options: PipelineStartOptions) -> Result<()> {
         // Hold pipeline_lock for the entire setup so stop() cannot read
         // partially-initialised state (preloaded_config, audio_handle, etc.).
         let _guard = self.pipeline_lock.lock().await;
@@ -490,12 +817,13 @@ impl PipelineHandle {
         // Reset abort flag for new recording
         self.abort_flag.store(false, Ordering::SeqCst);
 
-        // Atomic CAS: only one caller can transition Idle → Recording
+        // Atomic CAS: only one caller can transition Idle → Preparing. Recording is emitted only
+        // after audio capture is ready, so the capsule does not tell users to speak too early.
         if self
             .state
             .compare_exchange(
                 PipelineState::Idle.as_u8(),
-                PipelineState::Recording.as_u8(),
+                PipelineState::Preparing.as_u8(),
                 Ordering::SeqCst,
                 Ordering::SeqCst,
             )
@@ -503,16 +831,7 @@ impl PipelineHandle {
         {
             return Ok(());
         }
-        let _ = self
-            .app_handle
-            .emit("pipeline:state", PipelineState::Recording);
-        // Update tray for recording state
-        if let Some(tray_handle) = self.app_handle.try_state::<crate::TrayHandle>() {
-            if let Ok(t) = tray_handle.tray.lock() {
-                let _ = t.set_tooltip(Some("OpenTypeless - Recording..."));
-            }
-        }
-        crate::refresh_tray(&self.app_handle);
+        self.set_state(PipelineState::Preparing);
 
         // Clear accumulated text
         self.accumulated_text
@@ -522,7 +841,7 @@ impl PipelineHandle {
         *self.stt_error.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         // P0-2: Load config BEFORE starting audio capture — fail fast on missing API key
-        let config_data = self.load_config().await;
+        let config_data = apply_pipeline_start_options(self.load_config().await, options);
         *self
             .preloaded_config
             .lock()
@@ -531,26 +850,76 @@ impl PipelineHandle {
             .preloaded_app_ctx
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(app_detector::detect_current_app());
-        let dict_words = self
-            .app_handle
-            .state::<storage::DictionaryStore>()
-            .words()
-            .await;
+        let dictionary_store = self.app_handle.state::<storage::DictionaryStore>();
+        let dict_words = dictionary_store.words().await;
+        let correction_rules = dictionary_store
+            .enabled_correction_rules()
+            .await
+            .into_iter()
+            .map(|rule| llm::CorrectionRule {
+                id: rule.id,
+                pattern: rule.pattern,
+                replacement: rule.replacement,
+                enabled: rule.enabled,
+            })
+            .collect::<Vec<_>>();
         *self
             .preloaded_dictionary
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(dict_words);
+        *self
+            .preloaded_correction_rules
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(correction_rules);
+
+        let stt_api_key = if config_data.stt_provider == "cloud" {
+            self.app_handle
+                .state::<SessionTokenStore>()
+                .0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+        } else {
+            match resolve_stt_config_secret(&config_data, &SystemCredentialVault) {
+                Ok(secret) => secret,
+                Err(error) => {
+                    tracing::warn!("Failed to read STT credential: {error}");
+                    let _ = self.app_handle.emit(
+                        "pipeline:error",
+                        "Failed to read STT credential from the system vault.",
+                    );
+                    *self
+                        .preloaded_config
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner()) = None;
+                    *self
+                        .preloaded_app_ctx
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner()) = None;
+                    *self
+                        .preloaded_dictionary
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner()) = None;
+                    *self
+                        .preloaded_correction_rules
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner()) = None;
+                    self.set_state(PipelineState::Idle);
+                    return Ok(());
+                }
+            }
+        };
 
         tracing::debug!(
             "Pipeline using config: stt_provider={}, stt_key_len={}, stt_lang={}",
             config_data.stt_provider,
-            config_data.stt_api_key.len(),
+            stt_api_key.len(),
             config_data.stt_language
         );
 
         // Guard: empty API key - bail before starting audio when provider requires one.
         if stt::config::stt_provider_requires_api_key(&config_data.stt_provider)
-            && config_data.stt_api_key.is_empty()
+            && stt_api_key.is_empty()
         {
             let _ = self.app_handle.emit(
                 "pipeline:error",
@@ -566,6 +935,10 @@ impl PipelineHandle {
                 .unwrap_or_else(|e| e.into_inner()) = None;
             *self
                 .preloaded_dictionary
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = None;
+            *self
+                .preloaded_correction_rules
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = None;
             self.set_state(PipelineState::Idle);
@@ -593,6 +966,10 @@ impl PipelineHandle {
                             .preloaded_dictionary
                             .lock()
                             .unwrap_or_else(|e| e.into_inner()) = None;
+                        *self
+                            .preloaded_correction_rules
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner()) = None;
                         self.set_state(PipelineState::Idle);
                         return Ok(());
                     }
@@ -602,18 +979,6 @@ impl PipelineHandle {
             };
 
         // P0-3: Pre-connect STT provider before spawning task
-        let stt_api_key = if config_data.stt_provider == "cloud" {
-            self.app_handle
-                .state::<SessionTokenStore>()
-                .0
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone()
-        } else if config_data.stt_provider == stt::config::CUSTOM_WHISPER_PROVIDER {
-            config_data.stt_custom_api_key.clone()
-        } else {
-            config_data.stt_api_key.clone()
-        };
         let cloud_operation_id = generate_cloud_operation_id();
         *self
             .cloud_operation_id
@@ -661,6 +1026,10 @@ impl PipelineHandle {
                     .preloaded_dictionary
                     .lock()
                     .unwrap_or_else(|e| e.into_inner()) = None;
+                *self
+                    .preloaded_correction_rules
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()) = None;
                 self.set_state(PipelineState::Idle);
                 return Ok(());
             }
@@ -680,6 +1049,10 @@ impl PipelineHandle {
                 .unwrap_or_else(|e| e.into_inner()) = None;
             *self
                 .preloaded_dictionary
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = None;
+            *self
+                .preloaded_correction_rules
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = None;
             self.set_state(PipelineState::Idle);
@@ -707,6 +1080,10 @@ impl PipelineHandle {
                     .preloaded_dictionary
                     .lock()
                     .unwrap_or_else(|e| e.into_inner()) = None;
+                *self
+                    .preloaded_correction_rules
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()) = None;
                 self.set_state(PipelineState::Idle);
                 return Ok(());
             }
@@ -728,6 +1105,10 @@ impl PipelineHandle {
                 .unwrap_or_else(|e| e.into_inner()) = None;
             *self
                 .preloaded_dictionary
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = None;
+            *self
+                .preloaded_correction_rules
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = None;
             self.set_state(PipelineState::Idle);
@@ -757,6 +1138,10 @@ impl PipelineHandle {
                 .preloaded_dictionary
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = None;
+            *self
+                .preloaded_correction_rules
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = None;
             self.set_state(PipelineState::Idle);
             return Ok(());
         }
@@ -765,6 +1150,7 @@ impl PipelineHandle {
             .recording_start
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(std::time::Instant::now());
+        self.set_state(PipelineState::Recording);
 
         // Volume monitoring task
         let app_handle = self.app_handle.clone();
@@ -1042,6 +1428,12 @@ impl PipelineHandle {
             .unwrap_or_else(|e| e.into_inner())
             .take()
             .unwrap_or_default();
+        let correction_rules = self
+            .preloaded_correction_rules
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+            .unwrap_or_default();
         let selected_text = self
             .preloaded_selected_text
             .lock()
@@ -1095,17 +1487,20 @@ impl PipelineHandle {
         }
 
         // ── Phase 2: LLM polish + output ───────────────────────────────
-        let (final_text, llm_elapsed) = self
+        let polish_outcome = self
             .polish_text(PolishTextInput {
                 raw_text: &raw_text,
                 config: &config,
                 app_ctx: &app_ctx,
                 dictionary_words,
+                correction_rules,
                 selected_text,
                 session_token,
                 operation_id,
             })
             .await;
+        let final_text = polish_outcome.final_text;
+        let llm_elapsed = polish_outcome.llm_elapsed;
 
         // ── Phase 3: Timing, history, cleanup ──────────────────────────
         let total_elapsed = stop_start.elapsed();
@@ -1138,8 +1533,18 @@ impl PipelineHandle {
         );
 
         // Save to history
-        self.save_history(&raw_text, &final_text, &app_ctx, duration_ms)
-            .await;
+        self.save_history(
+            &raw_text,
+            &final_text,
+            &app_ctx,
+            duration_ms,
+            &config,
+            HistoryOutputMetadata {
+                status: polish_outcome.history_output_status,
+                error: polish_outcome.history_output_error,
+            },
+        )
+        .await;
 
         if let Some(control) = &stt_control {
             self.clear_stt_session(control.id);
@@ -1203,21 +1608,55 @@ impl PipelineHandle {
 
     /// Polish raw text with LLM and output the result.
     /// Returns (final_text, llm_elapsed_duration).
-    async fn polish_text(&self, input: PolishTextInput<'_>) -> (String, std::time::Duration) {
+    async fn polish_text(&self, input: PolishTextInput<'_>) -> PolishTextOutcome {
         let PolishTextInput {
             raw_text,
             config,
             app_ctx,
             dictionary_words,
+            correction_rules,
             selected_text,
             session_token,
             operation_id,
         } = input;
+        let selected_text_policy = selected_text_output_policy(raw_text, selected_text.as_deref());
+
+        let llm_api_key = if config.llm_provider == "cloud" {
+            session_token
+        } else {
+            match resolve_llm_config_secret(config, &SystemCredentialVault) {
+                Ok(secret) => secret,
+                Err(error) => {
+                    tracing::warn!("Failed to read LLM credential: {error}");
+                    String::new()
+                }
+            }
+        };
 
         // Check if polish is enabled and API key / token is available
-        if !config.polish_enabled
-            || (config.llm_api_key.is_empty() && config.llm_provider != "cloud")
-        {
+        if !config.polish_enabled || (llm_api_key.is_empty() && config.llm_provider != "cloud") {
+            if selected_text_command_requires_llm(selected_text.as_deref()) {
+                let message = if !config.polish_enabled {
+                    "Selected-text commands need AI polish. Enable AI polish before editing or asking about selected text."
+                } else {
+                    "Selected-text commands need a configured LLM provider or Cloud sign-in."
+                };
+                if let Err(error) =
+                    crate::commands::ask::show_error_window(&self.app_handle, message.to_string())
+                {
+                    tracing::warn!("Failed to show selected-text no-LLM Ask error window: {error}");
+                    let _ = self.app_handle.emit(
+                        "pipeline:error",
+                        crate::error::UserError {
+                            code: "llm_failed".to_string(),
+                            details: Some(message.to_string()),
+                            retry_count: 0,
+                        },
+                    );
+                }
+                return PolishTextOutcome::normal(raw_text.to_string(), std::time::Duration::ZERO);
+            }
+
             // No polishing — output raw text directly
             if let Err(e) = self.output_text(raw_text, &app_ctx.app_name, config).await {
                 tracing::error!("Output failed: {}", e);
@@ -1225,17 +1664,11 @@ impl PipelineHandle {
                     .app_handle
                     .emit("pipeline:error", output_user_error(&e));
             }
-            return (raw_text.to_string(), std::time::Duration::ZERO);
+            return PolishTextOutcome::normal(raw_text.to_string(), std::time::Duration::ZERO);
         }
 
         self.set_state(PipelineState::Polishing);
         let llm_start = std::time::Instant::now();
-
-        let llm_api_key = if config.llm_provider == "cloud" {
-            session_token
-        } else {
-            config.llm_api_key.clone()
-        };
 
         let llm_config = LlmConfig {
             api_key: llm_api_key,
@@ -1246,17 +1679,47 @@ impl PipelineHandle {
         };
         let provider = llm::create_provider(&config.llm_provider, Some(self.shared_client.clone()));
 
-        // on_chunk only drives the UI transcript display; actual output happens
-        // in batch after the full response arrives (see output_text below).
+        let streaming_strategy =
+            streaming_insert_strategy_for_runtime(config, selected_text.as_deref());
+        let mut streaming_worker = streaming_strategy.map(|strategy| {
+            spawn_streaming_insert_worker(
+                self.app_handle.clone(),
+                self.abort_flag.clone(),
+                strategy,
+                output::windows_sendinput::WindowsSendInputOptions {
+                    newline_mode:
+                        output::windows_sendinput::WindowsSendInputNewlineMode::from_config_value(
+                            &config.windows_sendinput_newline_mode,
+                        ),
+                },
+                app_ctx.app_name.clone(),
+            )
+        });
+        let streaming_sender = streaming_worker
+            .as_ref()
+            .map(|worker| worker.sender.clone());
+
+        // The callback remains synchronous for the LLM stream. UI updates happen
+        // immediately; optional target-app insertion is drained by a worker.
         let app_handle = self.app_handle.clone();
         let on_chunk: llm::ChunkCallback = Box::new(move |chunk: &str| {
             let _ = app_handle.emit("llm:chunk", chunk);
+            if let Some(sender) = streaming_sender.as_ref() {
+                let _ = sender.send(chunk.to_string());
+            }
         });
 
         let req = PolishRequest {
             raw_text: raw_text.to_string(),
             app_type: app_ctx.app_type,
             dictionary: dictionary_words,
+            correction_rules,
+            polish_style: config.polish_style.clone(),
+            active_scene_prompt: config
+                .active_scene
+                .as_ref()
+                .map(|scene| scene.prompt_template.clone())
+                .unwrap_or_default(),
             polish_custom_prompt: config.polish_custom_prompt.clone(),
             polish_chinese_script: config.polish_chinese_script.clone(),
             translate_enabled: config.translate_enabled,
@@ -1265,54 +1728,293 @@ impl PipelineHandle {
             operation_id,
         };
 
-        let (final_text, llm_elapsed) =
-            match provider.polish(&llm_config, &req, Some(&on_chunk)).await {
-                Ok(response) => {
-                    // Check abort after LLM returns — skip output if cancelled during polish
-                    if self.abort_flag.load(Ordering::SeqCst) {
-                        tracing::info!("Pipeline aborted after LLM polish, skipping output");
-                        return (raw_text.to_string(), llm_start.elapsed());
-                    }
-                    let elapsed = llm_start.elapsed();
-                    if let Err(e) = self
-                        .output_text(&response.polished_text, &app_ctx.app_name, config)
-                        .await
-                    {
-                        tracing::error!("Output failed: {}", e);
-                        let _ = self
-                            .app_handle
-                            .emit("pipeline:error", output_user_error(&e));
-                    }
-                    (response.polished_text, elapsed)
-                }
-                Err(e) => {
-                    // Check abort after LLM error — skip fallback output if cancelled
-                    if self.abort_flag.load(Ordering::SeqCst) {
-                        tracing::info!("Pipeline aborted after LLM error, skipping output");
-                        return (raw_text.to_string(), llm_start.elapsed());
-                    }
-                    tracing::error!("LLM polish failed: {}, outputting raw text", e);
-                    let elapsed = llm_start.elapsed();
+        let polish_result = provider.polish(&llm_config, &req, Some(&on_chunk)).await;
+        drop(on_chunk);
+        let streaming_report = match streaming_worker.take() {
+            Some(worker) => worker.finish().await,
+            None => None,
+        };
 
+        let polish_outcome = match polish_result {
+            Ok(response) => {
+                let elapsed = llm_start.elapsed();
+                if let Some(report) = streaming_report.as_ref() {
+                    if report.has_inserted_text() {
+                        let mut streaming_history_status: Option<(&'static str, String)> = None;
+                        match streaming_recovery_action(
+                            report,
+                            Some(&response.polished_text),
+                            true,
+                            !report.failed && !report.target_lost,
+                        ) {
+                            StreamingRecoveryAction::AlreadyComplete => {
+                                self.emit_streaming_insert_result(report, &app_ctx.app_name);
+                            }
+                            StreamingRecoveryAction::InsertSuffix { suffix } => {
+                                let mut recovered_report = report.clone();
+                                if !suffix.is_empty() {
+                                    match output::output_stream_chunk(
+                                        &self.app_handle,
+                                        &suffix,
+                                        report.strategy,
+                                        output::windows_sendinput::WindowsSendInputOptions {
+                                            newline_mode: output::windows_sendinput::WindowsSendInputNewlineMode::from_config_value(
+                                                &config.windows_sendinput_newline_mode,
+                                            ),
+                                        },
+                                    )
+                                    .await
+                                    {
+                                        Ok(insert_result)
+                                            if insert_result.status == output::InsertStatus::Inserted
+                                                && insert_result.chars_inserted
+                                                    == suffix.chars().count() =>
+                                        {
+                                            recovered_report.inserted_text =
+                                                response.polished_text.clone();
+                                            recovered_report.failed = false;
+                                            recovered_report.error_message = None;
+                                            recovered_report.attempted_chunks =
+                                                recovered_report.attempted_chunks.saturating_add(1);
+                                            self.emit_streaming_insert_result(
+                                                &recovered_report,
+                                                &app_ctx.app_name,
+                                            );
+                                        }
+                                        Ok(insert_result) => {
+                                            let reason = format!(
+                                                "streaming suffix insert stopped with status {:?}",
+                                                insert_result.status
+                                            );
+                                            recovered_report.failed = true;
+                                            recovered_report.error_message = Some(reason.clone());
+                                            streaming_history_status =
+                                                Some(("clipboard_fallback", reason.clone()));
+                                            self.emit_streaming_insert_result(
+                                                &recovered_report,
+                                                &app_ctx.app_name,
+                                            );
+                                            self.copy_streaming_recovery_to_clipboard(
+                                                &response.polished_text,
+                                                reason,
+                                                &app_ctx.app_name,
+                                                config,
+                                            )
+                                            .await;
+                                        }
+                                        Err(error) => {
+                                            recovered_report.failed = true;
+                                            recovered_report.error_message = Some(error.clone());
+                                            streaming_history_status =
+                                                Some(("clipboard_fallback", error.clone()));
+                                            self.emit_streaming_insert_result(
+                                                &recovered_report,
+                                                &app_ctx.app_name,
+                                            );
+                                            self.copy_streaming_recovery_to_clipboard(
+                                                &response.polished_text,
+                                                error,
+                                                &app_ctx.app_name,
+                                                config,
+                                            )
+                                            .await;
+                                        }
+                                    }
+                                } else {
+                                    self.emit_streaming_insert_result(
+                                        &recovered_report,
+                                        &app_ctx.app_name,
+                                    );
+                                }
+                            }
+                            StreamingRecoveryAction::CopyFullToClipboard { reason } => {
+                                let mut partial_report = report.clone();
+                                partial_report.failed = true;
+                                partial_report.error_message = Some(reason.clone());
+                                streaming_history_status =
+                                    Some(("clipboard_fallback", reason.clone()));
+                                self.emit_streaming_insert_result(
+                                    &partial_report,
+                                    &app_ctx.app_name,
+                                );
+                                self.copy_streaming_recovery_to_clipboard(
+                                    &response.polished_text,
+                                    reason,
+                                    &app_ctx.app_name,
+                                    config,
+                                )
+                                .await;
+                            }
+                            StreamingRecoveryAction::CopyPartialToClipboard { reason } => {
+                                let mut partial_report = report.clone();
+                                partial_report.failed = true;
+                                partial_report.error_message = Some(reason.clone());
+                                streaming_history_status = Some(("partial", reason.clone()));
+                                self.emit_streaming_insert_result(
+                                    &partial_report,
+                                    &app_ctx.app_name,
+                                );
+                                self.copy_streaming_recovery_to_clipboard(
+                                    &partial_report.inserted_text,
+                                    reason,
+                                    &app_ctx.app_name,
+                                    config,
+                                )
+                                .await;
+                            }
+                            StreamingRecoveryAction::NoRecoveryNeeded => {}
+                        }
+                        if let Some((status, error)) = streaming_history_status {
+                            return PolishTextOutcome::with_history_status(
+                                response.polished_text,
+                                elapsed,
+                                status,
+                                error,
+                            );
+                        }
+                        return PolishTextOutcome::normal(response.polished_text, elapsed);
+                    }
+                    if report.target_lost {
+                        let reason = report.error_message.clone().unwrap_or_else(|| {
+                            "target app changed before streaming insert".to_string()
+                        });
+                        self.copy_streaming_recovery_to_clipboard(
+                            &response.polished_text,
+                            reason,
+                            &app_ctx.app_name,
+                            config,
+                        )
+                        .await;
+                        return PolishTextOutcome::with_history_status(
+                            response.polished_text,
+                            elapsed,
+                            "clipboard_fallback",
+                            "Target app changed before streaming insert; copied full result to clipboard",
+                        );
+                    }
+                    if report.failed {
+                        tracing::warn!(
+                            "Streaming insert failed before typing; falling back to one-shot output"
+                        );
+                    }
+                }
+
+                // Check abort after LLM returns — skip output if cancelled during polish.
+                if self.abort_flag.load(Ordering::SeqCst) {
+                    tracing::info!("Pipeline aborted after LLM polish, skipping output");
+                    return PolishTextOutcome::normal(raw_text.to_string(), elapsed);
+                }
+
+                match selected_text_policy {
+                    SelectedTextOutputPolicy::PopupAnswer => {
+                        self.show_selected_text_answer_or_copy(
+                            raw_text,
+                            &response.polished_text,
+                            &app_ctx.app_name,
+                            config,
+                        )
+                        .await;
+                        return PolishTextOutcome::normal(response.polished_text, elapsed);
+                    }
+                    SelectedTextOutputPolicy::CopyToClipboard => {
+                        self.copy_text_to_clipboard_with_warning(
+                            &response.polished_text,
+                            &app_ctx.app_name,
+                            config,
+                            crate::error::UserError {
+                                code: "output_fallback_clipboard".to_string(),
+                                details: Some(
+                                    "Selected-text answer copied to clipboard instead of replacing the selection"
+                                        .to_string(),
+                                ),
+                                retry_count: 0,
+                            },
+                        )
+                        .await;
+                        return PolishTextOutcome::with_history_status(
+                            response.polished_text,
+                            elapsed,
+                            "clipboard_fallback",
+                            "Selected-text answer copied to clipboard",
+                        );
+                    }
+                    SelectedTextOutputPolicy::ReplaceSelection => {}
+                }
+
+                if let Err(e) = self
+                    .output_text(&response.polished_text, &app_ctx.app_name, config)
+                    .await
+                {
+                    tracing::error!("Output failed: {}", e);
                     let _ = self
                         .app_handle
-                        .emit("pipeline:error", llm_polish_user_error(&e));
-                    if let Err(e) = self.output_text(raw_text, &app_ctx.app_name, config).await {
-                        tracing::error!("Output failed: {}", e);
+                        .emit("pipeline:error", output_user_error(&e));
+                }
+                PolishTextOutcome::normal(response.polished_text, elapsed)
+            }
+            Err(e) => {
+                let elapsed = llm_start.elapsed();
+                if let Some(report) = streaming_report.as_ref() {
+                    if report.has_inserted_text() {
+                        tracing::error!("LLM polish failed after partial streaming insert: {}", e);
                         let _ = self
                             .app_handle
-                            .emit("pipeline:error", output_user_error(&e));
+                            .emit("pipeline:error", llm_polish_user_error(&e));
+                        let mut partial_report = report.clone();
+                        partial_report.failed = true;
+                        partial_report.error_message = Some(format!("LLM polish failed: {}", e));
+                        self.emit_streaming_insert_result(&partial_report, &app_ctx.app_name);
+                        if let StreamingRecoveryAction::CopyPartialToClipboard { reason } =
+                            streaming_recovery_action(&partial_report, None, false, false)
+                        {
+                            self.copy_streaming_recovery_to_clipboard(
+                                &partial_report.inserted_text,
+                                reason,
+                                &app_ctx.app_name,
+                                config,
+                            )
+                            .await;
+                        }
+                        return PolishTextOutcome::with_history_status(
+                            partial_report.inserted_text,
+                            elapsed,
+                            "partial",
+                            format!("LLM polish failed after partial streaming insert: {e}"),
+                        );
                     }
-                    (raw_text.to_string(), elapsed)
                 }
-            };
+
+                // Check abort after LLM error — skip fallback output if cancelled.
+                if self.abort_flag.load(Ordering::SeqCst) {
+                    tracing::info!("Pipeline aborted after LLM error, skipping output");
+                    return PolishTextOutcome::normal(raw_text.to_string(), elapsed);
+                }
+                tracing::error!("LLM polish failed: {}, outputting raw text", e);
+
+                let _ = self
+                    .app_handle
+                    .emit("pipeline:error", llm_polish_user_error(&e));
+                if let Err(e) = self.output_text(raw_text, &app_ctx.app_name, config).await {
+                    tracing::error!("Output failed: {}", e);
+                    let _ = self
+                        .app_handle
+                        .emit("pipeline:error", output_user_error(&e));
+                }
+                PolishTextOutcome::with_history_status(
+                    raw_text.to_string(),
+                    elapsed,
+                    "fallback",
+                    format!("LLM polish failed; output raw text: {e}"),
+                )
+            }
+        };
 
         tracing::info!(
             "[Pipeline Timing] LLM polish: {}ms",
-            llm_elapsed.as_millis()
+            polish_outcome.llm_elapsed.as_millis()
         );
 
-        (final_text, llm_elapsed)
+        polish_outcome
     }
 
     /// Save the transcription to history.
@@ -1322,8 +2024,17 @@ impl PipelineHandle {
         final_text: &str,
         app_ctx: &app_detector::AppContext,
         duration_ms: Option<i64>,
+        config: &storage::AppConfig,
+        output: HistoryOutputMetadata,
     ) {
+        let policy = config.history_retention_policy();
+        if !policy.enabled {
+            tracing::debug!("History save skipped because history is disabled");
+            return;
+        }
+
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+        let scene_diagnostics = active_scene_history_diagnostics(config.active_scene.as_ref());
         let entry = storage::HistoryEntry {
             id: 0, // auto-increment
             created_at: now,
@@ -1333,14 +2044,155 @@ impl PipelineHandle {
             polished_text: final_text.to_string(),
             language: None,
             duration_ms,
+            active_scene_id: scene_diagnostics.id,
+            active_scene_source: scene_diagnostics.source,
+            active_scene_name: scene_diagnostics.name,
+            active_scene_prompt_chars: scene_diagnostics.prompt_chars,
+            active_scene_prompt_truncated: scene_diagnostics.prompt_truncated,
+            output_status: output.status,
+            output_error: output.error,
         };
         if let Err(e) = self
             .app_handle
             .state::<storage::HistoryStore>()
-            .add(entry)
+            .add_with_policy(entry, &policy)
             .await
         {
             tracing::error!("Failed to save history: {}", e);
+        }
+    }
+
+    fn emit_streaming_insert_result(&self, report: &StreamingInsertReport, app_name: &str) {
+        let chars_inserted = report.chars_inserted();
+        let mut insert_result = if report.failed {
+            output::InsertResult::partially_inserted(report.strategy, chars_inserted)
+        } else {
+            output::InsertResult::inserted(report.strategy, chars_inserted)
+        };
+
+        let warning = report
+            .failed
+            .then(|| streaming_insert_user_error(report.error_message.clone()));
+        if let Some(user_error) = warning.as_ref() {
+            insert_result = insert_result.with_warning(user_error);
+        }
+
+        tracing::info!(
+            "Streaming insert completed with failed={}, chunks={}, chars_inserted={}",
+            report.failed,
+            report.attempted_chunks,
+            chars_inserted
+        );
+        let _ = self
+            .app_handle
+            .emit("pipeline:insert_result", &insert_result);
+        if let Some(user_error) = warning {
+            let _ = self.app_handle.emit("pipeline:warning", &user_error);
+        }
+        let _ = self.app_handle.emit("pipeline:target_app", app_name);
+    }
+
+    async fn copy_streaming_recovery_to_clipboard(
+        &self,
+        text: &str,
+        reason: String,
+        app_name: &str,
+        config: &storage::AppConfig,
+    ) {
+        self.copy_text_to_clipboard_with_warning(
+            text,
+            app_name,
+            config,
+            streaming_insert_user_error(Some(format!("Full result copied to clipboard: {reason}"))),
+        )
+        .await;
+    }
+
+    async fn copy_text_to_clipboard_with_warning(
+        &self,
+        text: &str,
+        app_name: &str,
+        config: &storage::AppConfig,
+        warning: crate::error::UserError,
+    ) {
+        let clipboard_options = output::clipboard::ClipboardOutputOptions {
+            restore_after_paste: false,
+            paste_shortcut: output::clipboard::PasteShortcut::from_config_value(
+                &config.paste_shortcut,
+            ),
+            auto_paste: false,
+        };
+
+        match output::output_with_strategy(
+            &self.app_handle,
+            text,
+            output::InsertionStrategy::ClipboardCopyOnly,
+            clipboard_options,
+            output::windows_sendinput::WindowsSendInputOptions {
+                newline_mode:
+                    output::windows_sendinput::WindowsSendInputNewlineMode::from_config_value(
+                        &config.windows_sendinput_newline_mode,
+                    ),
+            },
+        )
+        .await
+        {
+            Ok(mut outcome) => {
+                outcome.insert_result = outcome.insert_result.with_warning(&warning);
+                let _ = self
+                    .app_handle
+                    .emit("pipeline:insert_result", &outcome.insert_result);
+                let _ = self.app_handle.emit("pipeline:warning", &warning);
+                let _ = self.app_handle.emit("pipeline:target_app", app_name);
+            }
+            Err(error) => {
+                tracing::error!("Failed to copy streaming recovery text to clipboard: {error}");
+                let error = anyhow::anyhow!(error);
+                let _ = self
+                    .app_handle
+                    .emit("pipeline:error", output_user_error(&error));
+            }
+        }
+    }
+
+    async fn show_selected_text_answer_or_copy(
+        &self,
+        question: &str,
+        answer: &str,
+        app_name: &str,
+        config: &storage::AppConfig,
+    ) {
+        self.set_state(PipelineState::Outputting);
+        match crate::commands::ask::show_answer_window_with_metadata(
+            &self.app_handle,
+            question.to_string(),
+            answer.to_string(),
+            crate::commands::ask::route_ask_intent(question, true),
+            true,
+            false,
+        ) {
+            Ok(()) => {
+                let _ = self.app_handle.emit("pipeline:target_app", app_name);
+            }
+            Err(error) => {
+                tracing::warn!(
+                    "Failed to show selected-text Ask answer window, copying answer: {error}"
+                );
+                self.copy_text_to_clipboard_with_warning(
+                    answer,
+                    app_name,
+                    config,
+                    crate::error::UserError {
+                        code: "output_fallback_clipboard".to_string(),
+                        details: Some(
+                            "Selected-text answer copied to clipboard because Ask window could not open"
+                                .to_string(),
+                        ),
+                        retry_count: 0,
+                    },
+                )
+                .await;
+            }
         }
     }
 
@@ -1352,18 +2204,13 @@ impl PipelineHandle {
     ) -> Result<()> {
         self.set_state(PipelineState::Outputting);
 
-        let mode = if config.output_mode == "keyboard" {
-            OutputMode::Keyboard
-        } else {
-            OutputMode::Clipboard
-        };
-
-        if mode == OutputMode::Keyboard && !is_accessibility_trusted() {
-            anyhow::bail!("ACCESSIBILITY_REQUIRED");
-        }
+        let requested_strategy =
+            output::InsertionStrategy::from_config_value(&config.insertion_strategy);
+        let (strategy, accessibility_warning) =
+            effective_strategy_for_accessibility(requested_strategy, is_accessibility_trusted());
 
         // Linux: check keyboard availability before attempting
-        let effective_mode = if mode == OutputMode::Keyboard {
+        let effective_strategy = if strategy.needs_keyboard_access() {
             if let Err(reason) = output::keyboard::check_keyboard_available() {
                 if reason == "wayland_unsupported" {
                     tracing::warn!(
@@ -1375,25 +2222,62 @@ impl PipelineHandle {
                         retry_count: 0,
                     };
                     let _ = self.app_handle.emit("pipeline:warning", &ue);
-                    OutputMode::Clipboard
+                    output::InsertionStrategy::ClipboardPaste
                 } else {
                     tracing::warn!("xdotool not found, keyboard output may fail: {}", reason);
-                    mode
+                    strategy
                 }
             } else {
-                mode
+                strategy
             }
         } else {
-            mode
+            strategy
         };
 
-        match output::output_with_fallback(&self.app_handle, text, effective_mode).await {
-            Ok(Some(user_error)) => {
-                tracing::info!("Output fell back to clipboard");
-                let _ = self.app_handle.emit("pipeline:warning", &user_error);
-            }
-            Ok(None) => {}
+        let clipboard_options = output::clipboard::ClipboardOutputOptions {
+            restore_after_paste: config.restore_clipboard_after_paste,
+            paste_shortcut: output::clipboard::PasteShortcut::from_config_value(
+                &config.paste_shortcut,
+            ),
+            auto_paste: true,
+        };
+
+        let mut output_outcome = match output::output_with_strategy(
+            &self.app_handle,
+            text,
+            effective_strategy,
+            clipboard_options,
+            output::windows_sendinput::WindowsSendInputOptions {
+                newline_mode:
+                    output::windows_sendinput::WindowsSendInputNewlineMode::from_config_value(
+                        &config.windows_sendinput_newline_mode,
+                    ),
+            },
+        )
+        .await
+        {
+            Ok(outcome) => outcome,
             Err(e) => anyhow::bail!("{}", e),
+        };
+
+        if let Some(user_error) = accessibility_warning {
+            output_outcome.insert_result = output_outcome.insert_result.with_warning(&user_error);
+            output_outcome.warning.get_or_insert(user_error);
+        }
+
+        tracing::info!(
+            "Output completed with status={:?}, strategy={:?}, chars_inserted={}",
+            output_outcome.insert_result.status,
+            output_outcome.insert_result.strategy_used,
+            output_outcome.insert_result.chars_inserted
+        );
+        let _ = self
+            .app_handle
+            .emit("pipeline:insert_result", &output_outcome.insert_result);
+
+        if let Some(user_error) = output_outcome.warning {
+            tracing::info!("Output completed with warning: {}", user_error.code);
+            let _ = self.app_handle.emit("pipeline:warning", &user_error);
         }
 
         let _ = self.app_handle.emit("pipeline:target_app", app_name);
@@ -1471,6 +2355,34 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicU64};
 
     #[test]
+    fn preparing_state_serializes_for_frontend() {
+        assert_eq!(
+            serde_json::to_value(PipelineState::Preparing).unwrap(),
+            serde_json::json!("preparing")
+        );
+        assert_eq!(
+            PipelineState::from_u8(PipelineState::Preparing.as_u8()),
+            PipelineState::Preparing
+        );
+    }
+
+    #[test]
+    fn ask_states_serialize_for_frontend() {
+        assert_eq!(
+            serde_json::to_value(PipelineState::AskRecording).unwrap(),
+            serde_json::json!("ask_recording")
+        );
+        assert_eq!(
+            serde_json::to_value(PipelineState::AskThinking).unwrap(),
+            serde_json::json!("ask_thinking")
+        );
+        assert_eq!(
+            PipelineState::from_u8(PipelineState::AskRecording.as_u8()),
+            PipelineState::AskRecording
+        );
+    }
+
+    #[test]
     fn output_user_error_preserves_accessibility_required() {
         let err = anyhow::anyhow!("Output failed: ACCESSIBILITY_REQUIRED");
         let user_error = output_user_error(&err);
@@ -1489,6 +2401,230 @@ mod tests {
             user_error.details.as_deref(),
             Some("Both keyboard and clipboard output failed")
         );
+    }
+
+    #[test]
+    fn accessibility_fallback_copies_when_auto_requires_accessibility() {
+        let (strategy, warning) =
+            effective_strategy_for_accessibility(output::InsertionStrategy::Auto, false);
+
+        assert_eq!(strategy, output::InsertionStrategy::ClipboardCopyOnly);
+        assert_eq!(
+            warning.as_ref().map(|warning| warning.code.as_str()),
+            Some("accessibility_required")
+        );
+    }
+
+    #[test]
+    fn accessibility_fallback_copies_when_clipboard_paste_requires_accessibility() {
+        let (strategy, warning) =
+            effective_strategy_for_accessibility(output::InsertionStrategy::ClipboardPaste, false);
+
+        assert_eq!(strategy, output::InsertionStrategy::ClipboardCopyOnly);
+        assert_eq!(
+            warning.as_ref().map(|warning| warning.code.as_str()),
+            Some("accessibility_required")
+        );
+    }
+
+    #[test]
+    fn accessibility_fallback_keeps_strategy_when_accessibility_is_trusted() {
+        let (strategy, warning) =
+            effective_strategy_for_accessibility(output::InsertionStrategy::Keyboard, true);
+
+        assert_eq!(strategy, output::InsertionStrategy::Keyboard);
+        assert!(warning.is_none());
+    }
+
+    #[test]
+    fn accessibility_fallback_keeps_copy_only_without_accessibility() {
+        let (strategy, warning) = effective_strategy_for_accessibility(
+            output::InsertionStrategy::ClipboardCopyOnly,
+            false,
+        );
+
+        assert_eq!(strategy, output::InsertionStrategy::ClipboardCopyOnly);
+        assert!(warning.is_none());
+    }
+
+    #[test]
+    fn streaming_insert_strategy_defaults_to_disabled() {
+        let config = storage::AppConfig::default();
+
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, false, true, true),
+            None
+        );
+    }
+
+    #[test]
+    fn streaming_insert_strategy_uses_keyboard_for_auto_when_safe() {
+        let mut config = storage::AppConfig {
+            streaming_insert_enabled: true,
+            ..storage::AppConfig::default()
+        };
+        config.insertion_strategy = "auto".to_string();
+
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, false, true, true),
+            Some(output::InsertionStrategy::Keyboard)
+        );
+    }
+
+    #[test]
+    fn streaming_insert_strategy_rejects_selected_text_and_clipboard_paths() {
+        let mut config = storage::AppConfig {
+            streaming_insert_enabled: true,
+            ..storage::AppConfig::default()
+        };
+
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, true, true, true),
+            None
+        );
+
+        config.insertion_strategy = "clipboardPaste".to_string();
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, false, true, true),
+            None
+        );
+    }
+
+    #[test]
+    fn streaming_insert_strategy_requires_accessibility_and_keyboard_availability() {
+        let config = storage::AppConfig {
+            streaming_insert_enabled: true,
+            ..storage::AppConfig::default()
+        };
+
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, false, false, true),
+            None
+        );
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, false, true, false),
+            None
+        );
+    }
+
+    #[test]
+    fn streaming_insert_strategy_allows_windows_sendinput_without_keyboard_check() {
+        let mut config = storage::AppConfig {
+            streaming_insert_enabled: true,
+            ..storage::AppConfig::default()
+        };
+        config.insertion_strategy = "windowsSendInput".to_string();
+
+        assert_eq!(
+            streaming_insert_strategy_for_config(&config, false, true, false),
+            Some(output::InsertionStrategy::WindowsSendInput)
+        );
+    }
+
+    fn streaming_report_for_test(inserted_text: &str, failed: bool) -> StreamingInsertReport {
+        StreamingInsertReport {
+            strategy: output::InsertionStrategy::Keyboard,
+            inserted_text: inserted_text.to_string(),
+            attempted_chunks: 1,
+            failed,
+            target_lost: false,
+            error_message: failed.then(|| "streaming failed".to_string()),
+        }
+    }
+
+    #[test]
+    fn streaming_target_check_allows_unknown_names_but_blocks_app_changes() {
+        assert!(streaming_target_app_still_trusted("Notes", "Notes"));
+        assert!(streaming_target_app_still_trusted("", "Notes"));
+        assert!(streaming_target_app_still_trusted("Notes", ""));
+        assert!(!streaming_target_app_still_trusted("Notes", "Safari"));
+    }
+
+    #[test]
+    fn streaming_recovery_copies_full_when_target_is_not_trusted() {
+        let report = streaming_report_for_test("Hello", true);
+
+        assert_eq!(
+            streaming_recovery_action(&report, Some("Hello world"), true, false),
+            StreamingRecoveryAction::CopyFullToClipboard {
+                reason: "target app changed after partial streaming insert".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn streaming_recovery_uses_char_safe_suffix_for_cjk_text() {
+        let report = streaming_report_for_test("你好", true);
+
+        assert_eq!(
+            streaming_recovery_action(&report, Some("你好，世界"), true, true),
+            StreamingRecoveryAction::InsertSuffix {
+                suffix: "，世界".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn streaming_recovery_copies_partial_when_llm_fails_after_insert() {
+        let report = streaming_report_for_test("partial", true);
+
+        assert_eq!(
+            streaming_recovery_action(&report, None, false, false),
+            StreamingRecoveryAction::CopyPartialToClipboard {
+                reason: "LLM failed after partial streaming insert".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn pipeline_start_options_force_translation_for_current_run_only() {
+        let config = storage::AppConfig {
+            translate_enabled: false,
+            target_lang: "ja".to_string(),
+            ..storage::AppConfig::default()
+        };
+
+        let next_config = apply_pipeline_start_options(
+            config.clone(),
+            PipelineStartOptions {
+                force_translate: true,
+            },
+        );
+
+        assert!(next_config.translate_enabled);
+        assert_eq!(next_config.target_lang, "ja");
+        assert!(!config.translate_enabled);
+    }
+
+    #[test]
+    fn selected_text_output_policy_copies_non_destructive_questions() {
+        assert_eq!(
+            selected_text_output_policy("这段什么意思", Some("selected text")),
+            SelectedTextOutputPolicy::PopupAnswer
+        );
+        assert_eq!(
+            selected_text_output_policy("summarize this", Some("selected text")),
+            SelectedTextOutputPolicy::PopupAnswer
+        );
+    }
+
+    #[test]
+    fn selected_text_output_policy_replaces_for_explicit_editing() {
+        assert_eq!(
+            selected_text_output_policy("润色这段", Some("selected text")),
+            SelectedTextOutputPolicy::ReplaceSelection
+        );
+        assert_eq!(
+            selected_text_output_policy("translate this to English", Some("selected text")),
+            SelectedTextOutputPolicy::ReplaceSelection
+        );
+    }
+
+    #[test]
+    fn selected_text_without_llm_polish_blocks_raw_instruction_output() {
+        assert!(selected_text_command_requires_llm(Some("selected text")));
+        assert!(!selected_text_command_requires_llm(None));
+        assert!(!selected_text_command_requires_llm(Some(" \n\t ")));
     }
 
     #[test]
@@ -1583,35 +2719,31 @@ mod tests {
     }
 
     #[test]
-    fn selected_text_rejects_copy_sentinel_when_clipboard_was_unchanged() {
-        assert_eq!(
-            selected_text_from_clipboard_result(
-                Some("__opentypeless_sentinel__".to_string()),
-                "__opentypeless_sentinel__"
-            ),
-            None
-        );
+    fn active_scene_history_diagnostics_record_scene_metadata() {
+        let scene = storage::ActiveScene {
+            id: "builtin_meeting_notes".to_string(),
+            source: "builtin".to_string(),
+            name: "Meeting Notes".to_string(),
+            prompt_template: format!("{}{}", "x".repeat(4_000), "overflow"),
+        };
+
+        let diagnostics = active_scene_history_diagnostics(Some(&scene));
+
+        assert_eq!(diagnostics.id.as_deref(), Some("builtin_meeting_notes"));
+        assert_eq!(diagnostics.source.as_deref(), Some("builtin"));
+        assert_eq!(diagnostics.name.as_deref(), Some("Meeting Notes"));
+        assert_eq!(diagnostics.prompt_chars, Some(4_000));
+        assert!(diagnostics.prompt_truncated);
     }
 
     #[test]
-    fn selected_text_accepts_text_that_matches_previous_clipboard_backup() {
-        assert_eq!(
-            selected_text_from_clipboard_result(
-                Some("same as previous clipboard".to_string()),
-                "__opentypeless_sentinel__",
-            ),
-            Some("same as previous clipboard".to_string())
-        );
-    }
+    fn active_scene_history_diagnostics_are_empty_without_scene() {
+        let diagnostics = active_scene_history_diagnostics(None);
 
-    #[test]
-    fn selected_text_rejects_whitespace_only_clipboard() {
-        assert_eq!(
-            selected_text_from_clipboard_result(
-                Some(" \n\t ".to_string()),
-                "__opentypeless_sentinel__"
-            ),
-            None
-        );
+        assert_eq!(diagnostics.id, None);
+        assert_eq!(diagnostics.source, None);
+        assert_eq!(diagnostics.name, None);
+        assert_eq!(diagnostics.prompt_chars, None);
+        assert!(!diagnostics.prompt_truncated);
     }
 }

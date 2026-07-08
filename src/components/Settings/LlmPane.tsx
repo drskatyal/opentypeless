@@ -1,25 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../stores/appStore'
+import type { PolishStyle } from '../../stores/appStore'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import { LLM_PROVIDERS, LLM_DEFAULT_CONFIG, TARGET_LANGUAGES } from '../../lib/constants'
-import { benchLlmConnection, fetchLlmModels } from '../../lib/tauri'
-import { AskPanel } from '../AskPanel'
+import {
+  benchLlmConnection,
+  fetchLlmModels,
+  readCredential,
+  setCredential,
+  updateConfig as persistConfig,
+} from '../../lib/tauri'
 import { FormField } from './shared/FormField'
 import { Toggle } from './shared/Toggle'
-import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  RefreshCw,
-  Crown,
-  ChevronDown,
-  MessageCircleQuestion,
-} from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Crown, ChevronDown } from 'lucide-react'
 
 export function LlmPane() {
   const config = useAppStore((s) => s.config)
+  const setConfig = useAppStore((s) => s.setConfig)
   const updateConfig = useAppStore((s) => s.updateConfig)
+  const setSavedConfig = useAppStore((s) => s.setSavedConfig)
   const llmTestStatus = useAppStore((s) => s.llmTestStatus)
   const setLlmTestStatus = useAppStore((s) => s.setLlmTestStatus)
   const llmLatencyMs = useAppStore((s) => s.llmLatencyMs)
@@ -36,12 +36,55 @@ export function LlmPane() {
   const setModels = useAppStore((s) => s.setLlmModels)
   const [fetchingModels, setFetchingModels] = useState(false)
   const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null)
+  const [credentialErrorMessage, setCredentialErrorMessage] = useState<string | null>(null)
   const [polishAdvancedOpen, setPolishAdvancedOpen] = useState(hasCustomPolishConfig)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const credentialSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [llmApiKey, setLlmApiKey] = useState(config.llm_api_key)
 
   useEffect(() => {
     if (hasCustomPolishConfig) setPolishAdvancedOpen(true)
   }, [hasCustomPolishConfig])
+
+  useEffect(() => {
+    if (isCloud) {
+      setLlmApiKey('')
+      setCredentialErrorMessage(null)
+      return
+    }
+
+    let cancelled = false
+    const legacyApiKey = config.llm_api_key
+    setLlmApiKey(legacyApiKey)
+    setCredentialErrorMessage(null)
+    readCredential('llm', config.llm_provider)
+      .then((secret) => {
+        if (!cancelled) setLlmApiKey(legacyApiKey || secret || '')
+      })
+      .catch((error) => console.error('[credentials] failed to read LLM credential', error))
+
+    return () => {
+      cancelled = true
+    }
+  }, [config.llm_api_key, config.llm_provider, isCloud])
+
+  const persistLlmCredential = useCallback(
+    (value: string, delayMs = 350) => {
+      if (isCloud) return
+      if (credentialSaveRef.current) clearTimeout(credentialSaveRef.current)
+      credentialSaveRef.current = setTimeout(() => {
+        credentialSaveRef.current = null
+        setCredential('llm', config.llm_provider, value)
+          .then(() => setCredentialErrorMessage(null))
+          .catch((error) => {
+            const message = error instanceof Error ? error.message : String(error)
+            setCredentialErrorMessage(message)
+            console.error('[credentials] failed to save LLM credential', error)
+          })
+      }, delayMs)
+    },
+    [config.llm_provider, isCloud],
+  )
 
   const doFetchModels = useCallback(
     async (apiKey: string, baseUrl: string) => {
@@ -63,11 +106,11 @@ export function LlmPane() {
   // Auto-fetch when API key or base URL changes (debounced); skips if models already cached
   useEffect(() => {
     if (isCloud) return
-    if (!config.llm_api_key || !config.llm_base_url) return
+    if (!llmApiKey || !config.llm_base_url) return
     if (models.length > 0) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      doFetchModels(config.llm_api_key, config.llm_base_url)
+      doFetchModels(llmApiKey, config.llm_base_url)
     }, 500)
     return () => {
       if (debounceRef.current) {
@@ -75,7 +118,7 @@ export function LlmPane() {
         debounceRef.current = null
       }
     }
-  }, [config.llm_api_key, config.llm_base_url, doFetchModels, isCloud, models.length])
+  }, [config.llm_base_url, doFetchModels, isCloud, llmApiKey, models.length])
 
   const handleTest = async () => {
     setLlmTestStatus('testing')
@@ -83,7 +126,7 @@ export function LlmPane() {
     setTestErrorMessage(null)
     try {
       const ms = await benchLlmConnection(
-        config.llm_api_key,
+        llmApiKey,
         config.llm_provider,
         config.llm_base_url,
         config.llm_model,
@@ -98,21 +141,20 @@ export function LlmPane() {
     }
   }
 
+  const handleClearActiveScene = async () => {
+    const previousConfig = config
+    const nextConfig = { ...config, active_scene: null }
+    setConfig(nextConfig)
+    try {
+      await persistConfig(nextConfig)
+      setSavedConfig(nextConfig)
+    } catch {
+      setConfig(previousConfig)
+    }
+  }
+
   return (
     <div className="space-y-5">
-      <div className="border border-border rounded-[10px] overflow-hidden bg-bg-primary">
-        <div className="px-3 py-3 border-b border-border bg-bg-secondary/40 flex items-start gap-2.5">
-          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent/10 text-accent">
-            <MessageCircleQuestion size={15} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium text-text-primary">{t('settings.askAnything')}</p>
-            <p className="text-[11px] text-text-tertiary mt-0.5">{t('settings.askAnythingDesc')}</p>
-          </div>
-        </div>
-        <AskPanel embedded showHeader={false} />
-      </div>
-
       <FormField label={t('settings.provider')}>
         <select
           value={config.llm_provider}
@@ -159,19 +201,22 @@ export function LlmPane() {
             <div className="flex gap-2">
               <input
                 type="password"
-                value={config.llm_api_key}
+                value={llmApiKey}
                 onChange={(e) => {
-                  updateConfig({ llm_api_key: e.target.value })
+                  setLlmApiKey(e.target.value)
+                  persistLlmCredential(e.target.value)
                   setLlmTestStatus('idle')
                   setLlmLatencyMs(null)
                   setTestErrorMessage(null)
+                  setCredentialErrorMessage(null)
                 }}
+                onBlur={() => persistLlmCredential(llmApiKey, 0)}
                 placeholder={t('settings.enterApiKey')}
                 className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
               />
               <button
                 onClick={handleTest}
-                disabled={!config.llm_api_key || llmTestStatus === 'testing'}
+                disabled={!llmApiKey || llmTestStatus === 'testing'}
                 className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
               >
                 {llmTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
@@ -190,7 +235,13 @@ export function LlmPane() {
                 <span>{testErrorMessage || t('settings.connectionFailed')}</span>
               </div>
             )}
-            <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.storedLocally')}</p>
+            {credentialErrorMessage ? (
+              <p className="text-[11px] text-error mt-1.5">
+                {t('settings.credentialSaveFailed', { details: credentialErrorMessage })}
+              </p>
+            ) : (
+              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.storedLocally')}</p>
+            )}
           </FormField>
 
           <FormField label={t('settings.model')}>
@@ -214,7 +265,7 @@ export function LlmPane() {
                 </datalist>
               </div>
               <button
-                onClick={() => doFetchModels(config.llm_api_key, config.llm_base_url)}
+                onClick={() => doFetchModels(llmApiKey, config.llm_base_url)}
                 disabled={fetchingModels || !config.llm_base_url}
                 className="px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-secondary cursor-pointer hover:border-border-focus disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                 title={t('settings.fetchModels')}
@@ -248,30 +299,68 @@ export function LlmPane() {
       )}
 
       <div className="space-y-3 pt-1">
-        <Toggle
-          checked={config.polish_enabled}
-          onChange={(checked) => updateConfig({ polish_enabled: checked })}
-          label={t('settings.enableAiPolish')}
-        />
-        <Toggle
-          checked={config.translate_enabled}
-          onChange={(checked) => updateConfig({ translate_enabled: checked })}
-          label={t('settings.translationMode')}
-        />
-        <Toggle
-          checked={config.selected_text_enabled}
-          onChange={(checked) => updateConfig({ selected_text_enabled: checked })}
-          label={t('settings.selectedTextContext')}
-        />
-        {config.selected_text_enabled && (
-          <p className="text-[11px] text-text-tertiary -mt-1 ml-[52px]">
+        <div>
+          <Toggle
+            checked={config.polish_enabled}
+            onChange={(checked) => updateConfig({ polish_enabled: checked })}
+            label={t('settings.enableAiPolish')}
+          />
+          <p className="mt-1 ml-[52px] text-[11px] leading-relaxed text-text-tertiary">
+            {t('settings.enableAiPolishDesc')}
+          </p>
+        </div>
+        <div>
+          <Toggle
+            checked={config.translate_enabled}
+            onChange={(checked) => updateConfig({ translate_enabled: checked })}
+            label={t('settings.translationMode')}
+          />
+          <p className="mt-1 ml-[52px] text-[11px] leading-relaxed text-text-tertiary">
+            {t('settings.translationModeDesc')}
+          </p>
+        </div>
+        <div>
+          <Toggle
+            checked={config.selected_text_enabled}
+            onChange={(checked) => updateConfig({ selected_text_enabled: checked })}
+            label={t('settings.selectedTextContext')}
+          />
+          <p className="mt-1 ml-[52px] text-[11px] leading-relaxed text-text-tertiary">
             {t('settings.selectedTextContextDesc')}
           </p>
-        )}
+        </div>
       </div>
+
+      {config.active_scene && (
+        <div className="flex items-center justify-between gap-3 rounded-[10px] border border-border bg-bg-secondary px-3 py-2">
+          <span className="text-[12px] text-text-secondary">
+            {t('settings.activeScene', { name: config.active_scene.name })}
+          </span>
+          <button
+            type="button"
+            onClick={handleClearActiveScene}
+            className="text-[12px] text-text-tertiary bg-transparent border-none cursor-pointer hover:text-text-primary transition-colors"
+          >
+            {t('settings.clearActiveScene')}
+          </button>
+        </div>
+      )}
 
       {config.polish_enabled && (
         <div className="space-y-3">
+          <FormField label={t('settings.polishStyle')}>
+            <select
+              value={config.polish_style}
+              onChange={(e) => updateConfig({ polish_style: e.target.value as PolishStyle })}
+              className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+            >
+              <option value="minimal">{t('settings.polishStyleMinimal')}</option>
+              <option value="clean">{t('settings.polishStyleClean')}</option>
+              <option value="structured">{t('settings.polishStyleStructured')}</option>
+              <option value="professional">{t('settings.polishStyleProfessional')}</option>
+            </select>
+          </FormField>
+
           <button
             type="button"
             onClick={() => setPolishAdvancedOpen((open) => !open)}

@@ -42,13 +42,17 @@ function getSizeForState(
   switch (state) {
     case 'idle':
       return { width: 36, height: 36 }
+    case 'preparing':
+      return { width: 180, height: 36 }
     case 'recording':
-      return { width: 200, height: 36 }
     case 'transcribing':
     case 'polishing':
-      return { width: 220, height: 36 }
+      return { width: 200, height: 36 }
     case 'outputting':
-      return { width: 120, height: 36 }
+      return { width: 144, height: 36 }
+    case 'ask_recording':
+    case 'ask_thinking':
+      return { width: 168, height: 36 }
     default:
       return { width: 36, height: 36 }
   }

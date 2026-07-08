@@ -1,3 +1,4 @@
+pub mod apple_speech;
 pub mod assemblyai;
 pub mod cloud;
 pub mod config;
@@ -72,6 +73,9 @@ pub fn create_provider(
         }
         "assemblyai" => Ok(Box::new(assemblyai::AssemblyAiProvider::new())),
         "deepgram" => Ok(Box::new(deepgram::DeepgramProvider::new())),
+        apple_speech::APPLE_SPEECH_PROVIDER => {
+            Ok(Box::new(apple_speech::AppleSpeechProvider::new()))
+        }
         volcengine::VOLCENGINE_DOUBAO_PROVIDER => {
             Ok(Box::new(volcengine::VolcengineDoubaoProvider::new()))
         }
@@ -123,6 +127,12 @@ mod tests {
     fn creates_volcengine_doubao_realtime_provider() {
         let provider = create_provider("volcengine-doubao", None, None).unwrap();
         assert_eq!(provider.name(), "Volcengine Doubao Realtime ASR");
+    }
+
+    #[test]
+    fn creates_apple_speech_builtin_local_provider() {
+        let provider = create_provider("apple-speech", None, None).unwrap();
+        assert_eq!(provider.name(), "Apple Speech");
     }
 
     #[test]

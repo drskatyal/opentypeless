@@ -40,21 +40,25 @@ const MOTION_PROPS = new Set([
   'dragConstraints',
   'onAnimationComplete',
 ])
+const motionComponentCache = new Map<string, React.ComponentType<any>>()
 
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: new Proxy(
     {},
     {
-      get:
-        (_t, tag: string) =>
-        ({ children, ...rest }: any) => {
-          const domProps: Record<string, unknown> = {}
-          for (const [k, v] of Object.entries(rest)) {
-            if (!MOTION_PROPS.has(k)) domProps[k] = v
-          }
-          return React.createElement(tag as string, { 'data-motion': tag, ...domProps }, children)
-        },
+      get: (_t, tag: string) => {
+        if (!motionComponentCache.has(tag)) {
+          motionComponentCache.set(tag, ({ children, ...rest }: any) => {
+            const domProps: Record<string, unknown> = {}
+            for (const [k, v] of Object.entries(rest)) {
+              if (!MOTION_PROPS.has(k)) domProps[k] = v
+            }
+            return React.createElement(tag as string, { 'data-motion': tag, ...domProps }, children)
+          })
+        }
+        return motionComponentCache.get(tag)
+      },
     },
   ),
 }))
@@ -79,9 +83,12 @@ vi.mock('react-i18next', async (importOriginal) => {
 
 // ─── Mock Tauri plugins / lib/tauri ──────────────────────────────────────────
 vi.mock('../../../lib/tauri', () => ({
+  getConfig: vi.fn().mockResolvedValue(null),
   updateHotkey: vi.fn().mockResolvedValue(undefined),
   updateAskHotkey: vi.fn().mockResolvedValue(undefined),
   askAnything: vi.fn().mockResolvedValue('A concise answer.'),
+  showAskWindow: vi.fn().mockResolvedValue(undefined),
+  startAskFlow: vi.fn().mockResolvedValue(undefined),
   startAskDictation: vi.fn().mockResolvedValue(undefined),
   stopAskDictation: vi.fn().mockResolvedValue({
     question: 'What is OpenTypeless?',
@@ -101,9 +108,62 @@ vi.mock('../../../lib/tauri', () => ({
     clipboardAutoPasteReliable: true,
   }),
   getHotkeyRegistrationError: vi.fn().mockResolvedValue(null),
+  getHotkeyStatus: vi.fn().mockResolvedValue({
+    dictation: { value: 'Ctrl+/', valid: true },
+    ask: { value: 'Ctrl+.', valid: true },
+    conflict: false,
+    registration_error: null,
+    roles: [
+      {
+        role: 'dictation',
+        adapter: 'tauriGlobalShortcut',
+        state: 'installed',
+        message: null,
+        lastError: null,
+      },
+      {
+        role: 'ask',
+        adapter: 'tauriGlobalShortcut',
+        state: 'installed',
+        message: null,
+        lastError: null,
+      },
+    ],
+    capability: {
+      platform: 'macos',
+      sessionType: 'unknown',
+      supportsGlobalHotkey: true,
+      supportsHoldMode: true,
+      supportsReleasedEdge: true,
+      supportsSideSpecificModifiers: false,
+      requiresAccessibilityPermission: false,
+      statusHint: null,
+    },
+  }),
+  getSystemDiagnostics: vi.fn().mockResolvedValue({
+    checkedAt: '2026-07-06T00:00:00',
+    rows: [
+      {
+        id: 'microphone',
+        status: 'ok',
+        message: 'Built-in microphone / 48000 Hz',
+        action: null,
+        lastCheckedAt: '2026-07-06T00:00:00',
+      },
+      {
+        id: 'hotkey',
+        status: 'warning',
+        message: 'Global hotkeys may be limited',
+        action: null,
+        lastCheckedAt: '2026-07-06T00:00:00',
+      },
+    ],
+  }),
   setAutoStart: vi.fn().mockResolvedValue(undefined),
   testSttConnection: vi.fn().mockResolvedValue(true),
   testLlmConnection: vi.fn().mockResolvedValue(true),
+  readCredential: vi.fn().mockResolvedValue(null),
+  setCredential: vi.fn().mockResolvedValue(undefined),
   fetchLlmModels: vi.fn().mockResolvedValue(['gpt-4o', 'gpt-3.5-turbo']),
   addDictionaryEntry: vi.fn().mockResolvedValue(undefined),
   removeDictionaryEntry: vi.fn().mockResolvedValue(undefined),
@@ -111,13 +171,12 @@ vi.mock('../../../lib/tauri', () => ({
   updateConfig: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../../components/Toast', () => ({
+  toast: vi.fn(),
+}))
+
 // ─── Mock @tauri-apps/plugin-opener ─────────────────────────────────────────
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }))
-
-// ─── Mock lib/api (ScenesPane uses getScenes) ────────────────────────────────
-vi.mock('../../../lib/api', () => ({
-  getScenes: vi.fn().mockResolvedValue([]),
-}))
 
 // ─── Mock stores/authStore ────────────────────────────────────────────────────
 const mockAuthState = {
@@ -143,8 +202,54 @@ vi.mock('../../../stores/authStore', () => ({
 
 // ─── Import components AFTER mocks ───────────────────────────────────────────
 import { Settings } from '../index'
+import {
+  checkAccessibilityPermission,
+  getConfig,
+  getHotkeyRegistrationError,
+  setAutoStart,
+  startAskFlow,
+  updateConfig,
+} from '../../../lib/tauri'
+import { toast } from '../../../components/Toast'
+import type { HotkeyStatus } from '../../../lib/tauri'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+function mockHotkeyStatus(overrides: Partial<HotkeyStatus> = {}): HotkeyStatus {
+  return {
+    dictation: { value: 'Ctrl+/', valid: true },
+    ask: { value: 'Ctrl+.', valid: true },
+    conflict: false,
+    registration_error: null,
+    roles: [
+      {
+        role: 'dictation',
+        adapter: 'tauriGlobalShortcut',
+        state: 'installed',
+        message: null,
+        lastError: null,
+      },
+      {
+        role: 'ask',
+        adapter: 'tauriGlobalShortcut',
+        state: 'installed',
+        message: null,
+        lastError: null,
+      },
+    ],
+    capability: {
+      platform: 'macos',
+      sessionType: 'unknown',
+      supportsGlobalHotkey: true,
+      supportsHoldMode: true,
+      supportsReleasedEdge: true,
+      supportsSideSpecificModifiers: false,
+      requiresAccessibilityPermission: false,
+      statusHint: null,
+    },
+    ...overrides,
+  }
+}
+
 function resetStore() {
   useAppStore.setState(useAppStore.getInitialState())
 }
@@ -180,12 +285,307 @@ describe('Settings tab 切换', () => {
     seedSavedConfig()
   })
 
-  it('初始渲染显示 General pane（含 hotkey section）', () => {
+  it('初始渲染显示简化后的常用设置', () => {
     renderSettings()
-    // General pane 包含 "settings.hotkey" section 标题
+
+    expect(screen.getByText('settings.hotkey')).toBeDefined()
+    expect(screen.getByText('settings.dictationHotkey')).toBeDefined()
+    expect(screen.getByText('settings.askHotkey')).toBeDefined()
+    expect(screen.queryByText('settings.askAnything')).toBeNull()
+    expect(screen.queryByText('settings.askAnythingDesc')).toBeNull()
+    expect(screen.getByLabelText('settings.tryAsk')).toBeDefined()
+    expect(screen.queryByText('ask.voiceQuestion')).toBeNull()
+    expect(screen.getByText('settings.outputMode')).toBeDefined()
+    expect(screen.queryByText('settings.diagnostics')).toBeNull()
+  })
+
+  it('General pane keeps Ask visible and hides low-frequency settings until More is opened', () => {
+    renderSettings()
+
     expect(screen.getByText('settings.hotkey')).toBeDefined()
     expect(screen.getByText('settings.askHotkey')).toBeDefined()
-    expect(screen.getByText('Ctrl+.')).toBeDefined()
+    expect(screen.getByText('settings.outputMode')).toBeDefined()
+    expect(screen.queryByText('settings.diagnostics')).toBeNull()
+    expect(screen.queryByText('settings.restoreClipboardAfterPaste')).toBeNull()
+    expect(screen.queryByText('settings.maxRecordingDuration')).toBeNull()
+    expect(screen.queryByText('settings.historyPrivacy')).toBeNull()
+    expect(screen.queryByText('settings.launchAtStartup')).toBeNull()
+
+    fireEvent.click(screen.getByText('settings.advancedGeneral'))
+
+    expect(screen.getAllByText('settings.askHotkey')).toHaveLength(1)
+    expect(screen.getByText('settings.saveHistory')).toBeDefined()
+    expect(screen.getByText('settings.launchAtStartup')).toBeDefined()
+    expect(screen.queryByText('settings.diagnostics')).toBeNull()
+    expect(screen.queryByText('settings.restoreClipboardAfterPaste')).toBeNull()
+    expect(screen.queryByText('settings.maxRecordingDuration')).toBeNull()
+    expect(screen.queryByText('settings.historyPrivacy')).toBeNull()
+    expect(screen.getByText('settings.hideCapsuleWhenIdle')).toBeDefined()
+  })
+
+  it('General pane starts Ask recording from a lightweight Try Ask entry', async () => {
+    renderSettings()
+
+    fireEvent.click(screen.getByLabelText('settings.tryAsk'))
+
+    await waitFor(() => {
+      expect(startAskFlow).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('General pane hides granted macOS Accessibility from the default surface', async () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    const mockCheckAccessibilityPermission = vi.mocked(checkAccessibilityPermission)
+    mockCheckAccessibilityPermission.mockClear()
+    mockCheckAccessibilityPermission.mockResolvedValueOnce(true)
+
+    try {
+      renderSettings()
+
+      await waitFor(() => {
+        expect(mockCheckAccessibilityPermission).toHaveBeenCalled()
+      })
+      expect(screen.queryByText('settings.accessibilityPermission')).toBeNull()
+      expect(screen.queryByText('settings.accessibilityGranted')).toBeNull()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('General pane still shows macOS Accessibility when permission is missing', async () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    const mockCheckAccessibilityPermission = vi.mocked(checkAccessibilityPermission)
+    mockCheckAccessibilityPermission.mockClear()
+    mockCheckAccessibilityPermission.mockResolvedValueOnce(false)
+
+    try {
+      renderSettings()
+
+      expect(await screen.findByText('settings.accessibilityPermission')).toBeDefined()
+      expect(screen.getByText('settings.accessibilityRequired')).toBeDefined()
+      expect(screen.getByText('settings.grantPermission')).toBeDefined()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('General pane shows macOS Accessibility for Fn hotkey even with clipboard output', async () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    const mockCheckAccessibilityPermission = vi.mocked(checkAccessibilityPermission)
+    mockCheckAccessibilityPermission.mockClear()
+    mockCheckAccessibilityPermission.mockResolvedValueOnce(false)
+    useAppStore.getState().updateConfig({
+      hotkey: 'Fn',
+      hotkey_mode: 'toggle',
+      output_mode: 'clipboard',
+      insertion_strategy: 'clipboardPaste',
+    })
+    seedSavedConfig()
+
+    try {
+      renderSettings()
+
+      expect(await screen.findByText('settings.accessibilityPermission')).toBeDefined()
+      expect(screen.getByText('settings.accessibilityRequired')).toBeDefined()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('More settings keeps only preference toggles visible', () => {
+    renderSettings()
+    fireEvent.click(screen.getByText('settings.advancedGeneral'))
+
+    expect(screen.getAllByText('settings.askHotkey')).toHaveLength(1)
+    expect(screen.getByText('settings.launchAtStartup')).toBeDefined()
+    expect(screen.getByText('settings.saveHistory')).toBeDefined()
+    expect(screen.queryByText('settings.startMinimized')).toBeNull()
+    expect(screen.getByText('settings.hideCapsuleWhenIdle')).toBeDefined()
+    expect(screen.queryByText('settings.outputDetails')).toBeNull()
+    expect(screen.queryByText('settings.diagnostics')).toBeNull()
+    expect(screen.getByRole('switch', { name: 'settings.launchAtStartup' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+
+    const historyLabel = screen.getByText('settings.saveHistory')
+    fireEvent.click(historyLabel.closest('label') ?? historyLabel)
+    expect(useAppStore.getState().config.history_enabled).toBe(false)
+  })
+
+  it('General pane shows compact hotkey conflict status', async () => {
+    const { getHotkeyStatus } = await import('../../../lib/tauri')
+    vi.mocked(getHotkeyStatus).mockResolvedValueOnce(
+      mockHotkeyStatus({
+        ask: { value: 'Ctrl+/', valid: true },
+        conflict: true,
+      }),
+    )
+
+    renderSettings()
+
+    expect(await screen.findByText('settings.hotkeyConflict')).toBeDefined()
+  })
+
+  it('General pane does not expose the optional Ask hotkey disable action', () => {
+    renderSettings()
+
+    expect(screen.queryByLabelText('settings.disableAskHotkey')).toBeNull()
+    expect(useAppStore.getState().config.ask_hotkey).toBe('Ctrl+.')
+  })
+
+  it('renders native single-key dictation hotkeys without marking them invalid', async () => {
+    const { getHotkeyStatus } = await import('../../../lib/tauri')
+    vi.mocked(getHotkeyStatus).mockResolvedValueOnce(
+      mockHotkeyStatus({
+        dictation: { value: 'RightAlt', valid: true },
+      }),
+    )
+    useAppStore.getState().updateConfig({ hotkey: 'RightAlt' })
+    seedSavedConfig()
+
+    renderSettings()
+
+    expect(await screen.findByText('RightAlt')).toBeDefined()
+    expect(screen.queryByText('settings.hotkeyInvalid')).toBeNull()
+  })
+
+  it('offers the Windows native dictation hotkey only while recording Dictation', async () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'Win32',
+      configurable: true,
+    })
+    useAppStore.getState().setPlatformCapabilities({
+      os: 'windows',
+      sessionType: 'unknown',
+      globalHotkeyReliable: true,
+      keyboardOutputReliable: true,
+      clipboardAutoPasteReliable: true,
+    })
+
+    try {
+      renderSettings()
+
+      fireEvent.click(screen.getByText('Ctrl+.'))
+      expect(screen.queryByRole('button', { name: 'Right Alt' })).toBeNull()
+      fireEvent.click(screen.getByText('settings.pressKeyCombination'))
+
+      fireEvent.click(screen.getByText('Ctrl+/'))
+      const rightAltOption = screen.getByRole('button', { name: 'Right Alt' })
+      fireEvent.click(rightAltOption)
+
+      expect(useAppStore.getState().config.hotkey).toBe('RightAlt')
+      expect(screen.getByText('Unsaved changes')).toBeDefined()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('keeps the native dictation chip choice after a pending combo timer expires', async () => {
+    vi.useFakeTimers()
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'Win32',
+      configurable: true,
+    })
+    useAppStore.getState().setPlatformCapabilities({
+      os: 'windows',
+      sessionType: 'unknown',
+      globalHotkeyReliable: true,
+      keyboardOutputReliable: true,
+      clipboardAutoPasteReliable: true,
+    })
+
+    try {
+      renderSettings()
+
+      fireEvent.click(screen.getByText('Ctrl+/'))
+      fireEvent.keyDown(window, { key: ';', ctrlKey: true })
+      fireEvent.click(screen.getByRole('button', { name: 'Right Alt' }))
+
+      expect(useAppStore.getState().config.hotkey).toBe('RightAlt')
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600)
+      })
+
+      expect(useAppStore.getState().config.hotkey).toBe('RightAlt')
+    } finally {
+      vi.useRealTimers()
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('blocks local Ask hotkey drafts that conflict with Dictation', async () => {
+    vi.useFakeTimers()
+    try {
+      renderSettings()
+      fireEvent.click(screen.getByText('Ctrl+.'))
+      await act(async () => {
+        await Promise.resolve()
+      })
+      fireEvent.keyDown(window, { key: '/', ctrlKey: true })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600)
+      })
+
+      expect(useAppStore.getState().config.ask_hotkey).toBe('Ctrl+.')
+      expect(screen.getByText('settings.hotkeyConflict')).toBeDefined()
+      expect(screen.queryByText('Unsaved changes')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('blocks local Dictation hotkey drafts that conflict with Ask', async () => {
+    vi.useFakeTimers()
+    try {
+      renderSettings()
+      fireEvent.click(screen.getByText('Ctrl+/'))
+      await act(async () => {
+        await Promise.resolve()
+      })
+      fireEvent.keyDown(window, { key: '.', ctrlKey: true })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600)
+      })
+
+      expect(useAppStore.getState().config.hotkey).toBe('Ctrl+/')
+      expect(screen.getByText('settings.hotkeyConflict')).toBeDefined()
+      expect(screen.queryByText('Unsaved changes')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('点击 Speech Recognition 后显示 STT provider 字段', () => {
@@ -201,7 +601,7 @@ describe('Settings tab 切换', () => {
     clickSidebarItem('settings.aiPolish')
     // LLM pane 也含 provider，但还含 enableAiPolish toggle
     expect(screen.getByText('settings.enableAiPolish')).toBeDefined()
-    expect(screen.getByText('settings.askAnything')).toBeDefined()
+    expect(screen.queryByText('settings.askAnything')).toBeNull()
   })
 
   it('点击 Dictionary 后显示词典输入框 placeholder', () => {
@@ -210,10 +610,14 @@ describe('Settings tab 切换', () => {
     expect(screen.getByPlaceholderText('dictionary.word')).toBeDefined()
   })
 
-  it('点击 Scenes 后显示登录提示（user=null）', () => {
+  it('点击 Scenes 后显示本地 scenes 空状态（user=null）', () => {
     renderSettings()
     clickSidebarItem('settings.scenes')
-    expect(screen.getByText('scenes.signInToBrowse')).toBeDefined()
+    expect(screen.getByText('scenes.myScenes')).toBeDefined()
+    expect(screen.getByText('scenes.noCustomScenes')).toBeDefined()
+    expect(screen.getByText('scenes.newScene')).toBeDefined()
+    expect(screen.queryByText('scenes.cloudPacks')).toBeNull()
+    expect(screen.queryByText('scenes.signInToBrowse')).toBeNull()
   })
 
   it('点击 About 后显示版本信息区域', () => {
@@ -231,6 +635,23 @@ describe('Settings tab 切换', () => {
     expect(screen.getByText('settings.hotkey')).toBeDefined()
   })
 
+  it('切换到 Scenes 后不会残留上一个设置页内容', () => {
+    renderSettings()
+    clickSidebarItem('settings.aiPolish')
+    expect(screen.getByText('settings.enableAiPolish')).toBeDefined()
+
+    clickSidebarItem('settings.general')
+    expect(screen.getByText('settings.hotkey')).toBeDefined()
+    expect(screen.getByLabelText('settings.tryAsk')).toBeDefined()
+
+    clickSidebarItem('settings.scenes')
+
+    expect(screen.getByText('scenes.myScenes')).toBeDefined()
+    expect(screen.queryByText('settings.askAnything')).toBeNull()
+    expect(screen.queryByText('settings.hotkey')).toBeNull()
+    expect(screen.queryByText('settings.enableAiPolish')).toBeNull()
+  })
+
   it('切换 tab 后 title bar 更新', () => {
     renderSettings()
     clickSidebarItem('settings.dictionary')
@@ -240,30 +661,158 @@ describe('Settings tab 切换', () => {
     expect(titles.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('records macOS Command+. as the Ask hotkey', async () => {
+  it('records macOS Ask hotkey as a local draft without immediate persistence', async () => {
     vi.useFakeTimers()
-    Object.defineProperty(window.navigator, 'platform', {
-      value: 'MacIntel',
-      configurable: true,
+    try {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: 'MacIntel',
+        configurable: true,
+      })
+      const { resumeHotkey, updateAskHotkey } = await import('../../../lib/tauri')
+      const mockUpdateAskHotkey = vi.mocked(updateAskHotkey)
+      const mockResumeHotkey = vi.mocked(resumeHotkey)
+      mockUpdateAskHotkey.mockClear()
+      mockResumeHotkey.mockClear()
+      useAppStore.getState().updateConfig({ ask_hotkey: 'Command+.' })
+      seedSavedConfig()
+
+      renderSettings()
+      fireEvent.click(screen.getByText('Command+.'))
+      await act(async () => {
+        await Promise.resolve()
+      })
+      fireEvent.keyDown(window, { key: ';', metaKey: true })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1600)
+      })
+
+      expect(useAppStore.getState().config.ask_hotkey).toBe('Command+;')
+      expect(mockUpdateAskHotkey).not.toHaveBeenCalled()
+      expect(mockResumeHotkey).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Unsaved changes')).toBeDefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('Settings Scenes local custom scenes', () => {
+  beforeEach(() => {
+    resetStore()
+    seedSavedConfig()
+    vi.mocked(updateConfig).mockClear()
+  })
+
+  it('creates and activates a local scene without leaving settings dirty', async () => {
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+
+    fireEvent.click(screen.getByText('scenes.newScene'))
+    fireEvent.change(screen.getByLabelText('scenes.sceneName'), {
+      target: { value: 'Meeting Notes' },
     })
-    const { updateAskHotkey } = await import('../../../lib/tauri')
-    const mockUpdateAskHotkey = vi.mocked(updateAskHotkey)
-    mockUpdateAskHotkey.mockClear()
-    useAppStore.getState().updateConfig({ ask_hotkey: 'Command+.' })
+    fireEvent.change(screen.getByLabelText('scenes.promptTemplate'), {
+      target: { value: 'Rewrite as concise meeting notes.' },
+    })
+    fireEvent.click(screen.getByText('scenes.saveAndActivate'))
+
+    await waitFor(() => {
+      expect(vi.mocked(updateConfig)).toHaveBeenCalledTimes(1)
+    })
+
+    const { config, savedConfig } = useAppStore.getState()
+    expect(config.custom_scenes).toHaveLength(1)
+    expect(config.active_scene?.name).toBe('Meeting Notes')
+    expect(config.active_scene?.prompt_template).toBe('Rewrite as concise meeting notes.')
+    expect(savedConfig?.custom_scenes).toHaveLength(1)
+    expect(savedConfig?.active_scene?.name).toBe('Meeting Notes')
+    expect(screen.queryByText('settings.unsavedChanges')).toBeNull()
+  })
+
+  it('exports local scenes as a compact JSON file', async () => {
+    useAppStore.getState().setConfig({
+      ...useAppStore.getState().config,
+      custom_scenes: [
+        {
+          id: 'custom_existing',
+          name: 'Support Reply',
+          description: 'Reply to support tickets',
+          prompt_template: 'Write a concise support reply.',
+          created_at: '2026-07-01T00:00:00.000Z',
+          updated_at: '2026-07-01T00:00:00.000Z',
+        },
+      ],
+    })
+    seedSavedConfig()
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:scene-export')
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
     renderSettings()
-    fireEvent.click(screen.getByText('Command+.'))
-    await act(async () => {
-      await Promise.resolve()
-    })
-    fireEvent.keyDown(window, { key: '。', metaKey: true })
+    clickSidebarItem('settings.scenes')
+    fireEvent.click(screen.getByText('scenes.export'))
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1600)
+    expect(createObjectUrl).toHaveBeenCalledTimes(1)
+    expect(click).toHaveBeenCalledTimes(1)
+
+    createObjectUrl.mockRestore()
+    revokeObjectUrl.mockRestore()
+    click.mockRestore()
+  })
+
+  it('imports local scenes from JSON without overwriting existing ids', async () => {
+    useAppStore.getState().setConfig({
+      ...useAppStore.getState().config,
+      custom_scenes: [
+        {
+          id: 'custom_existing',
+          name: 'Existing',
+          description: '',
+          prompt_template: 'Keep as-is.',
+          created_at: '2026-07-01T00:00:00.000Z',
+          updated_at: '2026-07-01T00:00:00.000Z',
+        },
+      ],
+    })
+    seedSavedConfig()
+
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+
+    const file = new File(
+      [
+        JSON.stringify({
+          version: 1,
+          scenes: [
+            {
+              id: 'custom_existing',
+              name: 'Imported',
+              description: 'Imported scene',
+              promptTemplate: 'Rewrite as a crisp note.',
+            },
+          ],
+        }),
+      ],
+      'scenes.json',
+      { type: 'application/json' },
+    )
+
+    fireEvent.change(screen.getByLabelText('scenes.import'), {
+      target: { files: [file] },
     })
 
-    expect(mockUpdateAskHotkey).toHaveBeenCalledWith('Command+.')
-    vi.useRealTimers()
+    await waitFor(() => {
+      expect(vi.mocked(updateConfig)).toHaveBeenCalledTimes(1)
+    })
+
+    const { config, savedConfig } = useAppStore.getState()
+    expect(config.custom_scenes).toHaveLength(2)
+    expect(config.custom_scenes[0].id).toBe('custom_existing')
+    expect(config.custom_scenes[1].id).not.toBe('custom_existing')
+    expect(config.custom_scenes[1].name).toBe('Imported')
+    expect(savedConfig?.custom_scenes).toHaveLength(2)
+    expect(screen.queryByText('settings.unsavedChanges')).toBeNull()
   })
 })
 
@@ -444,6 +993,15 @@ describe('DirtyBar 行为', () => {
   beforeEach(() => {
     resetStore()
     seedSavedConfig()
+    vi.mocked(updateConfig).mockReset()
+    vi.mocked(updateConfig).mockResolvedValue(undefined)
+    vi.mocked(getConfig).mockReset()
+    vi.mocked(getConfig).mockResolvedValue(useAppStore.getState().config)
+    vi.mocked(getHotkeyRegistrationError).mockReset()
+    vi.mocked(getHotkeyRegistrationError).mockResolvedValue(null)
+    vi.mocked(setAutoStart).mockReset()
+    vi.mocked(setAutoStart).mockResolvedValue(undefined)
+    vi.mocked(toast).mockClear()
   })
 
   it('初始状态下 DirtyBar 不显示', () => {
@@ -498,6 +1056,114 @@ describe('DirtyBar 行为', () => {
 
     expect(useAppStore.getState().config.theme).toBe('dark')
     expect(useAppStore.getState().config.capsule_auto_hide).toBe(true)
+  })
+
+  it('保存失败后从后端配置恢复，避免 UI 与 backend 分叉', async () => {
+    const backendConfig = {
+      ...useAppStore.getState().config,
+      theme: 'system' as const,
+    }
+    vi.mocked(updateConfig).mockRejectedValueOnce(new Error('Shortcut registration failed'))
+    vi.mocked(getConfig).mockResolvedValueOnce(backendConfig)
+
+    renderSettings()
+    act(() => {
+      useAppStore.getState().updateConfig({ theme: 'dark' })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Unsaved changes')).toBeDefined()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(vi.mocked(getConfig)).toHaveBeenCalledTimes(1)
+    })
+    expect(useAppStore.getState().config.theme).toBe('system')
+    expect(useAppStore.getState().savedConfig?.theme).toBe('system')
+    expect(toast).toHaveBeenCalledWith('Shortcut registration failed', 'error')
+    expect(screen.queryByText('Unsaved changes')).toBeNull()
+  })
+
+  it('保存失败后刷新后端 hotkey 注册错误状态', async () => {
+    const backendConfig = {
+      ...useAppStore.getState().config,
+      hotkey: 'Ctrl+/',
+    }
+    vi.mocked(updateConfig).mockRejectedValueOnce(new Error('Shortcut registration failed'))
+    vi.mocked(getConfig).mockResolvedValueOnce(backendConfig)
+    vi.mocked(getHotkeyRegistrationError).mockResolvedValueOnce('Shortcut registration failed')
+
+    renderSettings()
+    act(() => {
+      useAppStore.getState().updateConfig({ hotkey: 'Ctrl+Shift+;' })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Unsaved changes')).toBeDefined()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(useAppStore.getState().hotkeyRegistrationError).toBe('Shortcut registration failed')
+    })
+  })
+
+  it('开机启动系统设置失败时不保存 config，并恢复后端真值', async () => {
+    const backendConfig = {
+      ...useAppStore.getState().config,
+      auto_start: true,
+    }
+    vi.mocked(setAutoStart).mockRejectedValueOnce(new Error('Login item failed'))
+    vi.mocked(getConfig).mockResolvedValueOnce(backendConfig)
+
+    renderSettings()
+    act(() => {
+      useAppStore.getState().updateConfig({ auto_start: false })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Unsaved changes')).toBeDefined()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(vi.mocked(setAutoStart)).toHaveBeenCalledWith(false)
+    })
+    expect(vi.mocked(updateConfig)).not.toHaveBeenCalled()
+    expect(useAppStore.getState().config.auto_start).toBe(true)
+    expect(useAppStore.getState().savedConfig?.auto_start).toBe(true)
+    expect(toast).toHaveBeenCalledWith('Login item failed', 'error')
+  })
+
+  it('config 保存失败时回滚已应用的开机启动系统设置', async () => {
+    const backendConfig = {
+      ...useAppStore.getState().config,
+      auto_start: true,
+    }
+    vi.mocked(updateConfig).mockRejectedValueOnce(new Error('Shortcut registration failed'))
+    vi.mocked(getConfig).mockResolvedValueOnce(backendConfig)
+
+    renderSettings()
+    act(() => {
+      useAppStore.getState().updateConfig({ auto_start: false })
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Unsaved changes')).toBeDefined()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(vi.mocked(setAutoStart)).toHaveBeenCalledWith(false)
+    })
+    await waitFor(() => {
+      expect(vi.mocked(setAutoStart)).toHaveBeenCalledWith(true)
+    })
+    expect(vi.mocked(setAutoStart).mock.calls).toEqual([[false], [true]])
+    expect(useAppStore.getState().config.auto_start).toBe(true)
+    expect(useAppStore.getState().savedConfig?.auto_start).toBe(true)
+    expect(toast).toHaveBeenCalledWith('Shortcut registration failed', 'error')
   })
 })
 

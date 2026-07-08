@@ -10,6 +10,7 @@ import {
   getConfig,
   getHistory,
   getDictionary,
+  getCorrectionRules,
   checkAccessibilityPermission,
   getPlatformCapabilities,
   getHotkeyRegistrationError,
@@ -80,6 +81,7 @@ function MainApp() {
   const setSavedConfig = useAppStore((s) => s.setSavedConfig)
   const setHistory = useAppStore((s) => s.setHistory)
   const setDictionary = useAppStore((s) => s.setDictionary)
+  const setCorrectionRules = useAppStore((s) => s.setCorrectionRules)
   const setAccessibilityTrusted = useAppStore((s) => s.setAccessibilityTrusted)
   const setPlatformCapabilities = useAppStore((s) => s.setPlatformCapabilities)
   const setHotkeyRegistrationError = useAppStore((s) => s.setHotkeyRegistrationError)
@@ -92,18 +94,26 @@ function MainApp() {
       setOnboardingCompleted(done)
       if (done) {
         try {
-          const [config, history, dictionary, platformCapabilities, hotkeyRegistrationError] =
-            await Promise.all([
-              getConfig(),
-              getHistory(200, 0),
-              getDictionary(),
-              getPlatformCapabilities(),
-              getHotkeyRegistrationError(),
-            ])
+          const [
+            config,
+            history,
+            dictionary,
+            correctionRules,
+            platformCapabilities,
+            hotkeyRegistrationError,
+          ] = await Promise.all([
+            getConfig(),
+            getHistory(200, 0),
+            getDictionary(),
+            getCorrectionRules(),
+            getPlatformCapabilities(),
+            getHotkeyRegistrationError(),
+          ])
           setConfig(config)
           setSavedConfig(config)
           setHistory(history)
           setDictionary(dictionary)
+          setCorrectionRules(correctionRules)
           setPlatformCapabilities(platformCapabilities)
           setHotkeyRegistrationError(hotkeyRegistrationError)
           // Check macOS Accessibility permission
@@ -136,6 +146,7 @@ function MainApp() {
     setSavedConfig,
     setHistory,
     setDictionary,
+    setCorrectionRules,
     setAccessibilityTrusted,
     setPlatformCapabilities,
     setHotkeyRegistrationError,

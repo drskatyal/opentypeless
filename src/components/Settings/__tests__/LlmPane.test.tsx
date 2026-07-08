@@ -23,15 +23,24 @@ vi.mock('react-i18next', () => ({
         'settings.fetchModels': 'Fetch models',
         'settings.modelsAvailable': `${params?.count || 0} models available`,
         'settings.llmModelPlaceholder': 'e.g. gpt-4o-mini',
-        'settings.enableAiPolish': 'Enable AI Polish',
+        'settings.enableAiPolish': 'AI cleanup for dictation',
+        'settings.enableAiPolishDesc': 'Cleans up dictation before output',
+        'settings.polishStyle': 'Polish style',
+        'settings.polishStyleMinimal': 'Minimal',
+        'settings.polishStyleClean': 'Clean',
+        'settings.polishStyleStructured': 'Structured',
+        'settings.polishStyleProfessional': 'Professional',
         'settings.advancedPolishSettings': 'Advanced polish settings',
         'settings.advancedPolishSettingsDesc': 'Optional writing rules',
         'settings.customPolishInstructions': 'Custom polish instructions',
         'settings.customPolishInstructionsPlaceholder': 'Example prompt',
         'settings.customPolishInstructionsCount': `${params?.count || 0} / 2000 characters`,
-        'settings.translationMode': 'Translation Mode',
-        'settings.selectedTextContext': 'Selected Text Context',
-        'settings.selectedTextContextDesc': 'Include selected text as context',
+        'settings.activeScene': `Active scene: ${params?.name || ''}`,
+        'settings.clearActiveScene': 'Clear scene',
+        'settings.translationMode': 'Always translate output',
+        'settings.translationModeDesc': 'Translate each dictation result',
+        'settings.selectedTextContext': 'Use selected text as context',
+        'settings.selectedTextContextDesc': 'Use selected text for context',
         'settings.targetLanguage': 'Target Language',
         'settings.cloudLlmPro': 'Cloud LLM (Pro)',
         'settings.llmSignInHint': 'Sign in to use cloud LLM',
@@ -66,13 +75,18 @@ const mockAppStore = {
     llm_base_url: 'https://api.openai.com/v1',
     llm_model: 'gpt-4o-mini',
     polish_enabled: true,
+    polish_style: 'clean',
     polish_custom_prompt: '',
     polish_chinese_script: 'preserve',
+    custom_scenes: [],
+    active_scene: null as any,
     translate_enabled: false,
     selected_text_enabled: false,
     target_lang: 'en',
   },
   updateConfig: vi.fn(),
+  setConfig: vi.fn(),
+  setSavedConfig: vi.fn(),
   llmTestStatus: 'idle' as 'idle' | 'testing' | 'success' | 'error',
   setLlmTestStatus: vi.fn(),
   llmLatencyMs: null as number | null,
@@ -124,8 +138,11 @@ describe('LlmPane', () => {
       llm_base_url: 'https://api.openai.com/v1',
       llm_model: 'gpt-4o-mini',
       polish_enabled: true,
+      polish_style: 'clean',
       polish_custom_prompt: '',
       polish_chinese_script: 'preserve',
+      custom_scenes: [],
+      active_scene: null,
       translate_enabled: false,
       selected_text_enabled: false,
       target_lang: 'en',
@@ -138,6 +155,10 @@ describe('LlmPane', () => {
     mockAuthStore.source = 'free'
     mockAuthStore.cloudWordsLimit = 0
     mockAuthStore.licenseStatus = null
+
+    vi.clearAllMocks()
+    vi.mocked(tauri.readCredential).mockResolvedValue(null)
+    vi.mocked(tauri.setCredential).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -185,15 +206,11 @@ describe('LlmPane', () => {
   })
 
   describe('Cloud provider UI', () => {
-    it('renders Ask Anything as a voice-first one-shot panel', () => {
+    it('keeps Ask Anything out of AI Polish settings', () => {
       render(<LlmPane />)
 
-      expect(screen.getByText('Ask Anything')).toBeInTheDocument()
-      expect(
-        screen.getByText('Voice question, one-shot answer. No chat history.'),
-      ).toBeInTheDocument()
-      expect(screen.getByText('Voice question')).toBeInTheDocument()
-      expect(screen.getByText('Ready to ask')).toBeInTheDocument()
+      expect(screen.queryByText('Ask Anything')).not.toBeInTheDocument()
+      expect(screen.queryByText('Voice question')).not.toBeInTheDocument()
     })
 
     it('shows cloud info when provider is cloud and user not signed in', () => {
@@ -230,15 +247,30 @@ describe('LlmPane', () => {
       expect(input.type).toBe('password')
     })
 
-    it('updates config and resets test state when API key changes', () => {
+    it('stores API key in credential vault and resets test state when API key changes', async () => {
       render(<LlmPane />)
       const input = screen.getByPlaceholderText('Enter API Key')
 
       fireEvent.change(input, { target: { value: 'sk-new-key' } })
+      fireEvent.blur(input)
 
-      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ llm_api_key: 'sk-new-key' })
+      await waitFor(() =>
+        expect(tauri.setCredential).toHaveBeenCalledWith('llm', 'openai', 'sk-new-key'),
+      )
+      expect(mockAppStore.updateConfig).not.toHaveBeenCalledWith({ llm_api_key: 'sk-new-key' })
       expect(mockAppStore.setLlmTestStatus).toHaveBeenCalledWith('idle')
       expect(mockAppStore.setLlmLatencyMs).toHaveBeenCalledWith(null)
+    })
+
+    it('shows an inline error when credential vault save fails', async () => {
+      vi.mocked(tauri.setCredential).mockRejectedValueOnce(new Error('vault unavailable'))
+      render(<LlmPane />)
+      const input = screen.getByPlaceholderText('Enter API Key')
+
+      fireEvent.change(input, { target: { value: 'sk-new-key' } })
+      fireEvent.blur(input)
+
+      expect(await screen.findByText(/settings.credentialSaveFailed/)).toBeInTheDocument()
     })
   })
 
@@ -330,6 +362,22 @@ describe('LlmPane', () => {
   })
 
   describe('AI polish behavior settings', () => {
+    it('shows Clean as the default polish style outside advanced settings', () => {
+      render(<LlmPane />)
+
+      expect(screen.getByText('Polish style')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Clean')).toBeInTheDocument()
+    })
+
+    it('updates the selected polish style without opening advanced settings', () => {
+      render(<LlmPane />)
+
+      fireEvent.change(screen.getByDisplayValue('Clean'), { target: { value: 'structured' } })
+
+      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ polish_style: 'structured' })
+      expect(screen.queryByText('Custom polish instructions')).not.toBeInTheDocument()
+    })
+
     it('keeps custom instruction controls inside advanced settings', () => {
       render(<LlmPane />)
 
@@ -362,6 +410,32 @@ describe('LlmPane', () => {
 
       expect(screen.getByText('Custom polish instructions')).toBeInTheDocument()
       expect(screen.queryByText('Chinese output')).not.toBeInTheDocument()
+    })
+
+    it('shows and clears the active scene immediately', async () => {
+      mockAppStore.config.active_scene = {
+        id: 'custom_meeting',
+        source: 'custom',
+        name: 'Meeting Notes',
+        prompt_template: 'Use bullets.',
+      }
+
+      render(<LlmPane />)
+
+      expect(screen.getByText('Active scene: Meeting Notes')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('Clear scene'))
+
+      await waitFor(() => {
+        expect(tauri.updateConfig).toHaveBeenCalledWith(
+          expect.objectContaining({ active_scene: null }),
+        )
+      })
+      expect(mockAppStore.setConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ active_scene: null }),
+      )
+      expect(mockAppStore.setSavedConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ active_scene: null }),
+      )
     })
   })
 

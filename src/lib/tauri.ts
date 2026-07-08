@@ -3,6 +3,7 @@ import type {
   AppConfig,
   HistoryEntry,
   DictionaryEntry,
+  CorrectionRule,
   PlatformCapabilities,
 } from '../stores/appStore'
 
@@ -28,6 +29,44 @@ export async function updateConfig(config: AppConfig): Promise<void> {
   return invoke('update_config', { config })
 }
 
+export interface CredentialStatus {
+  namespace: string
+  provider: string
+  hasSecret: boolean
+  updatedAt: string | null
+  storage: 'unavailable' | 'os-vault' | 'session-only' | 'legacy-warning'
+}
+
+export async function getCredentialStatus(
+  namespace: 'stt' | 'llm',
+  provider: string,
+): Promise<CredentialStatus> {
+  return invoke('get_credential_status', { namespace, provider })
+}
+
+export async function readCredential(
+  namespace: 'stt' | 'llm',
+  provider: string,
+): Promise<string | null> {
+  return invoke('read_credential', { namespace, provider })
+}
+
+export async function setCredential(
+  namespace: 'stt' | 'llm',
+  provider: string,
+  value: string,
+): Promise<void> {
+  return invoke('set_credential', { namespace, provider, value })
+}
+
+export async function clearCredential(namespace: 'stt' | 'llm', provider: string): Promise<void> {
+  return invoke('clear_credential', { namespace, provider })
+}
+
+export async function migrateLegacyCredentials(): Promise<void> {
+  return invoke('migrate_legacy_credentials')
+}
+
 export async function setCapsuleAutoHide(enabled: boolean): Promise<void> {
   return invoke('set_capsule_auto_hide', { enabled })
 }
@@ -38,6 +77,107 @@ export async function getPlatformCapabilities(): Promise<PlatformCapabilities> {
 
 export async function getHotkeyRegistrationError(): Promise<string | null> {
   return invoke('get_hotkey_registration_error')
+}
+
+export interface HotkeyBindingStatus {
+  value: string
+  valid: boolean
+}
+
+export type HotkeyAdapter = 'tauriGlobalShortcut' | 'nativeHook' | 'unavailable'
+export type HotkeyInstallState = 'starting' | 'installed' | 'failed' | 'disabled'
+export type HotkeyRole =
+  | 'dictation'
+  | 'ask'
+  | 'translate'
+  | 'editSelection'
+  | 'switchScene'
+  | 'openApp'
+
+export interface HotkeyStatusError {
+  code: string
+  message: string
+}
+
+export interface HotkeyRoleStatus {
+  role: HotkeyRole | string
+  adapter: HotkeyAdapter
+  state: HotkeyInstallState
+  message: string | null
+  lastError: HotkeyStatusError | null
+}
+
+export interface HotkeyCapability {
+  platform: 'macos' | 'windows' | 'linux' | 'unknown' | string
+  sessionType: 'wayland' | 'x11' | 'unknown' | string
+  supportsGlobalHotkey: boolean
+  supportsHoldMode: boolean
+  supportsReleasedEdge: boolean
+  supportsSideSpecificModifiers: boolean
+  requiresAccessibilityPermission: boolean
+  statusHint: string | null
+}
+
+export interface HotkeyStatus {
+  dictation: HotkeyBindingStatus
+  ask: HotkeyBindingStatus
+  conflict: boolean
+  registration_error: string | null
+  roles: HotkeyRoleStatus[]
+  capability: HotkeyCapability
+}
+
+export async function getHotkeyStatus(): Promise<HotkeyStatus> {
+  return invoke('get_hotkey_status')
+}
+
+export type DiagnosticStatus = 'ok' | 'warning' | 'error' | 'notApplicable' | 'checking'
+
+export interface DiagnosticRow {
+  id: 'microphone' | 'accessibility' | 'hotkey' | 'clipboard' | 'insertion' | 'platform' | string
+  status: DiagnosticStatus
+  message: string
+  action: string | null
+  lastCheckedAt: string
+}
+
+export interface SystemDiagnosticsReport {
+  checkedAt: string
+  rows: DiagnosticRow[]
+}
+
+export async function getSystemDiagnostics(): Promise<SystemDiagnosticsReport> {
+  return invoke('get_system_diagnostics')
+}
+
+export interface SttProviderDiagnosticIssue {
+  code: string
+  message: string
+}
+
+export interface SttProviderDiagnostics {
+  provider: string
+  kind: 'localCompatible' | 'builtinLocal' | 'byokRemote' | 'cloudManaged' | 'unknown'
+  endpoint: string | null
+  model: string | null
+  requiresApiKey: boolean
+  apiKeyConfigured: boolean
+  ready: boolean
+  issues: SttProviderDiagnosticIssue[]
+}
+
+export async function getSttProviderDiagnostics(
+  apiKey: string,
+  provider: string,
+  customBaseUrl?: string,
+  customModel?: string,
+): Promise<SttProviderDiagnostics> {
+  return invoke('get_stt_provider_diagnostics', {
+    apiKey,
+    provider,
+    customBaseUrl,
+    customModel,
+  })
 }
 
 // Connection test
@@ -119,21 +259,45 @@ export async function askAnything(question: string): Promise<string> {
   return invoke('ask_anything', { question: question.trim() })
 }
 
+export async function showAskWindow(): Promise<void> {
+  return invoke('show_ask_window')
+}
+
+export async function startAskFlow(): Promise<void> {
+  return invoke('start_ask_flow')
+}
+
 export interface AskDictationResult {
   question: string
   answer: string
+  intent: string
+  output: 'popupAnswer' | 'openedSearch'
+  usedSelectedText: boolean
+  selectedTextTruncated: boolean
+  searchProvider: string | null
+  searchUrl: string | null
+}
+
+export interface AskDictationStartResult {
+  usedSelectedText: boolean
+  selectedTextTruncated: boolean
 }
 
 export type PendingAskMessage =
   | { kind: 'result'; payload: AskDictationResult }
+  | { kind: 'recordingStarted'; payload: AskDictationStartResult }
   | { kind: 'error'; payload: string }
 
-export async function startAskDictation(): Promise<void> {
+export async function startAskDictation(): Promise<AskDictationStartResult> {
   return invoke('start_ask_dictation')
 }
 
 export async function stopAskDictation(): Promise<AskDictationResult> {
   return invoke('stop_ask_dictation')
+}
+
+export async function stopAskFlow(): Promise<void> {
+  return invoke('stop_ask_flow')
 }
 
 export async function abortAskDictation(): Promise<void> {
@@ -167,6 +331,22 @@ export async function addDictionaryEntry(
 
 export async function removeDictionaryEntry(id: number): Promise<void> {
   return invoke('remove_dictionary_entry', { id })
+}
+
+export async function getCorrectionRules(): Promise<CorrectionRule[]> {
+  return invoke('get_correction_rules')
+}
+
+export async function addCorrectionRule(pattern: string, replacement: string): Promise<void> {
+  return invoke('add_correction_rule', { pattern, replacement })
+}
+
+export async function removeCorrectionRule(id: number): Promise<void> {
+  return invoke('remove_correction_rule', { id })
+}
+
+export async function setCorrectionRuleEnabled(id: number, enabled: boolean): Promise<void> {
+  return invoke('set_correction_rule_enabled', { id, enabled })
 }
 
 // Auto-start

@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Loader2, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { abortRecording } from '../../lib/tauri'
 import { useAppStore } from '../../stores/appStore'
+import { CapsuleWorkIndicator } from './CapsuleWorkIndicator'
 
 export function CapsuleProcessing() {
   const { t } = useTranslation()
@@ -26,15 +27,7 @@ export function CapsuleProcessing() {
 
   return (
     <motion.div className="relative z-10 flex items-center gap-2 h-9 px-3">
-      {/* Shimmer sweep overlay */}
-      <div className="capsule-shimmer" />
-      <motion.div
-        className="flex-shrink-0"
-        animate={reduced ? undefined : { rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-      >
-        <Loader2 size={12} className="text-white/80" />
-      </motion.div>
+      <CapsuleWorkIndicator tone="steady" />
       <p className="text-[11px] text-white leading-snug truncate flex-1 min-w-0">
         {displayText}
         <motion.span

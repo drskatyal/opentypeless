@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Cloud, CreditCard, Crown, KeyRound, Loader2, Sparkles } from 'lucide-react'
+import { Check, CreditCard, Loader2, Sparkles } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import { CHECKOUT_PLANS, PRO_PLAN, type CheckoutProduct } from '../../lib/constants'
 import { createCheckout } from '../../lib/api'
-
-const benefitIcons = [Sparkles, KeyRound, Cloud]
 
 export function UpgradePage() {
   const {
@@ -67,32 +65,26 @@ export function UpgradePage() {
   }
 
   return (
-    <div className="max-w-[640px] mx-auto py-8 px-6 text-[13px]">
-      {/* Header */}
-      <div className="text-center mb-6">
-        <div className="inline-flex items-center gap-2 mb-2">
-          <Crown size={20} className="text-amber-500" />
-          <h1 className="text-[20px] font-semibold text-text-primary">{t('upgrade.title')}</h1>
+    <div className="max-w-[620px] mx-auto py-7 px-6 text-[13px]">
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[19px] font-semibold text-text-primary">{t('upgrade.title')}</h1>
+          <p className="mt-1 max-w-[420px] text-[13px] leading-5 text-text-secondary">
+            {t('upgrade.subtitle')}
+          </p>
         </div>
-        <p className="text-text-secondary">{t('upgrade.subtitle')}</p>
-      </div>
-
-      {/* Current plan badge */}
-      <div className="flex items-center justify-center mb-6">
         <span
-          className={`px-3 py-1 rounded-full text-[12px] font-medium ${
-            hasCloudAccess
-              ? 'bg-amber-500/10 text-amber-600'
-              : 'bg-bg-secondary text-text-secondary'
+          className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-medium ${
+            hasCloudAccess ? 'bg-accent-light text-accent' : 'bg-bg-secondary text-text-secondary'
           }`}
         >
           {t('upgrade.currentPlan', { plan: displayName })}
         </span>
-      </div>
+      </header>
 
       {/* Pricing cards */}
       {visiblePlans.length > 0 && (
-        <div className={`grid gap-3 mb-5 ${hasMonthlyAccess ? '' : 'min-[620px]:grid-cols-2'}`}>
+        <div className={`grid gap-3 mb-4 ${hasMonthlyAccess ? '' : 'min-[620px]:grid-cols-2'}`}>
           {visiblePlans.map((checkoutPlan) => {
             const isLoading = loadingProduct === checkoutPlan.product
             const isLifetime = checkoutPlan.product === 'lifetime_starter'
@@ -107,30 +99,22 @@ export function UpgradePage() {
             return (
               <section
                 key={checkoutPlan.product}
-                className={`relative rounded-[10px] overflow-hidden ${
-                  isLifetime
-                    ? 'border border-amber-400/70 bg-amber-500/[0.06] shadow-[0_14px_40px_rgba(245,158,11,0.12)]'
-                    : 'border border-border'
+                className={`jelly-card flex rounded-[18px] p-4 ${
+                  isLifetime ? 'ring-1 ring-accent/30' : ''
                 }`}
               >
-                <div
-                  className={`px-4 py-4 border-b ${
-                    isLifetime
-                      ? 'border-amber-400/30 bg-amber-500/[0.08]'
-                      : 'border-border bg-bg-secondary/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
+                <div className="relative z-[1] flex h-full w-full flex-col">
+                  <div className="flex min-h-6 items-start justify-between gap-2">
                     <h2 className="text-[14px] font-semibold text-text-primary">
                       {t(checkoutPlan.nameKey)}
                     </h2>
                     {checkoutPlan.badgeKey && (
-                      <span className="shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-white">
+                      <span className="shrink-0 rounded-full border border-accent/20 bg-accent-light px-2 py-0.5 text-[10px] font-semibold text-accent">
                         {t(checkoutPlan.badgeKey)}
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 text-[22px] font-semibold text-text-primary">
+                  <p className="mt-3 text-[24px] font-semibold leading-none text-text-primary">
                     {price}
                     <span className="text-[13px] font-normal text-text-secondary">
                       {' '}
@@ -141,30 +125,28 @@ export function UpgradePage() {
                     {t(checkoutPlan.descriptionKey)}
                   </p>
                   {sublineKey && (
-                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-700">
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-bg-secondary/70 px-2 py-1 text-[11px] font-medium text-text-secondary">
                       <Sparkles size={12} />
                       {t(sublineKey)}
                     </p>
                   )}
+                  {canStartCheckout(checkoutPlan.product) && (
+                    <div className="mt-auto pt-4">
+                      <button
+                        onClick={() => handleSubscribe(checkoutPlan.product)}
+                        disabled={loadingProduct !== null || !user}
+                        className="jelly-btn-accent flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2.5 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isLoading ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <CreditCard size={14} />
+                        )}
+                        {t(checkoutPlan.ctaKey)}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {canStartCheckout(checkoutPlan.product) && (
-                  <div className="p-4">
-                    <button
-                      onClick={() => handleSubscribe(checkoutPlan.product)}
-                      disabled={loadingProduct !== null || !user}
-                      className={`w-full py-2.5 rounded-[8px] text-white text-[13px] font-medium cursor-pointer border-none hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                        isLifetime ? 'bg-amber-500' : 'bg-accent'
-                      }`}
-                    >
-                      {isLoading ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <CreditCard size={14} />
-                      )}
-                      {t(checkoutPlan.ctaKey)}
-                    </button>
-                  </div>
-                )}
               </section>
             )
           })}
@@ -172,33 +154,30 @@ export function UpgradePage() {
       )}
 
       {/* Cloud plan benefits */}
-      <div className="border border-border rounded-[10px] overflow-hidden mb-5">
-        <section className="px-4 py-3 border-b border-border bg-bg-primary/40">
+      <section className="mb-4 rounded-[18px] p-4 jelly-card">
+        <div className="relative z-[1]">
           <h2 className="text-[12px] font-semibold text-text-primary">
             {t('upgrade.benefits.title')}
           </h2>
-          <div className="mt-3 grid gap-2">
-            {PRO_PLAN.benefits.map((benefit, i) => {
-              const Icon = benefitIcons[i] ?? Check
-              return (
-                <div key={benefit.labelKey} className="flex items-start gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
-                    <Icon size={12} />
-                  </span>
-                  <span className="text-[13px] leading-5 text-text-primary">
-                    {t(benefit.labelKey)}
-                  </span>
-                </div>
-              )
-            })}
+          <div className="mt-3 grid gap-2 min-[560px]:grid-cols-3">
+            {PRO_PLAN.benefits.map((benefit) => (
+              <div key={benefit.labelKey} className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-light text-accent">
+                  <Check size={12} />
+                </span>
+                <span className="text-[13px] leading-5 text-text-primary">
+                  {t(benefit.labelKey)}
+                </span>
+              </div>
+            ))}
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* Pro quota progress */}
       {hasCloudAccess && (
-        <div className="border border-border rounded-[10px] overflow-hidden mb-5">
-          <div className="px-4 py-2.5 bg-bg-secondary/50 border-b border-border">
+        <section className="mb-4 overflow-hidden rounded-[10px] border border-border">
+          <div className="border-b border-border bg-bg-secondary/50 px-4 py-2.5">
             <h3 className="text-[13px] font-medium text-text-primary">
               {t('upgrade.usageThisMonth')}
             </h3>
@@ -231,21 +210,21 @@ export function UpgradePage() {
               </>
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Action */}
       {hasLifetimeAccess ? (
-        <div className="text-center py-3">
+        <div className="py-3 text-center">
           <p className="text-text-secondary flex items-center justify-center gap-1.5">
-            <Crown size={14} className="text-amber-500" />
+            <Check size={14} className="text-accent" />
             {t('upgrade.thankYou')}
           </p>
         </div>
       ) : hasCloudAccess ? (
-        <div className="text-center py-3">
+        <div className="py-3 text-center">
           <p className="text-text-secondary flex items-center justify-center gap-1.5">
-            <Crown size={14} className="text-amber-500" />
+            <Check size={14} className="text-accent" />
             {hasLifetimeCheckoutPlan
               ? t(
                   'upgrade.monthlyActiveLifetimeHint',

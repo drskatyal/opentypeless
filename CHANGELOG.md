@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.48] - 2026-07-08
+
+### Added
+- Typeless-style default shortcuts: macOS `Fn`, Windows `Right Alt`, with separate Ask and translate shortcuts.
+- Linux keeps conservative defaults: `Ctrl+/` for dictation and `Ctrl+.` for Ask Anything.
+- Lightweight Ask Anything flow with capsule recording/thinking states and a compact answer note.
+- Selected-text context for Ask and polish, with safe truncation and explicit intent routing.
+- Built-in scenes, local custom scenes, scene activation metadata, and import/export.
+- Local correction rules alongside the custom dictionary.
+- macOS Apple Speech provider and stronger custom Whisper/self-hosted STT diagnostics.
+- OS credential vault storage for BYOK STT/LLM secrets where available.
+- Output strategy diagnostics, clipboard restore safeguards, and Windows SendInput support.
+
+### Changed
+- Simplified Settings while keeping key controls discoverable, including idle capsule visibility in General Advanced.
+- Restyled Upgrade to match the quieter jelly-card product UI instead of a heavy marketing layout.
+- Refined AI polish styles: Minimal, Clean, Structured, and Professional.
+- Ask now starts directly from Try Ask / legacy Ask entrypoints instead of opening an empty window.
+- Release notes and README now document the platform-specific shortcut defaults more explicitly.
+
+### Fixed
+- Strict Rust Clippy checks now pass.
+- Onboarding Skip now continues into the app even if best-effort config persistence fails.
+- Improved hotkey registration rollback, collision checks, and status reporting.
+- Reduced accidental git noise from local release, screenshot, and debug artifacts.
+- Completed i18n key coverage across bundled locale files and removed stale onboarding copy that implied clicking the capsule starts recording.
+
 ## [0.1.0] - 2026-02-26
 
 ### Added

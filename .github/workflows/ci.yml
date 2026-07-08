@@ -82,4 +82,8 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit
 
-      - run: cargo audit --file src-tauri/Cargo.lock
+      # wayland-scanner 0.31.10 is currently the latest release and still pins
+      # quick-xml 0.39 for Wayland protocol code generation. The vulnerable XML
+      # parser path is not used for runtime user input; remove these ignores once
+      # wayland-scanner publishes a quick-xml >=0.41 compatible release.
+      - run: cargo audit --file src-tauri/Cargo.lock --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195

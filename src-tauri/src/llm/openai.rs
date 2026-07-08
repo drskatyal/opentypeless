@@ -41,15 +41,18 @@ impl LlmProvider for OpenAiProvider {
             .as_ref()
             .is_some_and(|s| !s.trim().is_empty());
 
-        let system_prompt = prompt::build_system_prompt(
-            req.app_type,
-            &req.dictionary,
-            &req.polish_custom_prompt,
-            &req.polish_chinese_script,
-            req.translate_enabled,
-            &req.target_lang,
+        let system_prompt = prompt::build_system_prompt_with_scene(prompt::SystemPromptOptions {
+            app_type: req.app_type,
+            dictionary: &req.dictionary,
+            correction_rules: &req.correction_rules,
+            polish_style: &req.polish_style,
+            active_scene_prompt: &req.active_scene_prompt,
+            polish_custom_prompt: &req.polish_custom_prompt,
+            polish_chinese_script: &req.polish_chinese_script,
+            translate_enabled: req.translate_enabled,
+            target_lang: &req.target_lang,
             has_selected_text,
-        );
+        });
 
         let mut messages = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
         if has_selected_text {

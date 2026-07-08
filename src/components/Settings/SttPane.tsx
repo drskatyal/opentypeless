@@ -1,16 +1,23 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '../../stores/appStore'
+import { isMacPlatform, useAppStore } from '../../stores/appStore'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import {
   STT_PROVIDERS,
   LANGUAGES,
+  APPLE_SPEECH_PROVIDER,
   CUSTOM_WHISPER_PROVIDER,
   CUSTOM_STT_DEFAULTS,
   CUSTOM_STT_PRESETS,
   VOLCENGINE_STT_RESOURCES,
 } from '../../lib/constants'
-import { benchSttConnection } from '../../lib/tauri'
+import {
+  benchSttConnection,
+  getSttProviderDiagnostics,
+  readCredential,
+  setCredential,
+  type SttProviderDiagnostics,
+} from '../../lib/tauri'
 import { FormField } from './shared/FormField'
 import { CheckCircle2, XCircle, Loader2, Crown } from 'lucide-react'
 
@@ -21,20 +28,109 @@ export function SttPane() {
   const setSttTestStatus = useAppStore((s) => s.setSttTestStatus)
   const sttLatencyMs = useAppStore((s) => s.sttLatencyMs)
   const setSttLatencyMs = useAppStore((s) => s.setSttLatencyMs)
+  const platformCapabilities = useAppStore((s) => s.platformCapabilities)
   const { user } = useAuthStore()
   const hasCloudAccess = useAuthStore(hasManagedCloudAccess)
   const { t } = useTranslation()
   const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null)
+  const [credentialErrorMessage, setCredentialErrorMessage] = useState<string | null>(null)
 
   const isCloud = config.stt_provider === 'cloud'
+  const isAppleSpeech = config.stt_provider === APPLE_SPEECH_PROVIDER
   const isCustomWhisper = config.stt_provider === CUSTOM_WHISPER_PROVIDER
   const isVolcengineDoubao = config.stt_provider === 'volcengine-doubao'
-  const apiKeyValue = isCustomWhisper ? config.stt_custom_api_key : config.stt_api_key
+  const credentialProvider = isCustomWhisper ? CUSTOM_WHISPER_PROVIDER : config.stt_provider
+  const legacyApiKey = isCustomWhisper ? config.stt_custom_api_key : config.stt_api_key
   const volcengineResourceId =
     config.stt_volcengine_resource_id || VOLCENGINE_STT_RESOURCES[0].value
-  const canTest = isCustomWhisper
-    ? Boolean(config.stt_custom_base_url.trim() && config.stt_custom_model.trim())
-    : Boolean(config.stt_api_key)
+  const credentialSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [apiKeyDraft, setApiKeyDraft] = useState(legacyApiKey)
+  const [sttDiagnostics, setSttDiagnostics] = useState<SttProviderDiagnostics | null>(null)
+  const supportsAppleSpeech = platformCapabilities
+    ? platformCapabilities.os === 'macos'
+    : isMacPlatform()
+  const visibleSttProviders = STT_PROVIDERS.filter(
+    (provider) => provider.value !== APPLE_SPEECH_PROVIDER || supportsAppleSpeech,
+  )
+  const appleSpeechReady = sttDiagnostics?.ready === true
+  const appleSpeechUnavailable = sttDiagnostics?.ready === false
+  const canTest = isAppleSpeech
+    ? appleSpeechReady
+    : isCustomWhisper
+      ? Boolean(config.stt_custom_base_url.trim() && config.stt_custom_model.trim())
+      : Boolean(apiKeyDraft)
+
+  useEffect(() => {
+    if (isCloud || isAppleSpeech) {
+      setApiKeyDraft('')
+      setCredentialErrorMessage(null)
+      return
+    }
+
+    let cancelled = false
+    setApiKeyDraft(legacyApiKey)
+    setCredentialErrorMessage(null)
+    readCredential('stt', credentialProvider)
+      .then((secret) => {
+        if (!cancelled) setApiKeyDraft(legacyApiKey || secret || '')
+      })
+      .catch((error) => console.error('[credentials] failed to read STT credential', error))
+
+    return () => {
+      cancelled = true
+    }
+  }, [credentialProvider, isAppleSpeech, isCloud, legacyApiKey])
+
+  useEffect(() => {
+    if (!isCustomWhisper && !isAppleSpeech) {
+      setSttDiagnostics(null)
+      return
+    }
+
+    let cancelled = false
+    getSttProviderDiagnostics(
+      isAppleSpeech ? '' : apiKeyDraft,
+      config.stt_provider,
+      isCustomWhisper ? config.stt_custom_base_url : undefined,
+      isCustomWhisper ? config.stt_custom_model : undefined,
+    )
+      .then((diagnostics) => {
+        if (!cancelled) setSttDiagnostics(diagnostics)
+      })
+      .catch((error) => {
+        console.error('[stt] failed to read provider diagnostics', error)
+        if (!cancelled) setSttDiagnostics(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    apiKeyDraft,
+    config.stt_custom_base_url,
+    config.stt_custom_model,
+    config.stt_provider,
+    isAppleSpeech,
+    isCustomWhisper,
+  ])
+
+  const persistSttCredential = useCallback(
+    (value: string, delayMs = 350) => {
+      if (isCloud || isAppleSpeech) return
+      if (credentialSaveRef.current) clearTimeout(credentialSaveRef.current)
+      credentialSaveRef.current = setTimeout(() => {
+        credentialSaveRef.current = null
+        setCredential('stt', credentialProvider, value)
+          .then(() => setCredentialErrorMessage(null))
+          .catch((error) => {
+            const message = error instanceof Error ? error.message : String(error)
+            setCredentialErrorMessage(message)
+            console.error('[credentials] failed to save STT credential', error)
+          })
+      }, delayMs)
+    },
+    [credentialProvider, isAppleSpeech, isCloud],
+  )
 
   const handleTest = async () => {
     setSttTestStatus('testing')
@@ -44,21 +140,21 @@ export function SttPane() {
       let ms: number
       if (isCustomWhisper) {
         ms = await benchSttConnection(
-          config.stt_custom_api_key,
+          apiKeyDraft,
           config.stt_provider,
           config.stt_custom_base_url,
           config.stt_custom_model,
         )
       } else if (isVolcengineDoubao) {
         ms = await benchSttConnection(
-          config.stt_api_key,
+          apiKeyDraft,
           config.stt_provider,
           undefined,
           undefined,
           volcengineResourceId,
         )
       } else {
-        ms = await benchSttConnection(config.stt_api_key, config.stt_provider)
+        ms = await benchSttConnection(apiKeyDraft, config.stt_provider)
       }
       console.log('[STT Test] Received latency:', ms, 'type:', typeof ms)
       setSttLatencyMs(ms)
@@ -97,7 +193,7 @@ export function SttPane() {
           }}
           className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
-          {STT_PROVIDERS.map((p) => (
+          {visibleSttProviders.map((p) => (
             <option key={p.value} value={p.value}>
               {t(p.labelKey)}
             </option>
@@ -119,6 +215,57 @@ export function SttPane() {
             <p className="text-[12px] text-green-500">{t('settings.sttProActive')}</p>
           )}
         </div>
+      ) : isAppleSpeech ? (
+        <FormField label={t('providers.stt.appleSpeech')}>
+          <div className="flex gap-2">
+            <div className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary">
+              <p
+                className={`flex items-center gap-1.5 ${
+                  appleSpeechReady
+                    ? 'text-success'
+                    : appleSpeechUnavailable
+                      ? 'text-text-tertiary'
+                      : 'text-text-secondary'
+                }`}
+              >
+                {appleSpeechReady ? (
+                  <CheckCircle2 size={13} className="flex-shrink-0" />
+                ) : appleSpeechUnavailable ? (
+                  <XCircle size={13} className="flex-shrink-0" />
+                ) : (
+                  <Loader2 size={13} className="flex-shrink-0 animate-spin" />
+                )}
+                <span>
+                  {appleSpeechReady
+                    ? t('settings.appleSpeechReady')
+                    : appleSpeechUnavailable
+                      ? t('settings.appleSpeechUnavailable')
+                      : t('settings.healthChecking')}
+                </span>
+              </p>
+            </div>
+            <button
+              onClick={handleTest}
+              disabled={!canTest || sttTestStatus === 'testing'}
+              className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+            >
+              {sttTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
+              {t('settings.test')}
+            </button>
+          </div>
+          {sttTestStatus === 'success' && (
+            <p className="flex items-center gap-1 text-[12px] text-success mt-2">
+              <CheckCircle2 size={13} />{' '}
+              {sttLatencyMs !== null ? `${sttLatencyMs}ms` : t('settings.connectionSuccess')}
+            </p>
+          )}
+          {(sttTestStatus === 'error' || testErrorMessage) && (
+            <div className="flex items-start gap-1 text-[12px] text-error mt-2">
+              <XCircle size={13} className="mt-[1px] flex-shrink-0" />
+              <span>{testErrorMessage || t('settings.connectionFailed')}</span>
+            </div>
+          )}
+        </FormField>
       ) : (
         <>
           {isCustomWhisper && (
@@ -182,6 +329,32 @@ export function SttPane() {
                 <p className="text-[11px] text-text-tertiary mt-1.5">
                   {t('settings.customSttSetupHint')}
                 </p>
+                {sttDiagnostics && (
+                  <p
+                    className={`flex items-center gap-1.5 text-[11px] mt-1.5 min-w-0 ${
+                      sttDiagnostics.ready ? 'text-success' : 'text-text-tertiary'
+                    }`}
+                  >
+                    {sttDiagnostics.ready ? (
+                      <CheckCircle2 size={12} className="flex-shrink-0" />
+                    ) : (
+                      <XCircle size={12} className="flex-shrink-0" />
+                    )}
+                    <span className="flex-shrink-0">
+                      {sttDiagnostics.ready
+                        ? t('settings.localSttReady')
+                        : t('settings.localSttNeedsSetup')}
+                    </span>
+                    {sttDiagnostics.endpoint && (
+                      <>
+                        <span className="text-text-tertiary">·</span>
+                        <span className="truncate text-text-tertiary">
+                          {sttDiagnostics.endpoint}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                )}
               </FormField>
             </>
           )}
@@ -196,6 +369,7 @@ export function SttPane() {
                   setSttTestStatus('idle')
                   setSttLatencyMs(null)
                   setTestErrorMessage(null)
+                  setCredentialErrorMessage(null)
                 }}
                 className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
               >
@@ -214,17 +388,15 @@ export function SttPane() {
             <div className="flex gap-2">
               <input
                 type="password"
-                value={apiKeyValue}
+                value={apiKeyDraft}
                 onChange={(e) => {
-                  updateConfig(
-                    isCustomWhisper
-                      ? { stt_custom_api_key: e.target.value }
-                      : { stt_api_key: e.target.value },
-                  )
+                  setApiKeyDraft(e.target.value)
+                  persistSttCredential(e.target.value)
                   setSttTestStatus('idle')
                   setSttLatencyMs(null)
                   setTestErrorMessage(null)
                 }}
+                onBlur={() => persistSttCredential(apiKeyDraft, 0)}
                 placeholder={t('settings.enterApiKey')}
                 className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
               />
@@ -249,7 +421,13 @@ export function SttPane() {
                 <span>{testErrorMessage || t('settings.connectionFailed')}</span>
               </div>
             )}
-            <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.storedLocally')}</p>
+            {credentialErrorMessage ? (
+              <p className="text-[11px] text-error mt-1.5">
+                {t('settings.credentialSaveFailed', { details: credentialErrorMessage })}
+              </p>
+            ) : (
+              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.storedLocally')}</p>
+            )}
             {isVolcengineDoubao && (
               <p className="text-[11px] text-text-tertiary mt-1.5">
                 {t('settings.volcengineSttKeyHint')}

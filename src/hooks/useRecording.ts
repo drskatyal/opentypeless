@@ -14,13 +14,18 @@ export function useRecording() {
     await invoke('stop_recording')
   }, [])
 
+  const isPreparing = pipelineState === 'preparing'
   const isRecording = pipelineState === 'recording'
-  const isProcessing = pipelineState === 'transcribing' || pipelineState === 'polishing'
+  const isProcessing =
+    pipelineState === 'preparing' ||
+    pipelineState === 'transcribing' ||
+    pipelineState === 'polishing'
   const isIdle = pipelineState === 'idle'
 
   return {
     startRecording,
     stopRecording,
+    isPreparing,
     isRecording,
     isProcessing,
     isIdle,

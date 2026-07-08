@@ -7,9 +7,8 @@ export function CapsuleIdle() {
 
   return (
     <motion.div
-      className="relative z-10 flex items-center justify-center w-9 h-9 cursor-pointer"
+      className="relative z-10 flex items-center justify-center w-9 h-9 cursor-grab active:cursor-grabbing"
       whileHover={reduced ? undefined : { scale: 1.06 }}
-      whileTap={reduced ? undefined : { scale: 0.94 }}
       transition={spring.smooth}
     >
       {/* Subtle breathing wrapper */}

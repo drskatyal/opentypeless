@@ -5,7 +5,6 @@ import {
   Check,
   Keyboard,
   MessageCircleQuestion,
-  MousePointerClick,
   GripHorizontal,
   MousePointer,
   ShieldAlert,
@@ -25,6 +24,8 @@ export function DoneStep() {
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const [a11yTrusted, setA11yTrusted] = useState<boolean | null>(null)
   const showPermissionCard = isMac && config.output_mode === 'keyboard'
+  const dictationAction =
+    config.hotkey_mode === 'hold' ? t('onboarding.test.hold') : t('onboarding.test.press')
 
   useEffect(() => {
     if (showPermissionCard) {
@@ -72,19 +73,16 @@ export function DoneStep() {
       <div className="w-full space-y-2">
         <Tip
           icon={Keyboard}
-          title={`${t('onboarding.done.holdPress')} ${config.hotkey}`}
+          title={`${dictationAction} ${config.hotkey}`}
           desc={t('onboarding.done.holdPressSub')}
         />
-        <Tip
-          icon={MessageCircleQuestion}
-          title={`${t('onboarding.done.askAnything')} ${config.ask_hotkey}`}
-          desc={t('onboarding.done.askAnythingSub')}
-        />
-        <Tip
-          icon={MousePointerClick}
-          title={t('onboarding.done.clickCapsule')}
-          desc={t('onboarding.done.clickCapsuleSub')}
-        />
+        {config.ask_hotkey && (
+          <Tip
+            icon={MessageCircleQuestion}
+            title={`${t('onboarding.done.askAnything')} ${config.ask_hotkey}`}
+            desc={t('onboarding.done.askAnythingSub')}
+          />
+        )}
         <Tip
           icon={GripHorizontal}
           title={t('onboarding.done.dragToReposition')}
@@ -93,7 +91,7 @@ export function DoneStep() {
         <Tip
           icon={MousePointer}
           title={t('onboarding.done.rightClickMenu')}
-          desc={t('onboarding.done.restoreCapsuleSub')}
+          desc={t('onboarding.done.rightClickMenuSub')}
         />
       </div>
 

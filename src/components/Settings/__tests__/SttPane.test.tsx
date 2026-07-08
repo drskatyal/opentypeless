@@ -33,6 +33,10 @@ vi.mock('react-i18next', () => ({
         'settings.customSttApiKeyOptional': 'API Key (optional)',
         'settings.customSttSetupHint':
           'Start your local OpenAI-compatible STT server first, then test the connection here.',
+        'settings.localSttReady': 'Local endpoint ready',
+        'settings.localSttNeedsSetup': 'Local endpoint needs setup',
+        'settings.appleSpeechReady': 'Apple Speech ready',
+        'settings.appleSpeechUnavailable': 'Apple Speech unavailable',
         'settings.customSttConnectionFailed':
           'Local STT server is not reachable. Check that it is running and the port is correct.',
         'settings.volcengineSttKeyHint':
@@ -41,6 +45,7 @@ vi.mock('react-i18next', () => ({
         'settings.volcengineResourceSeedAsr': 'SeedASR 2.0',
         'settings.volcengineResourceBigAsr': 'BigASR 1.0',
         'providers.stt.volcengineDoubao': 'Volcengine Doubao Realtime ASR',
+        'providers.stt.appleSpeech': 'Apple Speech (Local)',
       }
       return translations[key] || key
     },
@@ -64,6 +69,13 @@ const mockAppStore = {
   setSttTestStatus: vi.fn(),
   sttLatencyMs: null as number | null,
   setSttLatencyMs: vi.fn(),
+  platformCapabilities: {
+    os: 'macos',
+    sessionType: 'unknown',
+    globalHotkeyReliable: true,
+    keyboardOutputReliable: true,
+    clipboardAutoPasteReliable: true,
+  },
 }
 
 const mockAuthStore = {
@@ -115,6 +127,13 @@ describe('SttPane', () => {
     }
     mockAppStore.sttTestStatus = 'idle'
     mockAppStore.sttLatencyMs = null
+    mockAppStore.platformCapabilities = {
+      os: 'macos',
+      sessionType: 'unknown',
+      globalHotkeyReliable: true,
+      keyboardOutputReliable: true,
+      clipboardAutoPasteReliable: true,
+    }
     mockAuthStore.user = null
     mockAuthStore.plan = null
     mockAuthStore.source = 'free'
@@ -123,6 +142,18 @@ describe('SttPane', () => {
 
     // Clear all mock function calls
     vi.clearAllMocks()
+    vi.mocked(tauri.readCredential).mockResolvedValue(null)
+    vi.mocked(tauri.setCredential).mockResolvedValue(undefined)
+    vi.mocked(tauri.getSttProviderDiagnostics).mockResolvedValue({
+      provider: 'custom-whisper',
+      kind: 'localCompatible',
+      endpoint: 'http://localhost:8000/v1/audio/transcriptions',
+      model: 'Systran/faster-whisper-large-v3',
+      requiresApiKey: false,
+      apiKeyConfigured: false,
+      ready: true,
+      issues: [],
+    })
   })
 
   afterEach(() => {
@@ -143,6 +174,52 @@ describe('SttPane', () => {
       expect(screen.getByRole('option', { name: 'Volcengine Doubao Realtime ASR' })).toHaveValue(
         'volcengine-doubao',
       )
+    })
+
+    it('shows Apple Speech as a built-in local provider on macOS only', () => {
+      render(<SttPane />)
+
+      expect(screen.getByRole('option', { name: 'Apple Speech (Local)' })).toHaveValue(
+        'apple-speech',
+      )
+
+      cleanup()
+      mockAppStore.platformCapabilities = {
+        os: 'windows',
+        sessionType: 'unknown',
+        globalHotkeyReliable: true,
+        keyboardOutputReliable: true,
+        clipboardAutoPasteReliable: true,
+      }
+      render(<SttPane />)
+
+      expect(screen.queryByRole('option', { name: 'Apple Speech (Local)' })).not.toBeInTheDocument()
+    })
+
+    it('does not show API key input for Apple Speech and can test without credentials', async () => {
+      mockAppStore.config.stt_provider = 'apple-speech'
+      vi.mocked(tauri.getSttProviderDiagnostics).mockResolvedValueOnce({
+        provider: 'apple-speech',
+        kind: 'builtinLocal',
+        endpoint: null,
+        model: 'Apple Speech',
+        requiresApiKey: false,
+        apiKeyConfigured: false,
+        ready: true,
+        issues: [],
+      })
+      vi.mocked(tauri.benchSttConnection).mockResolvedValueOnce(0)
+
+      const { container } = render(<SttPane />)
+
+      expect(container.querySelector('input[placeholder="Enter API Key"]')).toBeNull()
+      expect(await screen.findByText('Apple Speech ready')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /test/i }))
+
+      await waitFor(() => {
+        expect(tauri.benchSttConnection).toHaveBeenCalledWith('', 'apple-speech')
+      })
     })
 
     it('shows a credential hint for Volcengine Doubao realtime ASR', () => {
@@ -232,17 +309,34 @@ describe('SttPane', () => {
       expect(input.type).toBe('password')
     })
 
-    it('updates config and resets test state when API key changes', () => {
+    it('stores API key in credential vault and resets test state when API key changes', async () => {
       const { container } = render(<SttPane />)
       const input = container.querySelector(
         'input[placeholder="Enter API Key"]',
       ) as HTMLInputElement
 
       fireEvent.change(input, { target: { value: 'sk-new-key' } })
+      fireEvent.blur(input)
 
-      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ stt_api_key: 'sk-new-key' })
+      await waitFor(() =>
+        expect(tauri.setCredential).toHaveBeenCalledWith('stt', 'deepgram', 'sk-new-key'),
+      )
+      expect(mockAppStore.updateConfig).not.toHaveBeenCalledWith({ stt_api_key: 'sk-new-key' })
       expect(mockAppStore.setSttTestStatus).toHaveBeenCalledWith('idle')
       expect(mockAppStore.setSttLatencyMs).toHaveBeenCalledWith(null)
+    })
+
+    it('shows an inline error when credential vault save fails', async () => {
+      vi.mocked(tauri.setCredential).mockRejectedValueOnce(new Error('vault unavailable'))
+      const { container } = render(<SttPane />)
+      const input = container.querySelector(
+        'input[placeholder="Enter API Key"]',
+      ) as HTMLInputElement
+
+      fireEvent.change(input, { target: { value: 'sk-new-key' } })
+      fireEvent.blur(input)
+
+      expect(await screen.findByText(/settings.credentialSaveFailed/)).toBeInTheDocument()
     })
   })
 
@@ -320,6 +414,38 @@ describe('SttPane', () => {
       })
     })
 
+    it('shows compact local endpoint diagnostics', async () => {
+      render(<SttPane />)
+
+      await waitFor(() => {
+        expect(tauri.getSttProviderDiagnostics).toHaveBeenCalledWith(
+          '',
+          'custom-whisper',
+          'http://localhost:8000/v1',
+          'Systran/faster-whisper-large-v3',
+        )
+      })
+      expect(screen.getByText('Local endpoint ready')).toBeInTheDocument()
+      expect(screen.getByText('http://localhost:8000/v1/audio/transcriptions')).toBeInTheDocument()
+    })
+
+    it('shows a quiet setup status when local endpoint config is invalid', async () => {
+      vi.mocked(tauri.getSttProviderDiagnostics).mockResolvedValueOnce({
+        provider: 'custom-whisper',
+        kind: 'localCompatible',
+        endpoint: null,
+        model: null,
+        requiresApiKey: false,
+        apiKeyConfigured: false,
+        ready: false,
+        issues: [{ code: 'invalid_custom_whisper_config', message: 'Model is required' }],
+      })
+
+      render(<SttPane />)
+
+      expect(await screen.findByText('Local endpoint needs setup')).toBeInTheDocument()
+    })
+
     it('does not reuse a hosted STT API key for custom Whisper tests', async () => {
       const mockBenchStt = vi.mocked(tauri.benchSttConnection)
       mockBenchStt.mockResolvedValue(123)
@@ -339,7 +465,7 @@ describe('SttPane', () => {
       })
     })
 
-    it('stores the custom Whisper API key separately from hosted provider keys', () => {
+    it('stores the custom Whisper API key separately from hosted provider keys', async () => {
       mockAppStore.config.stt_api_key = 'hosted-secret'
       mockAppStore.config.stt_custom_api_key = ''
 
@@ -351,13 +477,12 @@ describe('SttPane', () => {
       expect(input.value).toBe('')
 
       fireEvent.change(input, { target: { value: 'custom-secret' } })
+      fireEvent.blur(input)
 
-      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({
-        stt_custom_api_key: 'custom-secret',
-      })
-      expect(mockAppStore.updateConfig).not.toHaveBeenCalledWith({
-        stt_api_key: 'custom-secret',
-      })
+      await waitFor(() =>
+        expect(tauri.setCredential).toHaveBeenCalledWith('stt', 'custom-whisper', 'custom-secret'),
+      )
+      expect(mockAppStore.updateConfig).not.toHaveBeenCalledWith({ stt_api_key: 'custom-secret' })
     })
   })
 

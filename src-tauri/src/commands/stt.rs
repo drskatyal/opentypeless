@@ -1,3 +1,4 @@
+use crate::credentials::{resolve_config_secret, SystemCredentialVault};
 use crate::stt;
 use crate::stt::SttProvider;
 use crate::SessionTokenStore;
@@ -62,6 +63,186 @@ fn resolve_whisper_test_config(
         .ok_or_else(|| format!("Unknown STT provider: {}", provider))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SttProviderDiagnosticIssue {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SttProviderDiagnostics {
+    pub provider: String,
+    pub kind: String,
+    pub endpoint: Option<String>,
+    pub model: Option<String>,
+    pub requires_api_key: bool,
+    pub api_key_configured: bool,
+    pub ready: bool,
+    pub issues: Vec<SttProviderDiagnosticIssue>,
+}
+
+fn diagnostic_issue(code: &str, message: impl Into<String>) -> SttProviderDiagnosticIssue {
+    SttProviderDiagnosticIssue {
+        code: code.to_string(),
+        message: message.into(),
+    }
+}
+
+fn build_remote_stt_diagnostics(provider: &str, api_key: &str) -> SttProviderDiagnostics {
+    let whisper_config = stt::config::build_known_whisper_config(provider);
+    let (endpoint, model) = if let Some(cfg) = whisper_config {
+        (Some(cfg.endpoint), Some(cfg.model))
+    } else {
+        match provider {
+            "deepgram" => (Some("https://api.deepgram.com/v1/listen".to_string()), None),
+            "assemblyai" => (
+                Some("https://api.assemblyai.com/v2/transcript".to_string()),
+                None,
+            ),
+            stt::volcengine::VOLCENGINE_DOUBAO_PROVIDER => (
+                Some("wss://openspeech.bytedance.com/api/v3/sauc/bigmodel".to_string()),
+                None,
+            ),
+            _ => (None, None),
+        }
+    };
+
+    let api_key_configured = !api_key.trim().is_empty();
+    let mut issues = Vec::new();
+    if !api_key_configured {
+        issues.push(diagnostic_issue(
+            "missing_api_key",
+            "API key is required for this STT provider",
+        ));
+    }
+
+    SttProviderDiagnostics {
+        provider: provider.to_string(),
+        kind: "byokRemote".to_string(),
+        endpoint,
+        model,
+        requires_api_key: true,
+        api_key_configured,
+        ready: issues.is_empty(),
+        issues,
+    }
+}
+
+fn build_apple_speech_diagnostics(
+    provider: &str,
+    availability: stt::apple_speech::AppleSpeechAvailability,
+) -> SttProviderDiagnostics {
+    SttProviderDiagnostics {
+        provider: provider.to_string(),
+        kind: "builtinLocal".to_string(),
+        endpoint: None,
+        model: Some(
+            availability
+                .locale
+                .as_ref()
+                .map(|locale| format!("Apple Speech ({locale})"))
+                .unwrap_or_else(|| "Apple Speech".to_string()),
+        ),
+        requires_api_key: false,
+        api_key_configured: false,
+        ready: availability.ready,
+        issues: match (availability.issue_code, availability.issue_message) {
+            (Some(code), Some(message)) => vec![diagnostic_issue(&code, message)],
+            (Some(code), None) => vec![diagnostic_issue(&code, code.clone())],
+            _ => Vec::new(),
+        },
+    }
+}
+
+fn build_stt_provider_diagnostics(
+    provider: &str,
+    api_key: &str,
+    custom_base_url: Option<&str>,
+    custom_model: Option<&str>,
+) -> SttProviderDiagnostics {
+    match provider {
+        "" => SttProviderDiagnostics {
+            provider: provider.to_string(),
+            kind: "unknown".to_string(),
+            endpoint: None,
+            model: None,
+            requires_api_key: false,
+            api_key_configured: false,
+            ready: false,
+            issues: vec![diagnostic_issue(
+                "missing_provider",
+                "No STT provider selected",
+            )],
+        },
+        "cloud" => SttProviderDiagnostics {
+            provider: provider.to_string(),
+            kind: "cloudManaged".to_string(),
+            endpoint: None,
+            model: None,
+            requires_api_key: false,
+            api_key_configured: false,
+            ready: true,
+            issues: Vec::new(),
+        },
+        stt::config::APPLE_SPEECH_PROVIDER => build_apple_speech_diagnostics(
+            provider,
+            stt::apple_speech::apple_speech_availability(None),
+        ),
+        stt::config::CUSTOM_WHISPER_PROVIDER => {
+            let api_key_configured = !api_key.trim().is_empty();
+            match stt::config::build_custom_whisper_config(
+                custom_base_url.unwrap_or_default(),
+                custom_model.unwrap_or_default(),
+            ) {
+                Ok(cfg) => SttProviderDiagnostics {
+                    provider: provider.to_string(),
+                    kind: "localCompatible".to_string(),
+                    endpoint: Some(cfg.endpoint),
+                    model: Some(cfg.model),
+                    requires_api_key: cfg.api_key_required,
+                    api_key_configured,
+                    ready: true,
+                    issues: Vec::new(),
+                },
+                Err(err) => SttProviderDiagnostics {
+                    provider: provider.to_string(),
+                    kind: "localCompatible".to_string(),
+                    endpoint: None,
+                    model: custom_model
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(ToString::to_string),
+                    requires_api_key: false,
+                    api_key_configured,
+                    ready: false,
+                    issues: vec![diagnostic_issue("invalid_custom_whisper_config", err)],
+                },
+            }
+        }
+        "deepgram" | "assemblyai" | stt::volcengine::VOLCENGINE_DOUBAO_PROVIDER => {
+            build_remote_stt_diagnostics(provider, api_key)
+        }
+        _ if stt::config::build_known_whisper_config(provider).is_some() => {
+            build_remote_stt_diagnostics(provider, api_key)
+        }
+        _ => SttProviderDiagnostics {
+            provider: provider.to_string(),
+            kind: "unknown".to_string(),
+            endpoint: None,
+            model: None,
+            requires_api_key: false,
+            api_key_configured: !api_key.trim().is_empty(),
+            ready: false,
+            issues: vec![diagnostic_issue(
+                "unknown_provider",
+                format!("Unknown STT provider: {}", provider),
+            )],
+        },
+    }
+}
+
 async fn check_openai_whisper_model(client: &reqwest::Client, api_key: &str) -> Result<(), String> {
     let resp = client
         .get("https://api.openai.com/v1/models/whisper-1")
@@ -76,6 +257,28 @@ async fn check_openai_whisper_model(client: &reqwest::Client, api_key: &str) -> 
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_stt_provider_diagnostics(
+    api_key: String,
+    provider: String,
+    custom_base_url: Option<String>,
+    custom_model: Option<String>,
+) -> Result<SttProviderDiagnostics, String> {
+    let resolved_api_key = if provider == "cloud" {
+        String::new()
+    } else {
+        resolve_config_secret(&api_key, "stt", &provider, &SystemCredentialVault)
+            .map_err(|e| e.to_string())?
+    };
+
+    Ok(build_stt_provider_diagnostics(
+        &provider,
+        &resolved_api_key,
+        custom_base_url.as_deref(),
+        custom_model.as_deref(),
+    ))
 }
 
 #[tauri::command]
@@ -118,6 +321,9 @@ pub async fn test_stt_connection(
         return Ok(has_managed_cloud_access(&body));
     }
 
+    let api_key = resolve_config_secret(&api_key, "stt", &provider, &SystemCredentialVault)
+        .map_err(|e| e.to_string())?;
+
     if stt::config::stt_provider_requires_api_key(&provider) && api_key.is_empty() {
         return Ok(false);
     }
@@ -149,6 +355,14 @@ pub async fn test_stt_connection(
         )
         .await
         .is_ok()),
+        stt::config::APPLE_SPEECH_PROVIDER => {
+            let authorization = stt::apple_speech::request_apple_speech_authorization()
+                .map_err(|e| e.to_string())?;
+            if authorization != stt::apple_speech::AppleSpeechAuthorizationStatus::Authorized {
+                return Ok(false);
+            }
+            Ok(stt::apple_speech::apple_speech_availability(None).ready)
+        }
         "openai-whisper" => Ok(check_openai_whisper_model(&client, &api_key).await.is_ok()),
         _ => {
             let cfg = resolve_whisper_test_config(&provider, custom_base_url, custom_model)?;
@@ -210,6 +424,101 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("Model is required"));
+    }
+
+    #[test]
+    fn custom_whisper_diagnostics_exposes_local_endpoint() {
+        let diagnostics = build_stt_provider_diagnostics(
+            stt::config::CUSTOM_WHISPER_PROVIDER,
+            "",
+            Some("http://localhost:8000/v1"),
+            Some("Systran/faster-whisper-large-v3"),
+        );
+
+        assert_eq!(diagnostics.provider, stt::config::CUSTOM_WHISPER_PROVIDER);
+        assert_eq!(diagnostics.kind, "localCompatible");
+        assert_eq!(
+            diagnostics.endpoint.as_deref(),
+            Some("http://localhost:8000/v1/audio/transcriptions")
+        );
+        assert_eq!(
+            diagnostics.model.as_deref(),
+            Some("Systran/faster-whisper-large-v3")
+        );
+        assert!(!diagnostics.requires_api_key);
+        assert!(diagnostics.ready);
+        assert!(diagnostics.issues.is_empty());
+    }
+
+    #[test]
+    fn custom_whisper_diagnostics_reports_invalid_config() {
+        let diagnostics = build_stt_provider_diagnostics(
+            stt::config::CUSTOM_WHISPER_PROVIDER,
+            "",
+            Some("file:///tmp/server"),
+            Some(" "),
+        );
+
+        assert_eq!(diagnostics.kind, "localCompatible");
+        assert!(!diagnostics.ready);
+        assert_eq!(diagnostics.issues.len(), 1);
+        assert_eq!(diagnostics.issues[0].code, "invalid_custom_whisper_config");
+    }
+
+    #[test]
+    fn remote_stt_diagnostics_requires_api_key() {
+        let diagnostics = build_stt_provider_diagnostics("deepgram", "", None, None);
+
+        assert_eq!(diagnostics.kind, "byokRemote");
+        assert!(diagnostics.requires_api_key);
+        assert!(!diagnostics.ready);
+        assert_eq!(diagnostics.issues.len(), 1);
+        assert_eq!(diagnostics.issues[0].code, "missing_api_key");
+    }
+
+    #[test]
+    fn apple_speech_diagnostics_are_platform_gated_builtin_local() {
+        let diagnostics = build_stt_provider_diagnostics("apple-speech", "", None, None);
+
+        assert_eq!(diagnostics.provider, "apple-speech");
+        assert_eq!(diagnostics.kind, "builtinLocal");
+        assert!(!diagnostics.requires_api_key);
+        assert!(!diagnostics.api_key_configured);
+        assert_eq!(diagnostics.endpoint, None);
+        assert_eq!(diagnostics.model.as_deref(), Some("Apple Speech"));
+
+        #[cfg(target_os = "macos")]
+        {
+            if diagnostics.ready {
+                assert!(diagnostics.issues.is_empty());
+            } else {
+                assert!(!diagnostics.issues.is_empty());
+            }
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert!(!diagnostics.ready);
+            assert_eq!(diagnostics.issues[0].code, "unsupported_platform");
+        }
+    }
+
+    #[test]
+    fn apple_speech_diagnostics_reports_authorization_issue() {
+        let diagnostics = build_apple_speech_diagnostics(
+            "apple-speech",
+            stt::apple_speech::AppleSpeechAvailability::from_parts(
+                true,
+                stt::apple_speech::AppleSpeechAuthorizationStatus::Denied,
+                Some("en-US".to_string()),
+                None,
+            ),
+        );
+
+        assert!(!diagnostics.ready);
+        assert_eq!(diagnostics.kind, "builtinLocal");
+        assert_eq!(diagnostics.issues.len(), 1);
+        assert_eq!(diagnostics.issues[0].code, "speech_permission_denied");
     }
 
     #[test]
@@ -300,6 +609,9 @@ pub async fn bench_stt_connection(
         return Ok(elapsed);
     }
 
+    let api_key = resolve_config_secret(&api_key, "stt", &provider, &SystemCredentialVault)
+        .map_err(|e| e.to_string())?;
+
     if stt::config::stt_provider_requires_api_key(&provider) && api_key.is_empty() {
         return Err("API key is empty".to_string());
     }
@@ -339,6 +651,13 @@ pub async fn bench_stt_connection(
             let t0 = std::time::Instant::now();
             check_volcengine_doubao_connection(&api_key, volcengine_resource_id).await?;
             Ok(t0.elapsed().as_millis() as u32)
+        }
+        stt::config::APPLE_SPEECH_PROVIDER => {
+            if stt::apple_speech::is_available_on_current_platform() {
+                Ok(0)
+            } else {
+                Err("Apple Speech is only available on macOS".to_string())
+            }
         }
         "openai-whisper" => {
             let t0 = std::time::Instant::now();

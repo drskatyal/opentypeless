@@ -1,3 +1,4 @@
+use crate::credentials::{resolve_config_secret, SystemCredentialVault};
 use crate::SessionTokenStore;
 use crate::{api_base_url, with_desktop_client_version};
 
@@ -80,6 +81,9 @@ pub async fn test_llm_connection(
         let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
         return Ok(has_managed_cloud_access(&body));
     }
+
+    let api_key = resolve_config_secret(&api_key, "llm", &provider, &SystemCredentialVault)
+        .map_err(|e| e.to_string())?;
 
     if api_key.is_empty() || base_url.is_empty() {
         return Ok(false);
@@ -263,6 +267,9 @@ pub async fn bench_llm_connection(
         }
         return Ok(elapsed);
     }
+
+    let api_key = resolve_config_secret(&api_key, "llm", &provider, &SystemCredentialVault)
+        .map_err(|e| e.to_string())?;
 
     if api_key.is_empty() || base_url.is_empty() {
         return Err("API key or base URL is empty".to_string());

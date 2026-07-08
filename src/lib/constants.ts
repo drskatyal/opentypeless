@@ -86,6 +86,7 @@ export function isActiveCloudPlan(plan: string): plan is (typeof ACTIVE_CLOUD_PL
 }
 
 export const CUSTOM_WHISPER_PROVIDER = 'custom-whisper' as const
+export const APPLE_SPEECH_PROVIDER = 'apple-speech' as const
 
 export const CUSTOM_STT_DEFAULTS = {
   preset: 'speaches',
@@ -114,6 +115,7 @@ export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'openai-whisper', labelKey: 'providers.stt.openaiWhisper' },
   { value: 'groq-whisper', labelKey: 'providers.stt.groqWhisper' },
   { value: 'siliconflow', labelKey: 'providers.stt.siliconflow' },
+  { value: APPLE_SPEECH_PROVIDER, labelKey: 'providers.stt.appleSpeech' },
   { value: CUSTOM_WHISPER_PROVIDER, labelKey: 'providers.stt.customWhisper' },
   { value: 'cloud', labelKey: 'providers.stt.cloud' },
 ] as const
@@ -130,7 +132,8 @@ export const VOLCENGINE_STT_RESOURCES = [
 ] as const
 
 export const ONBOARDING_STT_PROVIDERS = STT_PROVIDERS.filter(
-  (provider) => provider.value !== CUSTOM_WHISPER_PROVIDER,
+  (provider) =>
+    provider.value !== CUSTOM_WHISPER_PROVIDER && provider.value !== APPLE_SPEECH_PROVIDER,
 )
 
 export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [

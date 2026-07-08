@@ -4,6 +4,8 @@
 <dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>OpenTypeless needs microphone access to capture voice input for speech-to-text.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>OpenTypeless uses Apple Speech to transcribe your voice input when you choose the Apple Speech provider.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>OpenTypeless needs automation access to detect the active application for context-aware text output.</string>
 </dict>

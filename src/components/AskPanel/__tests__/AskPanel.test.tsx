@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '../../../i18n'
 import { AskPanel } from '../AskPanel'
@@ -8,6 +8,7 @@ import {
   stopAskDictation,
   takePendingAskMessage,
 } from '../../../lib/tauri'
+import type { AskDictationResult } from '../../../lib/tauri'
 
 const tauriEventMock = vi.hoisted(() => {
   type Listener = (event: { payload: unknown }) => void
@@ -33,6 +34,27 @@ const tauriEventMock = vi.hoisted(() => {
   }
 })
 
+const tauriWindowMock = vi.hoisted(() => {
+  type FocusListener = (event: { payload: boolean }) => void
+  const focusListeners: FocusListener[] = []
+  return {
+    focusListeners,
+    hide: vi.fn().mockResolvedValue(undefined),
+    onFocusChanged: vi.fn((callback: FocusListener) => {
+      focusListeners.push(callback)
+      return Promise.resolve(() => {
+        const index = focusListeners.indexOf(callback)
+        if (index >= 0) focusListeners.splice(index, 1)
+      })
+    }),
+    emitFocus(focused: boolean) {
+      for (const listener of [...focusListeners]) {
+        listener({ payload: focused })
+      }
+    },
+  }
+})
+
 vi.mock('../../../lib/tauri', () => ({
   startAskDictation: vi.fn(),
   stopAskDictation: vi.fn(),
@@ -44,50 +66,140 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: tauriEventMock.listen,
 }))
 
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    hide: tauriWindowMock.hide,
+    onFocusChanged: tauriWindowMock.onFocusChanged,
+  }),
+}))
+
 async function flushAsyncEffects() {
   await Promise.resolve()
   await Promise.resolve()
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+function askResult(overrides: Partial<Awaited<ReturnType<typeof stopAskDictation>>> = {}) {
+  return {
+    question: 'What is OpenTypeless?',
+    answer: 'It turns speech into useful text.',
+    intent: 'open_question',
+    output: 'popupAnswer' as const,
+    usedSelectedText: false,
+    selectedTextTruncated: false,
+    searchProvider: null,
+    searchUrl: null,
+    ...overrides,
+  }
+}
+
+function recordingStarted(overrides: Partial<Awaited<ReturnType<typeof startAskDictation>>> = {}) {
+  return {
+    usedSelectedText: false,
+    selectedTextTruncated: false,
+    ...overrides,
+  }
+}
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   tauriEventMock.listeners.clear()
+  tauriWindowMock.focusListeners.splice(0)
 })
 
 describe('AskPanel', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en')
-    vi.mocked(startAskDictation).mockResolvedValue(undefined)
-    vi.mocked(stopAskDictation).mockResolvedValue({
-      question: 'What is OpenTypeless?',
-      answer: 'It turns speech into useful text.',
-    })
+    vi.mocked(startAskDictation).mockResolvedValue(recordingStarted())
+    vi.mocked(stopAskDictation).mockResolvedValue(askResult())
     vi.mocked(abortAskDictation).mockResolvedValue(undefined)
     vi.mocked(takePendingAskMessage).mockResolvedValue(null)
   })
 
-  it('renders the hotkey result as answer-only popup content', async () => {
+  it('renders standalone Ask as a compact floating note', async () => {
+    render(<AskPanel />)
+
+    expect(await screen.findByTestId('ask-floating-note')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Close' })).toBeDefined()
+    expect(screen.getByText('Ask')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Record question' })).toBeNull()
+    expect(screen.queryByText('Ready to ask')).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+
+  it('renders the hotkey result with question and answer popup content', async () => {
     render(<AskPanel />)
 
     expect(screen.queryByRole('textbox')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByTestId('ask-floating-note')).toBeDefined()
 
     await waitFor(() => {
       expect(tauriEventMock.listen).toHaveBeenCalledWith('ask:result', expect.any(Function))
     })
-    tauriEventMock.emit('ask:result', {
-      question: 'What is OpenTypeless?',
-      answer: 'It turns speech into useful text.',
-    })
+    expect(tauriEventMock.listen).not.toHaveBeenCalledWith(
+      'ask:recording-started',
+      expect.any(Function),
+    )
+    tauriEventMock.emit('ask:result', askResult())
 
     await waitFor(() => {
+      expect(screen.getByText('What is OpenTypeless?')).toBeDefined()
       expect(screen.getByText('It turns speech into useful text.')).toBeDefined()
     })
     expect(screen.queryByRole('textbox')).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy answer' })).toBeDefined()
     expect(screen.queryByText('Answer')).toBeNull()
+    expect(startAskDictation).not.toHaveBeenCalled()
+  })
+
+  it('hides the standalone floating note from its close button', async () => {
+    render(<AskPanel />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() => {
+      expect(tauriWindowMock.hide).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('hides the standalone floating note when the empty area outside the note is clicked', async () => {
+    render(<AskPanel />)
+
+    fireEvent.mouseDown(screen.getByTestId('ask-floating-note-backdrop'))
+
+    await waitFor(() => {
+      expect(tauriWindowMock.hide).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('hides the standalone floating note on focus loss without owning recording', async () => {
+    render(<AskPanel />)
+
+    await waitFor(() => expect(tauriWindowMock.onFocusChanged).toHaveBeenCalledTimes(1))
+
+    await act(async () => {
+      tauriWindowMock.emitFocus(false)
+    })
+
+    await waitFor(() => {
+      expect(tauriWindowMock.hide).toHaveBeenCalledTimes(1)
+    })
+    expect(startAskDictation).not.toHaveBeenCalled()
+    expect(abortAskDictation).not.toHaveBeenCalled()
+  })
+
+  it('ignores stale global Ask recording metadata in the standalone note', async () => {
+    render(<AskPanel />)
+
+    await waitFor(() => expect(tauriEventMock.listen).toHaveBeenCalled())
+    await act(async () => {
+      tauriEventMock.emit('ask:recording-started', recordingStarted({ usedSelectedText: true }))
+    })
+
+    await flushAsyncEffects()
+    expect(screen.queryByText('Using selected text')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Stop and ask' })).toBeNull()
     expect(startAskDictation).not.toHaveBeenCalled()
   })
 
@@ -103,10 +215,7 @@ describe('AskPanel', () => {
     await waitFor(() => {
       expect(tauriEventMock.listen).toHaveBeenCalledWith('ask:result', expect.any(Function))
     })
-    tauriEventMock.emit('ask:result', {
-      question: 'What is OpenTypeless?',
-      answer: 'It turns speech into useful text.',
-    })
+    tauriEventMock.emit('ask:result', askResult())
 
     fireEvent.click(await screen.findByRole('button', { name: 'Copy answer' }))
 
@@ -119,10 +228,7 @@ describe('AskPanel', () => {
   it('renders a pending hotkey result when the native event was missed', async () => {
     vi.mocked(takePendingAskMessage).mockResolvedValueOnce({
       kind: 'result',
-      payload: {
-        question: 'What is OpenTypeless?',
-        answer: 'It turns speech into useful text.',
-      },
+      payload: askResult(),
     })
 
     render(<AskPanel />)
@@ -135,13 +241,24 @@ describe('AskPanel', () => {
     expect(startAskDictation).not.toHaveBeenCalled()
   })
 
+  it('ignores pending global Ask recording metadata when the native event was missed', async () => {
+    vi.mocked(takePendingAskMessage).mockResolvedValueOnce({
+      kind: 'recordingStarted',
+      payload: recordingStarted({ usedSelectedText: true, selectedTextTruncated: true }),
+    })
+
+    render(<AskPanel />)
+    await flushAsyncEffects()
+
+    expect(screen.queryByText('Using selected text (truncated)')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Stop and ask' })).toBeNull()
+    expect(startAskDictation).not.toHaveBeenCalled()
+  })
+
   it('does not let the embedded settings panel consume hotkey popup pending messages', async () => {
     vi.mocked(takePendingAskMessage).mockResolvedValueOnce({
       kind: 'result',
-      payload: {
-        question: 'What is OpenTypeless?',
-        answer: 'It turns speech into useful text.',
-      },
+      payload: askResult(),
     })
 
     render(<AskPanel embedded />)
@@ -178,7 +295,7 @@ describe('AskPanel', () => {
       expect(screen.getByText('Cloud AI quota exceeded.')).toBeDefined()
     })
     expect(screen.queryByRole('textbox')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Close' })).toBeDefined()
     expect(screen.queryByText('Error')).toBeNull()
   })
 
@@ -205,7 +322,7 @@ describe('AskPanel', () => {
   })
 
   it('does not abort after stop has handed the request to Ask processing', async () => {
-    let resolveStop: (value: { question: string; answer: string }) => void = () => {}
+    let resolveStop: (value: AskDictationResult) => void = () => {}
     vi.mocked(stopAskDictation).mockReturnValueOnce(
       new Promise((resolve) => {
         resolveStop = resolve
@@ -225,6 +342,12 @@ describe('AskPanel', () => {
     resolveStop({
       question: 'What is OpenTypeless?',
       answer: 'It turns speech into useful text.',
+      intent: 'open_question',
+      output: 'popupAnswer',
+      usedSelectedText: false,
+      selectedTextTruncated: false,
+      searchProvider: null,
+      searchUrl: null,
     })
   })
 

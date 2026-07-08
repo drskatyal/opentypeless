@@ -33,12 +33,23 @@ pub struct PolishRequest {
     pub raw_text: String,
     pub app_type: AppType,
     pub dictionary: Vec<String>,
+    pub correction_rules: Vec<CorrectionRule>,
+    pub polish_style: String,
+    pub active_scene_prompt: String,
     pub polish_custom_prompt: String,
     pub polish_chinese_script: String,
     pub translate_enabled: bool,
     pub target_lang: String,
     pub selected_text: Option<String>,
     pub operation_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CorrectionRule {
+    pub id: i64,
+    pub pattern: String,
+    pub replacement: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
