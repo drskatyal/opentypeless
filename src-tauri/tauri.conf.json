@@ -98,7 +98,7 @@
     "linux": {
       "appimage": {
         "files": {
-          "icons/icon.png": ".DirIcon"
+          ".DirIcon": "icons/icon.png"
         }
       }
     }
