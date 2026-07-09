@@ -48,12 +48,16 @@ Windows SignPath:
 - `SIGNPATH_ORGANIZATION_ID`: SignPath organization ID
 - `SIGNPATH_PROJECT_SLUG`: SignPath project slug
 - `SIGNPATH_SIGNING_POLICY_SLUG`: SignPath signing policy slug
-- `SIGNPATH_ARTIFACT_CONFIGURATION_SLUG`: SignPath artifact configuration slug
 
 The SignPath project and GitHub trusted build system must point to
 `toverwu-qaq/opentypeless`, because that repository runs the GitHub Actions
 workflow and owns the GitHub artifact submitted to SignPath. Signed Windows
 artifacts are still published to `tover0314-w/opentypeless`.
+
+The Windows SignPath workflow uses the project's default artifact
+configuration. This default artifact configuration must have a `<zip-file>`
+root because GitHub's `actions/upload-artifact` action stores files as a ZIP
+archive.
 
 ## Windows Certificate Notes
 
