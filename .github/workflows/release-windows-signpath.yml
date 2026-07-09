@@ -7,6 +7,14 @@ on:
         description: 'Release tag (e.g. v0.1.43)'
         required: true
         default: 'v0.1.43'
+      publish_release:
+        description: 'Publish signed assets to GitHub Releases'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   actions: read
@@ -36,6 +44,7 @@ jobs:
         shell: pwsh
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          PUBLISH_RELEASE: ${{ github.event.inputs.publish_release }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -44,7 +53,6 @@ jobs:
           SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
         run: |
           $required = @(
-            'RELEASE_TOKEN',
             'TAURI_SIGNING_PRIVATE_KEY',
             'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
             'SIGNPATH_API_TOKEN',
@@ -52,6 +60,9 @@ jobs:
             'SIGNPATH_PROJECT_SLUG',
             'SIGNPATH_SIGNING_POLICY_SLUG'
           )
+          if ($env:PUBLISH_RELEASE -eq 'true') {
+            $required += 'RELEASE_TOKEN'
+          }
           foreach ($name in $required) {
             if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
               Write-Error "$name is required for Windows SignPath release."
@@ -144,6 +155,7 @@ jobs:
           }
 
       - name: Publish signed Windows release assets
+        if: ${{ github.event.inputs.publish_release == 'true' }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
