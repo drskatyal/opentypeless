@@ -4,18 +4,23 @@ interface Props {
   checked: boolean
   onChange: (checked: boolean) => void
   label?: string
+  disabled?: boolean
 }
 
-export function Toggle({ checked, onChange, label }: Props) {
+export function Toggle({ checked, onChange, label, disabled = false }: Props) {
   return (
-    <label className="flex items-center gap-2.5 cursor-pointer">
+    <label
+      className={`flex items-center gap-2.5 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+    >
       <button
+        type="button"
         role="switch"
         aria-checked={checked}
+        disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative w-[44px] h-[26px] rounded-full border-none cursor-pointer transition-colors duration-200 ${
-          checked ? 'bg-text-secondary' : 'bg-bg-tertiary'
-        }`}
+        className={`relative h-[26px] w-[44px] shrink-0 rounded-full border-none transition-colors duration-200 ${
+          disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+        } ${checked ? 'bg-text-secondary' : 'bg-bg-tertiary'}`}
       >
         <motion.div
           className="absolute top-[2px] w-[22px] h-[22px] rounded-full bg-white shadow-sm"

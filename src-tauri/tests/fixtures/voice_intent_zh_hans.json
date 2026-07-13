@@ -1,0 +1,5037 @@
+[
+  {
+    "id": "zh-hans-001-draft-follow-up",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写一封明天发布会的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一封明天发布会的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-002-discuss-draft",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我明天需要起草一封跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-003-negated-draft",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要帮我写这封邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-004-reported-draft",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他说“起草一封回复”",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-005-translate-selection",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段翻译成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-006-github-search",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 GitHub 搜索 tauri global shortcut",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "tauri global shortcut",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-007-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封明天的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-008-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封一条简短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一条简短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-009-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封确认周二的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "确认周二的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-010-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封专业的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "专业的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-011-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封发布进度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "发布进度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-012-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封三个访谈问题",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三个访谈问题",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-013-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封友好的感谢消息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友好的感谢消息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-014-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封同意方案的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-015-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草明天的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-016-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草一条简短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一条简短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-017-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草确认周二的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "确认周二的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-018-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草专业的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "专业的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-019-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草发布进度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "发布进度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-020-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草三个访谈问题",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三个访谈问题",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-021-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草友好的感谢消息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友好的感谢消息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-022-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草同意方案的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-023-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写明天的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-024-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写一条简短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一条简短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-025-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写确认周二的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "确认周二的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-026-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写专业的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "专业的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-027-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写发布进度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "发布进度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-028-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写三个访谈问题",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三个访谈问题",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-029-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写友好的感谢消息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友好的感谢消息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-030-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写同意方案的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-031-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说明天的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-032-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说一条简短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一条简短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-033-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说确认周二的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "确认周二的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-034-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说专业的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "专业的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-035-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说发布进度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "发布进度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-036-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说三个访谈问题",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三个访谈问题",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-037-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说友好的感谢消息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友好的感谢消息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-038-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说同意方案的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-039-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个明天的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-040-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个一条简短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一条简短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-041-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个确认周二的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "确认周二的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-042-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个专业的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "专业的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-043-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个发布进度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "发布进度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-044-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个三个访谈问题",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三个访谈问题",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-045-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个友好的感谢消息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友好的感谢消息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-046-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个同意方案的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-047-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-048-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "改写这段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-049-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-050-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "润色这段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-051-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段写得更简洁",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-052-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段写得更简洁。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-053-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "精简这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-054-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "精简这段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-055-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "扩写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-056-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "扩写这段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-057-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "修正这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-058-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "修正这段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-059-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段改成列表",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-060-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段改成列表。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-061-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段翻译成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-062-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段翻译成英文。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-063-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段翻译成英文？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-064-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段翻译成英文！",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-065-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "翻译这段到日文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-066-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "翻译这段到日文。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-067-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "翻译这段到日文？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-068-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "翻译这段到日文！",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-069-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "将选中文字翻译成法文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-070-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "将选中文字翻译成法文。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-071-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "将选中文字翻译成法文？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-072-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "将选中文字翻译成法文！",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-073-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "总结这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-074-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "总结这段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-075-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "解释这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-076-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "解释这段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-077-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "比较这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-078-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "比较这段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-079-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这段是什么意思",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-080-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这段是什么意思？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-081-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "为什么这样写",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-082-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "为什么这样写？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-083-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "怎么理解这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-084-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "怎么理解这段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-085-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "谁提到了风险",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-086-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "谁提到了风险？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-087-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "哪里需要修改",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-088-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "哪里需要修改？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-089-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 Google 搜索 Rust 所有权教程",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-090-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Rust 所有权教程 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-091-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 Google 搜索 React 组件测试",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-092-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 React 组件测试 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-093-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 Google 搜索 Tauri 全局快捷键",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-094-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Tauri 全局快捷键 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-095-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 YouTube 搜索 Rust 所有权教程",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-096-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Rust 所有权教程 在 YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-097-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 YouTube 搜索 React 组件测试",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-098-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 React 组件测试 在 YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-099-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 YouTube 搜索 Tauri 全局快捷键",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-100-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Tauri 全局快捷键 在 YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-101-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 Amazon 搜索 Rust 所有权教程",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-102-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Rust 所有权教程 在 Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-103-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 Amazon 搜索 React 组件测试",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-104-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 React 组件测试 在 Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-105-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 Amazon 搜索 Tauri 全局快捷键",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-106-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Tauri 全局快捷键 在 Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-107-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 GitHub 搜索 Rust 所有权教程",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-108-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Rust 所有权教程 在 GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Rust 所有权教程",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-109-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 GitHub 搜索 React 组件测试",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-110-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 React 组件测试 在 GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "React 组件测试",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-111-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "在 GitHub 搜索 Tauri 全局快捷键",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-112-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Tauri 全局快捷键 在 GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Tauri 全局快捷键",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-113-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "明天早上发布",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-114-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "明天早上发布",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-115-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "昨天完成了初稿",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-116-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "昨天完成了初稿",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-117-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "搜索质量很重要",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-118-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索质量很重要",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-119-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "保留现在的措辞",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-120-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "保留现在的措辞",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-121-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复稍后才到",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-122-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "回复稍后才到",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-123-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "翻译质量有所提升",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-124-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "翻译质量有所提升",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-125-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "需要讨论改写策略",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-126-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "需要讨论改写策略",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-127-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这段有三个观点",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-128-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "这段有三个观点",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-129-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先确认需求",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-130-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "先确认需求",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-131-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "今天不做变更",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-132-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "今天不做变更",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-133-automatic-positive-0",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "写一封明天的跟进邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟进邮件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-134-automatic-positive-1",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "起草一条简短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一条简短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-135-automatic-positive-2",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "帮我写确认周二的回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "确认周二的回复",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-136-automatic-positive-3",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "回复说专业的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "专业的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-137-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "draft 帮我写一封邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-138-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "write 写个通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-139-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "起草 project update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-140-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "帮我寫一封混合文字邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-141-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-142-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-143-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-144-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-145-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "别写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-146-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "别起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-147-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "别改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-148-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "别润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-149-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不用写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-150-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不用起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-151-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不用改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-152-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不用润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-153-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先别写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-154-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先别起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-155-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先别改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-156-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先别润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-157-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "暂时不要写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-158-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "暂时不要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-159-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "暂时不要改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-160-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "暂时不要润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-161-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不需要写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-162-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不需要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-163-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不需要改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-164-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不需要润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-165-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要帮我写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-166-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要帮我起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-167-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要帮我改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-168-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "不要帮我润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-169-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他说「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-170-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他说「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-171-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他说「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-172-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他说「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-173-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "她说「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-174-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "她说「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-175-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "她说「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-176-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "她说「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-177-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他们说「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-178-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他们说「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-179-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他们说「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-180-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "他们说「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-181-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "原文是「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-182-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "原文是「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-183-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "原文是「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-184-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "原文是「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-185-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这句话是「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-186-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这句话是「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-187-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这句话是「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-188-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "这句话是「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-189-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "引用「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-190-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "引用「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-191-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "引用「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-192-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "引用「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-193-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "文档里写着「写一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-194-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "文档里写着「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-195-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "文档里写着「改写这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-196-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "文档里写着「润色这段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-197-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "compose.yaml 是配置文件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-198-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "search(query) 是函数",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-199-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "draft_email 是字段",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-200-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "rewriteThis 是方法",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-201-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "write_file 不要改",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-202-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "translate_selection 是枚举",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-203-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "make_this_shorter 是测试名称",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-204-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "fixGrammar() 已弃用",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-205-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "search-provider 是字段",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-206-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "reply_with_payload 是参数",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-207-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "compose.yaml 是配置文件 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-208-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "search(query) 是函数 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-209-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "draft_email 是字段 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-210-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "rewriteThis 是方法 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-211-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "write_file 不要改 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-212-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "translate_selection 是枚举 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-213-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "make_this_shorter 是测试名称 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-214-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "fixGrammar() 已弃用 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-215-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "search-provider 是字段 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-216-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "reply_with_payload 是参数 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-217-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我明天需要起草邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-218-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我明天需要起草邮件，等评审后",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-219-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我们稍后再写一封回复",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-220-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我们稍后再写一封回复，等评审后",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-221-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "团队会改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-222-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "团队会改写这段，等评审后",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-223-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "下周翻译这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-224-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "下周翻译这段，等评审后",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-225-mid-sentence-command",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "也许明天在 Google 搜索",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-226-mid-sentence-command",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "也许明天在 Google 搜索，等评审后",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-227-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先讨论如何润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-228-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "先讨论如何润色这段，等评审后",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-229-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "之后再精简这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-230-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "之后再精简这段，等评审后",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-231-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我想修正这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-232-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我想修正这段，等评审后",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-233-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "有人说要写个通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-234-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "有人说要写个通知，等评审后",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-235-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "计划把这段改成列表",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-236-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "计划把这段改成列表，等评审后",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-237-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-238-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-239-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-240-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-241-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-242-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-243-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "起草：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-244-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "帮我写：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-245-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "回复说：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-246-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写个：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-247-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-248-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-249-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-250-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "润色这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-251-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "把这段翻译成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-252-unsupported-locale",
+    "mode": "ask",
+    "locale": "fr",
+    "utterance": "搜索 Rust 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-253-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "精简这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-254-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "扩写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-255-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "修正这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-256-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "总结这段",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-257-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "解释这段",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-258-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "写个通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-263-draft-email-natural-object",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一份给 Sara 的邮件麻烦她帮我订一下会议室",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "给 Sara 的邮件麻烦她帮我订一下会议室",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-264-draft-email-natural-recipient-first-person",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我想写一份给 Sara 的邮件我们这周的会议在下午五点",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "给 Sara 的邮件我们这周的会议在下午五点",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hans-259-draft-disabled",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "写一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": false,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-260-rewrite-disabled",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "改写这段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": false,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-261-translate-disabled",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "把这段翻译成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": false,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-262-search-disabled",
+    "mode": "ask",
+    "locale": "zh-Hans",
+    "utterance": "搜索 Rust 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": false
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hans-265-information-security-dictation",
+    "mode": "dictate",
+    "locale": "zh-Hans",
+    "utterance": "我想写一份信息安全方案",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": true
+  }
+]

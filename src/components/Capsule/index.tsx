@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { useRecording } from '../../hooks/useRecording'
@@ -14,6 +14,7 @@ import { CapsuleError } from './CapsuleError'
 import { CapsuleContextMenu } from './CapsuleContextMenu'
 import { CapsuleAskRecording } from './CapsuleAskRecording'
 import { CapsuleAskThinking } from './CapsuleAskThinking'
+import { TranslateTargetMenu } from './TranslateTargetChip'
 
 const DRAG_THRESHOLD = 5
 
@@ -50,6 +51,8 @@ export function Capsule() {
   const setContextMenuOpen = useAppStore((s) => s.setContextMenuOpen)
   const contextMenuReady = useAppStore((s) => s.contextMenuReady)
   const setContextMenuReady = useAppStore((s) => s.setContextMenuReady)
+  const translationTargetMenuOpen = useAppStore((s) => s.translationTargetMenuOpen)
+  const setTranslationTargetMenuOpen = useAppStore((s) => s.setTranslationTargetMenuOpen)
   const { stopRecording, isRecording } = useRecording()
 
   const dragStart = useRef<{ x: number; y: number } | null>(null)
@@ -108,6 +111,7 @@ export function Capsule() {
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
     if (!contextMenuOpen) {
+      setTranslationTargetMenuOpen(false)
       setContextMenuOpen(true)
     }
   }
@@ -116,6 +120,15 @@ export function Capsule() {
     setContextMenuReady(false)
     setContextMenuOpen(false)
   }
+
+  useEffect(() => {
+    if (
+      translationTargetMenuOpen &&
+      (pipelineState !== 'recording' || capsuleState !== 'recording')
+    ) {
+      setTranslationTargetMenuOpen(false)
+    }
+  }, [capsuleState, pipelineState, setTranslationTargetMenuOpen, translationTargetMenuOpen])
 
   return (
     <div
@@ -167,6 +180,7 @@ export function Capsule() {
           <CapsuleContextMenu onClose={handleCloseMenu} />
         </div>
       )}
+      <TranslateTargetMenu />
     </div>
   )
 }

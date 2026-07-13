@@ -1,43 +1,53 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShieldAlert } from 'lucide-react'
+import { Globe2, Loader2, ShieldAlert, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../../stores/appStore'
-import type { AppConfig } from '../../stores/appStore'
+import { needsMacAccessibility } from '../../lib/accessibility'
 import {
   checkAccessibilityPermission,
   requestAccessibilityPermission,
+  requestBrowserAccess,
+  resumeHotkey,
   waitForAccessibilityPermission,
 } from '../../lib/tauri'
-
-function isFnDictationHotkey(config: AppConfig) {
-  return (
-    config.hotkey.trim().toLowerCase() === 'fn' ||
-    (config.hotkeys.dictation.primary.trim().toLowerCase() === 'fn' &&
-      config.hotkeys.dictation.modifiers.length === 0)
-  )
-}
-
-function needsMacAccessibility(config: AppConfig) {
-  return config.output_mode === 'keyboard' || isFnDictationHotkey(config)
-}
 
 export function AccessibilityBanner() {
   const { t } = useTranslation()
   const accessibilityTrusted = useAppStore((s) => s.accessibilityTrusted)
   const setAccessibilityTrusted = useAppStore((s) => s.setAccessibilityTrusted)
   const config = useAppStore((s) => s.config)
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  const [dismissed, setDismissed] = useState(false)
-  const macAccessibilityNeeded = isMac && needsMacAccessibility(config)
+  const lastContext = useAppStore((s) => s.lastContext)
+  const setLastContext = useAppStore((s) => s.setLastContext)
+  const [accessibilityDismissed, setAccessibilityDismissed] = useState(false)
+  const [browserDismissedTarget, setBrowserDismissedTarget] = useState<string | null>(null)
+  const [requestingBrowserAccess, setRequestingBrowserAccess] = useState(false)
+  const macAccessibilityNeeded = needsMacAccessibility(config)
 
-  const show = macAccessibilityNeeded && !accessibilityTrusted && !dismissed
+  const showAccessibility =
+    macAccessibilityNeeded && !accessibilityTrusted && !accessibilityDismissed
+  const browserTarget = lastContext?.browserTarget ?? null
+  const showBrowserAccess = Boolean(
+    !showAccessibility &&
+    config.polish_enabled &&
+    config.context_adaptation_enabled &&
+    lastContext?.profileId === 'general.browser' &&
+    lastContext.browserAccessStatus === 'needs_permission' &&
+    browserTarget &&
+    browserDismissedTarget !== browserTarget,
+  )
+  const show = showAccessibility || showBrowserAccess
 
   // Re-show banner when accessibility error fires (user just hit the issue)
   useEffect(() => {
-    if (!accessibilityTrusted) setDismissed(false)
+    if (!accessibilityTrusted) setAccessibilityDismissed(false)
   }, [accessibilityTrusted])
+
+  useEffect(() => {
+    if (lastContext?.browserAccessStatus !== 'needs_permission') {
+      setBrowserDismissedTarget(null)
+    }
+  }, [lastContext?.browserAccessStatus])
 
   useEffect(() => {
     if (macAccessibilityNeeded && !accessibilityTrusted) {
@@ -51,7 +61,25 @@ export function AccessibilityBanner() {
     await requestAccessibilityPermission()
     const trusted = await waitForAccessibilityPermission()
     setAccessibilityTrusted(trusted)
+    if (trusted) {
+      await resumeHotkey().catch((error) => {
+        console.error('Failed to re-register hotkeys after Accessibility grant:', error)
+      })
+    }
   }, [setAccessibilityTrusted])
+
+  const handleBrowserGrant = useCallback(async () => {
+    if (!browserTarget || !lastContext) return
+    setRequestingBrowserAccess(true)
+    try {
+      const status = await requestBrowserAccess(browserTarget)
+      setLastContext({ ...lastContext, browserAccessStatus: status })
+    } catch (error) {
+      console.error('Failed to request Browser Access:', error)
+    } finally {
+      setRequestingBrowserAccess(false)
+    }
+  }, [browserTarget, lastContext, setLastContext])
 
   return (
     <AnimatePresence>
@@ -64,21 +92,37 @@ export function AccessibilityBanner() {
           className="overflow-hidden"
         >
           <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-amber-500/20">
-            <ShieldAlert size={14} className="text-amber-500 shrink-0" />
+            {showAccessibility ? (
+              <ShieldAlert size={14} className="text-amber-500 shrink-0" />
+            ) : (
+              <Globe2 size={14} className="text-amber-500 shrink-0" />
+            )}
             <span className="text-[12px] text-text-primary flex-1">
-              {t('settings.accessibilityRequired')} — {t('settings.accessibilityPermission')}
+              {showAccessibility
+                ? `${t('settings.accessibilityRequired')} - ${t('settings.accessibilityPermission')}`
+                : t('settings.browserAccessHint')}
             </span>
             <button
-              onClick={handleGrant}
+              onClick={showAccessibility ? handleGrant : handleBrowserGrant}
+              disabled={requestingBrowserAccess}
               className="px-3 py-1 text-[11px] font-medium text-white bg-accent rounded-full border-none cursor-pointer hover:bg-accent-hover transition-colors shrink-0"
             >
-              {t('settings.grantPermission')}
+              {requestingBrowserAccess && !showAccessibility && (
+                <Loader2 size={11} className="mr-1 inline animate-spin" />
+              )}
+              {showAccessibility ? t('settings.grantPermission') : t('settings.allowBrowserAccess')}
             </button>
             <button
-              onClick={() => setDismissed(true)}
-              className="text-text-tertiary text-[12px] border-none bg-transparent cursor-pointer hover:text-text-secondary shrink-0"
+              type="button"
+              onClick={() => {
+                if (showAccessibility) setAccessibilityDismissed(true)
+                else setBrowserDismissedTarget(browserTarget)
+              }}
+              aria-label={t('common.close')}
+              title={t('common.close')}
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-[6px] border-none bg-transparent text-text-tertiary hover:bg-bg-hover hover:text-text-secondary"
             >
-              ✕
+              <X size={13} />
             </button>
           </div>
         </motion.div>

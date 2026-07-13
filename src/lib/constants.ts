@@ -133,7 +133,9 @@ export const VOLCENGINE_STT_RESOURCES = [
 
 export const ONBOARDING_STT_PROVIDERS = STT_PROVIDERS.filter(
   (provider) =>
-    provider.value !== CUSTOM_WHISPER_PROVIDER && provider.value !== APPLE_SPEECH_PROVIDER,
+    provider.value !== CUSTOM_WHISPER_PROVIDER &&
+    provider.value !== APPLE_SPEECH_PROVIDER &&
+    provider.value !== 'cloud',
 )
 
 export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
@@ -151,6 +153,10 @@ export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'openrouter', labelKey: 'providers.llm.openrouter' },
   { value: 'cloud', labelKey: 'providers.llm.cloud' },
 ] as const
+
+export const ONBOARDING_LLM_PROVIDERS = LLM_PROVIDERS.filter(
+  (provider) => provider.value !== 'cloud',
+)
 
 export const LLM_DEFAULT_CONFIG: Record<string, { baseUrl: string; model: string }> = {
   zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
@@ -172,6 +178,10 @@ export const LLM_DEFAULT_CONFIG: Record<string, { baseUrl: string; model: string
   ollama: { baseUrl: 'http://localhost:11434/v1', model: 'llama3.2' },
   openrouter: { baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
   cloud: { baseUrl: `${API_BASE_URL}/api/proxy`, model: 'default' },
+}
+
+export function llmProviderRequiresApiKey(provider: string): boolean {
+  return provider.trim().toLowerCase() !== 'ollama'
 }
 
 export const LANGUAGES: { value: string; label?: string; labelKey?: string }[] = [

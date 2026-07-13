@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
@@ -7,40 +6,15 @@ import {
   MessageCircleQuestion,
   GripHorizontal,
   MousePointer,
-  ShieldAlert,
-  ShieldCheck,
+  LayoutGrid,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
-import {
-  checkAccessibilityPermission,
-  requestAccessibilityPermission,
-  waitForAccessibilityPermission,
-} from '../../lib/tauri'
 
 export function DoneStep() {
   const { t } = useTranslation()
   const config = useAppStore((s) => s.config)
-  const isMac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  const [a11yTrusted, setA11yTrusted] = useState<boolean | null>(null)
-  const showPermissionCard = isMac && config.output_mode === 'keyboard'
   const dictationAction =
     config.hotkey_mode === 'hold' ? t('onboarding.test.hold') : t('onboarding.test.press')
-
-  useEffect(() => {
-    if (showPermissionCard) {
-      checkAccessibilityPermission().then(setA11yTrusted)
-      const onFocus = () => checkAccessibilityPermission().then(setA11yTrusted)
-      window.addEventListener('focus', onFocus)
-      return () => window.removeEventListener('focus', onFocus)
-    }
-  }, [showPermissionCard])
-
-  const handleGrant = async () => {
-    await requestAccessibilityPermission()
-    const trusted = await waitForAccessibilityPermission()
-    setA11yTrusted(trusted)
-  }
 
   return (
     <div className="flex flex-col items-center gap-5 py-2">
@@ -93,38 +67,12 @@ export function DoneStep() {
           title={t('onboarding.done.rightClickMenu')}
           desc={t('onboarding.done.rightClickMenuSub')}
         />
+        <Tip
+          icon={LayoutGrid}
+          title={t('onboarding.done.appWritingModes')}
+          desc={t('onboarding.done.appWritingModesSub')}
+        />
       </div>
-
-      {/* macOS Accessibility permission card */}
-      {showPermissionCard && a11yTrusted === false && (
-        <div className="w-full px-3 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-[10px]">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldAlert size={14} className="text-amber-500 shrink-0" />
-            <span className="text-[12px] font-medium text-text-primary">
-              {t('onboarding.done.accessibilityRequired')}
-            </span>
-          </div>
-          <button
-            onClick={handleGrant}
-            className="w-full py-1.5 text-[12px] font-medium text-white bg-accent rounded-[8px] border-none cursor-pointer hover:bg-accent-hover transition-colors"
-          >
-            {t('onboarding.done.grantPermission')}
-          </button>
-          <p className="text-[10px] text-text-tertiary mt-1.5 text-center">
-            {t('onboarding.done.grantLater')}
-          </p>
-        </div>
-      )}
-      {showPermissionCard && a11yTrusted === true && (
-        <div className="w-full px-3 py-2.5 bg-green-500/10 border border-green-500/20 rounded-[10px]">
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={14} className="text-green-500 shrink-0" />
-            <span className="text-[12px] font-medium text-green-600">
-              {t('onboarding.done.accessibilityGranted')}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -64,12 +64,14 @@ enum NativeComboKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NativeHotkeyBinding {
     pub role: crate::hotkey::HotkeyRole,
+    pub index: usize,
     pub trigger: NativeHotkeyTrigger,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NativeHotkeyEvent {
     pub role: crate::hotkey::HotkeyRole,
+    pub index: usize,
     pub state: ShortcutState,
 }
 
@@ -186,6 +188,7 @@ fn dispatch_matching_bindings(
         if let Some(state) = binding.held.edge(pressed) {
             (handler.as_ref())(NativeHotkeyEvent {
                 role: binding.binding.role,
+                index: binding.binding.index,
                 state,
             });
         }
@@ -993,10 +996,12 @@ mod tests {
         let bindings = vec![
             NativeMonitoredBinding::new(NativeHotkeyBinding {
                 role: crate::hotkey::HotkeyRole::Dictation,
+                index: 0,
                 trigger: NativeHotkeyTrigger::Fn,
             }),
             NativeMonitoredBinding::new(NativeHotkeyBinding {
                 role: crate::hotkey::HotkeyRole::Ask,
+                index: 0,
                 trigger: NativeHotkeyTrigger::FnSpace,
             }),
         ];
@@ -1054,10 +1059,12 @@ mod tests {
         let bindings = vec![
             NativeMonitoredBinding::new(NativeHotkeyBinding {
                 role: crate::hotkey::HotkeyRole::Dictation,
+                index: 0,
                 trigger: NativeHotkeyTrigger::Fn,
             }),
             NativeMonitoredBinding::new(NativeHotkeyBinding {
                 role: crate::hotkey::HotkeyRole::Ask,
+                index: 0,
                 trigger: NativeHotkeyTrigger::FnSpace,
             }),
         ];

@@ -2,6 +2,7 @@ pub mod app_detector;
 pub mod audio;
 pub mod commands;
 pub mod credentials;
+pub mod dictionary_io;
 pub mod error;
 pub mod hotkey;
 #[cfg(target_os = "linux")]
@@ -15,6 +16,7 @@ pub mod selection;
 pub mod storage;
 pub mod stt;
 pub mod tray;
+pub mod voice_intent;
 
 pub use hotkey::{default_ask_shortcut, default_shortcut, parse_hotkey};
 pub use tray::{refresh_tray, TrayHandle};
@@ -303,6 +305,76 @@ mod tests {
     }
 
     #[test]
+    fn linux_launch_env_detects_nvidia_wayland_only_for_matching_tuple() {
+        let base = LinuxLaunchEnv {
+            session_type: "wayland".to_string(),
+            wayland_display: Some("wayland-0".to_string()),
+            display: Some(":0".to_string()),
+            gdk_backend: None,
+            webkit_disable_dmabuf: None,
+            webkit_disable_compositing: None,
+            webkit_force_sandbox: None,
+            libgl_always_software: None,
+            glx_vendor: None,
+            xdg_runtime_dir_present: true,
+            systemd_seats_present: false,
+            systemd_users_present: false,
+            nvidia_driver_present: false,
+            amd_driver_present: true,
+            intel_driver_present: false,
+        };
+
+        assert!(!base.is_nvidia_wayland());
+
+        let mut nvidia = base.clone();
+        nvidia.glx_vendor = Some("nvidia".to_string());
+        assert!(nvidia.is_nvidia_wayland());
+
+        let mut x11_nvidia = nvidia;
+        x11_nvidia.session_type = "x11".to_string();
+        assert!(!x11_nvidia.is_nvidia_wayland());
+    }
+
+    #[test]
+    fn linux_launch_env_builds_only_requested_safe_workarounds() {
+        let base = LinuxLaunchEnv {
+            session_type: "wayland".to_string(),
+            wayland_display: Some("wayland-0".to_string()),
+            display: Some(":0".to_string()),
+            gdk_backend: None,
+            webkit_disable_dmabuf: None,
+            webkit_disable_compositing: None,
+            webkit_force_sandbox: None,
+            libgl_always_software: None,
+            glx_vendor: None,
+            xdg_runtime_dir_present: true,
+            systemd_seats_present: false,
+            systemd_users_present: false,
+            nvidia_driver_present: false,
+            amd_driver_present: true,
+            intel_driver_present: false,
+        };
+
+        assert_eq!(
+            linux_workaround_plan(&base, false, false, false, false),
+            LinuxWorkaroundPlan::default()
+        );
+        assert_eq!(
+            linux_workaround_plan(&base, true, true, true, true),
+            LinuxWorkaroundPlan {
+                disable_dmabuf: true,
+                disable_compositing: true,
+                force_software_gl: true,
+                force_gdk_x11: true,
+            }
+        );
+
+        let mut without_x11 = base;
+        without_x11.display = None;
+        assert!(!linux_workaround_plan(&without_x11, false, false, true, false).force_gdk_x11);
+    }
+
+    #[test]
     fn auto_start_sync_uses_actual_state_when_enable_fails() {
         let outcome = reconcile_auto_start_preference(true, Ok(false), |_| {
             Err("Login item failed".to_string())
@@ -385,23 +457,153 @@ fn abort_recording(state: tauri::State<'_, pipeline::PipelineHandle>) -> Result<
     Ok(())
 }
 
-/// On Linux with NVIDIA proprietary drivers + Wayland, WebKit's DMA-BUF renderer
-/// crashes in libnvidia-eglcore during GL context teardown. Set env vars to disable
-/// it before any WebView is created. See GitHub issue #36.
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LinuxLaunchEnv {
+    session_type: String,
+    wayland_display: Option<String>,
+    display: Option<String>,
+    gdk_backend: Option<String>,
+    webkit_disable_dmabuf: Option<String>,
+    webkit_disable_compositing: Option<String>,
+    webkit_force_sandbox: Option<String>,
+    libgl_always_software: Option<String>,
+    glx_vendor: Option<String>,
+    xdg_runtime_dir_present: bool,
+    systemd_seats_present: bool,
+    systemd_users_present: bool,
+    nvidia_driver_present: bool,
+    amd_driver_present: bool,
+    intel_driver_present: bool,
+}
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct LinuxWorkaroundPlan {
+    disable_dmabuf: bool,
+    disable_compositing: bool,
+    force_software_gl: bool,
+    force_gdk_x11: bool,
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn linux_workaround_plan(
+    env: &LinuxLaunchEnv,
+    disable_dmabuf: bool,
+    disable_compositing: bool,
+    force_gdk_x11: bool,
+    force_software_gl: bool,
+) -> LinuxWorkaroundPlan {
+    LinuxWorkaroundPlan {
+        disable_dmabuf: env.is_nvidia_wayland() || disable_dmabuf,
+        disable_compositing,
+        force_software_gl,
+        force_gdk_x11: force_gdk_x11 && env.display.is_some(),
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl LinuxLaunchEnv {
+    #[cfg(target_os = "linux")]
+    fn current() -> Self {
+        Self {
+            session_type: crate::platform::current_session_type(),
+            wayland_display: std::env::var("WAYLAND_DISPLAY").ok(),
+            display: std::env::var("DISPLAY").ok(),
+            gdk_backend: std::env::var("GDK_BACKEND").ok(),
+            webkit_disable_dmabuf: std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok(),
+            webkit_disable_compositing: std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").ok(),
+            webkit_force_sandbox: std::env::var("WEBKIT_FORCE_SANDBOX").ok(),
+            libgl_always_software: std::env::var("LIBGL_ALWAYS_SOFTWARE").ok(),
+            glx_vendor: std::env::var("__GLX_VENDOR_LIBRARY_NAME").ok(),
+            xdg_runtime_dir_present: std::env::var("XDG_RUNTIME_DIR")
+                .is_ok_and(|value| !value.trim().is_empty()),
+            systemd_seats_present: std::path::Path::new("/run/systemd/seats").exists(),
+            systemd_users_present: std::path::Path::new("/run/systemd/users").exists(),
+            nvidia_driver_present: std::path::Path::new("/proc/driver/nvidia").exists()
+                || linux_drm_vendor_present("0x10de"),
+            amd_driver_present: linux_drm_vendor_present("0x1002"),
+            intel_driver_present: linux_drm_vendor_present("0x8086"),
+        }
+    }
+
+    fn is_nvidia_wayland(&self) -> bool {
+        self.session_type == "wayland"
+            && (self.nvidia_driver_present
+                || self
+                    .glx_vendor
+                    .as_deref()
+                    .is_some_and(|value| value.eq_ignore_ascii_case("nvidia")))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_drm_vendor_present(expected_vendor: &str) -> bool {
+    std::fs::read_dir("/sys/class/drm")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|entry| {
+            std::fs::read_to_string(entry.path().join("device/vendor"))
+                .is_ok_and(|vendor| vendor.trim().eq_ignore_ascii_case(expected_vendor))
+        })
+}
+
+#[cfg(target_os = "linux")]
+fn env_flag_enabled(name: &str) -> bool {
+    std::env::var(name).is_ok_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes"))
+}
+
+/// Apply Linux WebKit/GTK environment workarounds before any WebView is created.
 fn apply_linux_workarounds() {
     #[cfg(target_os = "linux")]
     {
-        let session = crate::platform::current_session_type();
-        let is_nvidia = std::path::Path::new("/proc/driver/nvidia").exists()
-            || std::env::var("__GLX_VENDOR_LIBRARY_NAME")
-                .map(|v| v.eq_ignore_ascii_case("nvidia"))
-                .unwrap_or(false);
+        let env = LinuxLaunchEnv::current();
+        let plan = linux_workaround_plan(
+            &env,
+            env_flag_enabled("OPENTYPELESS_DISABLE_WEBKIT_DMABUF"),
+            env_flag_enabled("OPENTYPELESS_DISABLE_WEBKIT_COMPOSITING"),
+            env_flag_enabled("OPENTYPELESS_FORCE_GDK_X11"),
+            env_flag_enabled("OPENTYPELESS_FORCE_SOFTWARE_GL"),
+        );
 
-        if is_nvidia && session == "wayland" {
-            tracing::info!("Detected NVIDIA + Wayland, disabling WebKit DMA-BUF renderer");
+        if plan.disable_dmabuf {
             std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         }
+        if plan.disable_compositing {
+            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        }
+        if plan.force_software_gl {
+            std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+        }
+        if plan.force_gdk_x11 {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn log_linux_launch_diagnostics(xinitthreads_status: linux_x11::XInitThreadsStatus) {
+    let env = LinuxLaunchEnv::current();
+    tracing::debug!(
+        ?xinitthreads_status,
+        session_type = %env.session_type,
+        wayland_display_present = env.wayland_display.is_some(),
+        display_present = env.display.is_some(),
+        gdk_backend = ?env.gdk_backend,
+        webkit_disable_dmabuf = ?env.webkit_disable_dmabuf,
+        webkit_disable_compositing = ?env.webkit_disable_compositing,
+        webkit_force_sandbox = ?env.webkit_force_sandbox,
+        libgl_always_software = ?env.libgl_always_software,
+        glx_vendor = ?env.glx_vendor,
+        xdg_runtime_dir_present = env.xdg_runtime_dir_present,
+        systemd_seats_present = env.systemd_seats_present,
+        systemd_users_present = env.systemd_users_present,
+        nvidia_driver_present = env.nvidia_driver_present,
+        amd_driver_present = env.amd_driver_present,
+        intel_driver_present = env.intel_driver_present,
+        "Linux launch diagnostics"
+    );
 }
 
 fn set_hotkey_registration_error_state(app: &tauri::AppHandle, message: Option<String>) {
@@ -504,6 +706,9 @@ pub fn run() {
         .init();
 
     #[cfg(target_os = "linux")]
+    log_linux_launch_diagnostics(xinitthreads_status);
+
+    #[cfg(target_os = "linux")]
     match xinitthreads_status {
         linux_x11::XInitThreadsStatus::Enabled => {
             tracing::debug!("Initialized Xlib thread support with XInitThreads");
@@ -569,8 +774,19 @@ pub fn run() {
                 .build()
                 .expect("Failed to create HTTP client");
 
-            let pipeline_handle =
-                pipeline::PipelineHandle::new(app_handle.clone(), shared_client.clone());
+            let app_registry = app_detector::registry::AppRegistry::builtin()
+                .map_err(|error| anyhow::anyhow!("Failed to init app registry: {error}"))?;
+            let app_mapping_store = app_detector::user_mappings::UserAppMappingStore::new(
+                app_handle.clone(),
+                app_registry,
+            );
+            let context_detector =
+                app_detector::ContextDetectorHandle::start_default(app_mapping_store.clone());
+            let pipeline_handle = pipeline::PipelineHandle::new(
+                app_handle.clone(),
+                shared_client.clone(),
+                context_detector.clone(),
+            );
 
             // Load initial config to get hotkey
             let mut initial_config =
@@ -579,7 +795,9 @@ pub fn run() {
             app.manage(config_manager);
             app.manage(history_store);
             app.manage(dictionary_store);
+            app.manage(app_mapping_store);
             app.manage(shared_client);
+            app.manage(context_detector);
             app.manage(pipeline_handle);
             app.manage(commands::ask::AskDictationState::default());
             app.manage(HotkeyModeCache(Arc::new(Mutex::new(
@@ -841,9 +1059,19 @@ pub fn run() {
             commands::ask::stop_ask_flow,
             commands::ask::abort_ask_dictation,
             commands::ask::take_pending_ask_message,
+            commands::translation::set_active_translation_target,
+            commands::app_mappings::get_latest_mapping_candidate,
+            commands::app_mappings::list_custom_app_mappings,
+            commands::app_mappings::save_custom_app_mapping,
+            commands::app_mappings::update_custom_app_mapping,
+            commands::app_mappings::set_custom_app_mapping_enabled,
+            commands::app_mappings::delete_custom_app_mapping,
+            commands::app_mappings::reset_custom_app_mappings,
+            commands::app_mappings::set_family_scene_assignment,
             show_ask_window,
             commands::misc::check_accessibility_permission,
             commands::misc::request_accessibility_permission,
+            commands::misc::request_browser_access,
             commands::config::get_config,
             commands::config::update_config,
             commands::credentials::get_credential_status,
@@ -855,17 +1083,25 @@ pub fn run() {
             commands::stt::test_stt_connection,
             commands::llm::test_llm_connection,
             commands::llm::bench_llm_connection,
+            commands::llm::get_llm_model_capability,
             commands::stt::bench_stt_connection,
             commands::llm::fetch_llm_models,
             commands::history::get_history,
             commands::history::clear_history,
+            commands::backup::restore_backup_data,
             commands::dictionary::get_dictionary,
             commands::dictionary::add_dictionary_entry,
+            commands::dictionary::update_dictionary_entry,
             commands::dictionary::remove_dictionary_entry,
             commands::dictionary::get_correction_rules,
             commands::dictionary::add_correction_rule,
+            commands::dictionary::update_correction_rule,
             commands::dictionary::remove_correction_rule,
             commands::dictionary::set_correction_rule_enabled,
+            commands::dictionary::preview_dictionary_import,
+            commands::dictionary::commit_dictionary_import,
+            commands::dictionary::export_dictionary_json,
+            commands::dictionary::export_dictionary_csv,
             commands::misc::update_hotkey,
             commands::misc::update_ask_hotkey,
             commands::misc::pause_hotkey,

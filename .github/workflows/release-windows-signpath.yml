@@ -70,6 +70,12 @@ jobs:
             }
           }
 
+          $isTestSigning = $env:SIGNPATH_SIGNING_POLICY_SLUG -match '^(?i:test[-_])'
+          if ($env:PUBLISH_RELEASE -eq 'true' -and $isTestSigning) {
+            Write-Error 'A SignPath test policy cannot publish Windows assets to a production GitHub Release.'
+            exit 1
+          }
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -131,6 +137,7 @@ jobs:
         shell: pwsh
         env:
           SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+          PUBLISH_RELEASE: ${{ github.event.inputs.publish_release }}
         run: |
           $signed = Get-ChildItem -Path signpath-signed -Recurse -File |
             Where-Object { $_.Extension -in '.exe', '.msi' }
@@ -140,6 +147,10 @@ jobs:
           }
 
           $isTestSigning = $env:SIGNPATH_SIGNING_POLICY_SLUG -match '^(?i:test[-_])'
+          if ($env:PUBLISH_RELEASE -eq 'true' -and $isTestSigning) {
+            Write-Error 'Refusing to publish installers signed with a SignPath test certificate.'
+            exit 1
+          }
           foreach ($file in $signed) {
             $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
             if ($isTestSigning) {

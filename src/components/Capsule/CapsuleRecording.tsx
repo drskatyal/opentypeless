@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { abortRecording } from '../../lib/tauri'
 import { Waveform } from './Waveform'
 import { DurationTimer } from './DurationTimer'
+import { TranslateTargetChip } from './TranslateTargetChip'
 
 export function CapsuleRecording() {
   const { t } = useTranslation()
@@ -31,6 +32,7 @@ export function CapsuleRecording() {
         transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
       />
       <Waveform />
+      <TranslateTargetChip />
       <div className="flex-1" />
       <DurationTimer />
       <button

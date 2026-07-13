@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    { "id": "filler", "input": "um ship version 2.4 on friday", "criticalSpans": ["2.4", "friday"], "discardedSpans": ["um"] },
+    { "id": "accidental_repetition", "input": "send it send it after review", "criticalSpans": ["send it", "after review"], "discardedSpans": [] },
+    { "id": "intentional_repetition", "input": "this is very very important", "criticalSpans": ["very very important"], "discardedSpans": [] },
+    { "id": "immediate_correction", "input": "meet on thursday no friday", "criticalSpans": ["friday"], "discardedSpans": ["thursday"] },
+    { "id": "late_correction", "input": "the budget is 20k actually make that 18k", "criticalSpans": ["18k"], "discardedSpans": ["20k"] },
+    { "id": "side_note_omission", "input": "send the report tomorrow ignore that side note about lunch", "criticalSpans": ["report", "tomorrow"], "discardedSpans": ["side note about lunch"] },
+    { "id": "ordinary_parenthetical", "input": "the launch which is internal starts monday", "criticalSpans": ["internal", "monday"], "discardedSpans": [] },
+    { "id": "ordered_steps", "input": "first rotate the key then restart the worker", "criticalSpans": ["rotate the key", "restart the worker"], "discardedSpans": [] },
+    { "id": "ambiguous_actually", "input": "actually the cache may be stale", "criticalSpans": ["actually", "cache may be stale"], "discardedSpans": [] },
+    { "id": "unresolved_name", "input": "ask the person whose name sounds like arin", "criticalSpans": ["sounds like arin"], "discardedSpans": [] }
+  ]
+}

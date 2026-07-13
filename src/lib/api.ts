@@ -5,6 +5,7 @@ import {
   DEFAULT_CHECKOUT_PRODUCT,
   type CheckoutProduct,
 } from './constants'
+import { invalidateCloudSessionOnce } from './cloud-session'
 
 const DEFAULT_TIMEOUT_MS = 30_000
 
@@ -40,7 +41,7 @@ async function request<T>(
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: res.statusText }))
-      throw new ApiError(res.status, body.error ?? res.statusText)
+      throw parseCloudError(res.status, body, res.statusText)
     }
 
     return res.json()
@@ -57,6 +58,47 @@ export class ApiError extends Error {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+export class CloudApiError extends ApiError {
+  constructor(
+    status: number,
+    public readonly code: string | null,
+    message: string,
+  ) {
+    super(status, message)
+    this.name = 'CloudApiError'
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function parseCloudError(
+  status: number,
+  body: unknown,
+  fallbackMessage = `Request failed (${status})`,
+): CloudApiError {
+  let code: string | null = null
+  let message = fallbackMessage
+
+  if (isRecord(body)) {
+    const error = body.error
+    if (typeof error === 'string' && error.trim()) {
+      message = error
+    } else if (isRecord(error)) {
+      if (typeof error.code === 'string' && error.code.trim()) code = error.code
+      if (typeof error.message === 'string' && error.message.trim()) message = error.message
+    }
+  }
+
+  if (code === 'AUTH_SESSION_INVALID') {
+    void invalidateCloudSessionOnce().catch((error) => {
+      console.error('Failed to invalidate cloud session:', error)
+    })
+  }
+  return new CloudApiError(status, code, message)
 }
 
 // Subscription
@@ -200,7 +242,7 @@ export async function proxyStt(
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: res.statusText }))
-      throw new ApiError(res.status, body.error ?? res.statusText)
+      throw parseCloudError(res.status, body, res.statusText)
     }
 
     return res.json()

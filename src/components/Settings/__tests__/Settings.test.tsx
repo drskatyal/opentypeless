@@ -74,6 +74,7 @@ vi.mock('react-i18next', async (importOriginal) => {
           'settings.unsavedChanges': 'Unsaved changes',
           'common.save': 'Save',
           'common.saving': 'Saving...',
+          'common.reset': 'Reset',
           'common.connectionFail': 'Connection failed',
         })[key] ?? key,
       i18n: { language: 'en', changeLanguage: vi.fn() },
@@ -116,6 +117,11 @@ vi.mock('../../../lib/tauri', () => ({
     roles: [
       {
         role: 'dictation',
+        index: 0,
+        display: 'Ctrl+/',
+        backend: 'tauriGlobalShortcut',
+        valid: true,
+        conflictWith: null,
         adapter: 'tauriGlobalShortcut',
         state: 'installed',
         message: null,
@@ -123,6 +129,11 @@ vi.mock('../../../lib/tauri', () => ({
       },
       {
         role: 'ask',
+        index: 0,
+        display: 'Ctrl+.',
+        backend: 'tauriGlobalShortcut',
+        valid: true,
+        conflictWith: null,
         adapter: 'tauriGlobalShortcut',
         state: 'installed',
         message: null,
@@ -165,13 +176,36 @@ vi.mock('../../../lib/tauri', () => ({
   readCredential: vi.fn().mockResolvedValue(null),
   setCredential: vi.fn().mockResolvedValue(undefined),
   fetchLlmModels: vi.fn().mockResolvedValue(['gpt-4o', 'gpt-3.5-turbo']),
+  getLlmModelCapability: vi.fn().mockResolvedValue('unknown'),
   addDictionaryEntry: vi.fn().mockResolvedValue(undefined),
+  updateDictionaryEntry: vi.fn().mockResolvedValue(undefined),
   removeDictionaryEntry: vi.fn().mockResolvedValue(undefined),
   getDictionary: vi.fn().mockResolvedValue([]),
+  addCorrectionRule: vi.fn().mockResolvedValue(undefined),
+  updateCorrectionRule: vi.fn().mockResolvedValue(undefined),
+  removeCorrectionRule: vi.fn().mockResolvedValue(undefined),
+  setCorrectionRuleEnabled: vi.fn().mockResolvedValue(undefined),
+  getCorrectionRules: vi.fn().mockResolvedValue([]),
+  previewDictionaryImport: vi.fn().mockResolvedValue({
+    accepted: 0,
+    skippedDuplicates: 0,
+    skippedInvalid: 0,
+    errors: [],
+  }),
+  commitDictionaryImport: vi.fn().mockResolvedValue({
+    accepted: 0,
+    skippedDuplicates: 0,
+    skippedInvalid: 0,
+    errors: [],
+  }),
+  exportDictionaryJson: vi.fn().mockResolvedValue('{}'),
+  exportDictionaryCsv: vi.fn().mockResolvedValue(''),
+  listCustomAppMappings: vi.fn().mockResolvedValue([]),
+  setFamilySceneAssignment: vi.fn().mockResolvedValue([]),
   updateConfig: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('../../../components/Toast', () => ({
+vi.mock('../../../components/toast-service', () => ({
   toast: vi.fn(),
 }))
 
@@ -206,11 +240,13 @@ import {
   checkAccessibilityPermission,
   getConfig,
   getHotkeyRegistrationError,
+  listCustomAppMappings,
+  setFamilySceneAssignment,
   setAutoStart,
   startAskFlow,
   updateConfig,
 } from '../../../lib/tauri'
-import { toast } from '../../../components/Toast'
+import { toast } from '../../../components/toast-service'
 import type { HotkeyStatus } from '../../../lib/tauri'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -223,6 +259,11 @@ function mockHotkeyStatus(overrides: Partial<HotkeyStatus> = {}): HotkeyStatus {
     roles: [
       {
         role: 'dictation',
+        index: 0,
+        display: 'Ctrl+/',
+        backend: 'tauriGlobalShortcut',
+        valid: true,
+        conflictWith: null,
         adapter: 'tauriGlobalShortcut',
         state: 'installed',
         message: null,
@@ -230,6 +271,11 @@ function mockHotkeyStatus(overrides: Partial<HotkeyStatus> = {}): HotkeyStatus {
       },
       {
         role: 'ask',
+        index: 0,
+        display: 'Ctrl+.',
+        backend: 'tauriGlobalShortcut',
+        valid: true,
+        conflictWith: null,
         adapter: 'tauriGlobalShortcut',
         state: 'installed',
         message: null,
@@ -291,11 +337,15 @@ describe('Settings tab 切换', () => {
     expect(screen.getByText('settings.hotkey')).toBeDefined()
     expect(screen.getByText('settings.dictationHotkey')).toBeDefined()
     expect(screen.getByText('settings.askHotkey')).toBeDefined()
+    expect(screen.getByText('settings.translateHotkey')).toBeDefined()
+    expect(screen.getByText('settings.dictationMode')).toBeDefined()
+    expect(screen.getAllByRole('button', { name: 'settings.shortcutAdd' })).toHaveLength(3)
     expect(screen.queryByText('settings.askAnything')).toBeNull()
     expect(screen.queryByText('settings.askAnythingDesc')).toBeNull()
     expect(screen.getByLabelText('settings.tryAsk')).toBeDefined()
     expect(screen.queryByText('ask.voiceQuestion')).toBeNull()
     expect(screen.getByText('settings.outputMode')).toBeDefined()
+    expect(screen.getByText('settings.dictationMode')).toBeDefined()
     expect(screen.queryByText('settings.diagnostics')).toBeNull()
   })
 
@@ -323,6 +373,38 @@ describe('Settings tab 切换', () => {
     expect(screen.getByText('settings.hideCapsuleWhenIdle')).toBeDefined()
   })
 
+  it('keeps unsaved drafts dirty after leaving and reopening Settings', () => {
+    const firstRender = renderSettings()
+    act(() => useAppStore.getState().updateConfig({ auto_start: false }))
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+
+    firstRender.unmount()
+    renderSettings()
+
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    expect(useAppStore.getState().savedConfig?.auto_start).toBe(true)
+  })
+
+  it('does not mark an unchanged backend config dirty when object key order differs', () => {
+    const { config } = useAppStore.getState()
+    const backendOrderedConfig = Object.fromEntries(
+      Object.entries(config).reverse(),
+    ) as typeof config
+    useAppStore.getState().setSavedConfig(backendOrderedConfig)
+
+    renderSettings()
+
+    expect(screen.queryByText('Unsaved changes')).toBeNull()
+  })
+
+  it('does not show a Wayland limitation while platform capabilities are still loading', () => {
+    useAppStore.getState().setPlatformCapabilities(null)
+
+    renderSettings()
+
+    expect(screen.queryByText('settings.waylandHotkeyLimited')).toBeNull()
+  })
+
   it('General pane starts Ask recording from a lightweight Try Ask entry', async () => {
     renderSettings()
 
@@ -333,7 +415,7 @@ describe('Settings tab 切换', () => {
     })
   })
 
-  it('General pane hides granted macOS Accessibility from the default surface', async () => {
+  it('General pane leaves macOS Accessibility to the global permission banner', () => {
     const originalPlatform = window.navigator.platform
     Object.defineProperty(window.navigator, 'platform', {
       value: 'MacIntel',
@@ -341,70 +423,15 @@ describe('Settings tab 切换', () => {
     })
     const mockCheckAccessibilityPermission = vi.mocked(checkAccessibilityPermission)
     mockCheckAccessibilityPermission.mockClear()
-    mockCheckAccessibilityPermission.mockResolvedValueOnce(true)
+    mockCheckAccessibilityPermission.mockResolvedValueOnce(false)
 
     try {
       renderSettings()
 
-      await waitFor(() => {
-        expect(mockCheckAccessibilityPermission).toHaveBeenCalled()
-      })
       expect(screen.queryByText('settings.accessibilityPermission')).toBeNull()
-      expect(screen.queryByText('settings.accessibilityGranted')).toBeNull()
-    } finally {
-      Object.defineProperty(window.navigator, 'platform', {
-        value: originalPlatform,
-        configurable: true,
-      })
-    }
-  })
-
-  it('General pane still shows macOS Accessibility when permission is missing', async () => {
-    const originalPlatform = window.navigator.platform
-    Object.defineProperty(window.navigator, 'platform', {
-      value: 'MacIntel',
-      configurable: true,
-    })
-    const mockCheckAccessibilityPermission = vi.mocked(checkAccessibilityPermission)
-    mockCheckAccessibilityPermission.mockClear()
-    mockCheckAccessibilityPermission.mockResolvedValueOnce(false)
-
-    try {
-      renderSettings()
-
-      expect(await screen.findByText('settings.accessibilityPermission')).toBeDefined()
-      expect(screen.getByText('settings.accessibilityRequired')).toBeDefined()
-      expect(screen.getByText('settings.grantPermission')).toBeDefined()
-    } finally {
-      Object.defineProperty(window.navigator, 'platform', {
-        value: originalPlatform,
-        configurable: true,
-      })
-    }
-  })
-
-  it('General pane shows macOS Accessibility for Fn hotkey even with clipboard output', async () => {
-    const originalPlatform = window.navigator.platform
-    Object.defineProperty(window.navigator, 'platform', {
-      value: 'MacIntel',
-      configurable: true,
-    })
-    const mockCheckAccessibilityPermission = vi.mocked(checkAccessibilityPermission)
-    mockCheckAccessibilityPermission.mockClear()
-    mockCheckAccessibilityPermission.mockResolvedValueOnce(false)
-    useAppStore.getState().updateConfig({
-      hotkey: 'Fn',
-      hotkey_mode: 'toggle',
-      output_mode: 'clipboard',
-      insertion_strategy: 'clipboardPaste',
-    })
-    seedSavedConfig()
-
-    try {
-      renderSettings()
-
-      expect(await screen.findByText('settings.accessibilityPermission')).toBeDefined()
-      expect(screen.getByText('settings.accessibilityRequired')).toBeDefined()
+      expect(screen.queryByText('settings.accessibilityRequired')).toBeNull()
+      expect(screen.queryByText('settings.grantPermission')).toBeNull()
+      expect(mockCheckAccessibilityPermission).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(window.navigator, 'platform', {
         value: originalPlatform,
@@ -448,6 +475,98 @@ describe('Settings tab 切换', () => {
     expect(await screen.findByText('settings.hotkeyConflict')).toBeDefined()
   })
 
+  it('does not duplicate an Accessibility-limited Fn registration failure', () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    useAppStore.getState().setAccessibilityTrusted(false)
+    useAppStore
+      .getState()
+      .setHotkeyRegistrationError(
+        'Failed to create macOS native hotkey EventTap; Accessibility permission may be denied',
+      )
+
+    try {
+      renderSettings()
+
+      expect(screen.queryByText('settings.hotkeyRegistrationFailed')).toBeNull()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('keeps unrelated shortcut registration failures visible', () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    useAppStore.getState().setAccessibilityTrusted(false)
+    useAppStore.getState().setHotkeyRegistrationError('Shortcut is already registered')
+
+    try {
+      renderSettings()
+
+      expect(screen.getByText('settings.hotkeyRegistrationFailed')).toBeDefined()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
+  it('clears stale shortcut registration failures when current status recovered', async () => {
+    const { getHotkeyStatus } = await import('../../../lib/tauri')
+    useAppStore.getState().setHotkeyRegistrationError('Shortcut is already registered')
+    vi.mocked(getHotkeyStatus).mockResolvedValueOnce(
+      mockHotkeyStatus({
+        registration_error: null,
+      }),
+    )
+
+    renderSettings()
+
+    await waitFor(() => {
+      expect(useAppStore.getState().hotkeyRegistrationError).toBeNull()
+    })
+    expect(screen.queryByText('settings.hotkeyRegistrationFailed')).toBeNull()
+  })
+
+  it('re-registers failed Fn hotkeys after macOS Accessibility permission is granted', async () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    const { resumeHotkey } = await import('../../../lib/tauri')
+    useAppStore.getState().setAccessibilityTrusted(true)
+    useAppStore
+      .getState()
+      .setHotkeyRegistrationError(
+        'Failed to create macOS native hotkey EventTap; Accessibility permission may be denied',
+      )
+
+    try {
+      renderSettings()
+
+      await waitFor(() => {
+        expect(resumeHotkey).toHaveBeenCalled()
+      })
+      expect(useAppStore.getState().hotkeyRegistrationError).toBeNull()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
+  })
+
   it('General pane does not expose the optional Ask hotkey disable action', () => {
     renderSettings()
 
@@ -471,7 +590,7 @@ describe('Settings tab 切换', () => {
     expect(screen.queryByText('settings.hotkeyInvalid')).toBeNull()
   })
 
-  it('offers the Windows native dictation hotkey only while recording Dictation', async () => {
+  it('does not offer Windows RightAlt as a default shortcut chip', async () => {
     const originalPlatform = window.navigator.platform
     Object.defineProperty(window.navigator, 'platform', {
       value: 'Win32',
@@ -493,50 +612,9 @@ describe('Settings tab 切换', () => {
       fireEvent.click(screen.getByText('settings.pressKeyCombination'))
 
       fireEvent.click(screen.getByText('Ctrl+/'))
-      const rightAltOption = screen.getByRole('button', { name: 'Right Alt' })
-      fireEvent.click(rightAltOption)
-
-      expect(useAppStore.getState().config.hotkey).toBe('RightAlt')
-      expect(screen.getByText('Unsaved changes')).toBeDefined()
+      expect(screen.queryByRole('button', { name: 'Right Alt' })).toBeNull()
+      expect(useAppStore.getState().config.hotkey).toBe('Ctrl+/')
     } finally {
-      Object.defineProperty(window.navigator, 'platform', {
-        value: originalPlatform,
-        configurable: true,
-      })
-    }
-  })
-
-  it('keeps the native dictation chip choice after a pending combo timer expires', async () => {
-    vi.useFakeTimers()
-    const originalPlatform = window.navigator.platform
-    Object.defineProperty(window.navigator, 'platform', {
-      value: 'Win32',
-      configurable: true,
-    })
-    useAppStore.getState().setPlatformCapabilities({
-      os: 'windows',
-      sessionType: 'unknown',
-      globalHotkeyReliable: true,
-      keyboardOutputReliable: true,
-      clipboardAutoPasteReliable: true,
-    })
-
-    try {
-      renderSettings()
-
-      fireEvent.click(screen.getByText('Ctrl+/'))
-      fireEvent.keyDown(window, { key: ';', ctrlKey: true })
-      fireEvent.click(screen.getByRole('button', { name: 'Right Alt' }))
-
-      expect(useAppStore.getState().config.hotkey).toBe('RightAlt')
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1600)
-      })
-
-      expect(useAppStore.getState().config.hotkey).toBe('RightAlt')
-    } finally {
-      vi.useRealTimers()
       Object.defineProperty(window.navigator, 'platform', {
         value: originalPlatform,
         configurable: true,
@@ -702,9 +780,113 @@ describe('Settings Scenes local custom scenes', () => {
     resetStore()
     seedSavedConfig()
     vi.mocked(updateConfig).mockClear()
+    vi.mocked(listCustomAppMappings).mockReset().mockResolvedValue([])
+    vi.mocked(setFamilySceneAssignment).mockReset().mockResolvedValue([])
   })
 
-  it('creates and activates a local scene without leaving settings dirty', async () => {
+  it('shows app writing modes with representative app logos and editable scene choices', async () => {
+    useAppStore.getState().setConfig({
+      ...useAppStore.getState().config,
+      custom_scenes: [
+        {
+          id: 'custom_email',
+          name: 'Warm Email',
+          description: '',
+          prompt_template: 'Use a warm email tone.',
+          created_at: '',
+          updated_at: '',
+        },
+      ],
+      family_scene_assignments: [{ family: 'email', scene_id: 'custom_email' }],
+    })
+    seedSavedConfig()
+
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+
+    expect(listCustomAppMappings).not.toHaveBeenCalled()
+    expect(screen.getByText('scenes.appWritingModes')).toBeInTheDocument()
+    expect(screen.getByText('contextFamilies.email')).toBeInTheDocument()
+    expect(screen.getByLabelText('Gmail')).toBeInTheDocument()
+    expect(screen.getByLabelText('Apple Mail')).toBeInTheDocument()
+    expect(screen.getByText('contextFamilies.work_chat')).toBeInTheDocument()
+    expect(screen.getByLabelText('Slack')).toBeInTheDocument()
+    expect(screen.getByLabelText('Lark')).toBeInTheDocument()
+
+    const emailSelect = screen.getByLabelText('contextFamilies.email scenes.appWritingScene')
+    expect(emailSelect).toHaveValue('custom_email')
+    const workChatSelect = screen.getByLabelText(
+      'contextFamilies.work_chat scenes.appWritingScene',
+    ) as HTMLSelectElement
+    expect(workChatSelect).toHaveValue('')
+    expect(workChatSelect.selectedOptions[0]?.textContent).toBe('scenes.systemModes.work_chat')
+    expect(screen.queryByText('scenes.builtInScenes')).not.toBeInTheDocument()
+  })
+
+  it('persists app writing mode scene choices without leaving settings dirty', async () => {
+    useAppStore.getState().setConfig({
+      ...useAppStore.getState().config,
+      custom_scenes: [
+        {
+          id: 'custom_email',
+          name: 'Warm Email',
+          description: '',
+          prompt_template: 'Use a warm email tone.',
+          created_at: '',
+          updated_at: '',
+        },
+      ],
+    })
+    seedSavedConfig()
+    const persistedAssignments = [{ family: 'email' as const, scene_id: 'custom_email' }]
+    vi.mocked(setFamilySceneAssignment).mockResolvedValue(persistedAssignments)
+
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+
+    fireEvent.change(screen.getByLabelText('contextFamilies.email scenes.appWritingScene'), {
+      target: { value: 'custom_email' },
+    })
+
+    await waitFor(() => {
+      expect(setFamilySceneAssignment).toHaveBeenCalledWith('email', 'custom_email')
+      expect(useAppStore.getState().config.family_scene_assignments).toEqual(persistedAssignments)
+      expect(useAppStore.getState().savedConfig?.family_scene_assignments).toEqual(
+        persistedAssignments,
+      )
+    })
+    expect(screen.queryByText('settings.unsavedChanges')).toBeNull()
+  })
+
+  it('lets users edit and reset system scenes from My Scenes', async () => {
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+
+    fireEvent.click(screen.getAllByText('scenes.systemModes.email')[1])
+    fireEvent.click(screen.getByText('scenes.edit'))
+    expect(screen.queryByLabelText('scenes.sceneName')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('scenes.sceneDescription')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('scenes.promptTemplate'), {
+      target: { value: 'Use a warm email body with concise bullets.' },
+    })
+    fireEvent.click(screen.getAllByText('Save')[0])
+
+    await waitFor(() => expect(vi.mocked(updateConfig)).toHaveBeenCalledTimes(1))
+    expect(useAppStore.getState().config.system_scene_overrides).toEqual([
+      {
+        id: 'system_email',
+        prompt_template: 'Use a warm email body with concise bullets.',
+      },
+    ])
+    expect(screen.queryByText('settings.unsavedChanges')).toBeNull()
+
+    fireEvent.click(await screen.findByText('scenes.resetSystemScene'))
+
+    await waitFor(() => expect(vi.mocked(updateConfig)).toHaveBeenCalledTimes(2))
+    expect(useAppStore.getState().config.system_scene_overrides).toEqual([])
+  })
+
+  it('creates a local scene without exposing global activation', async () => {
     renderSettings()
     clickSidebarItem('settings.scenes')
 
@@ -715,7 +897,8 @@ describe('Settings Scenes local custom scenes', () => {
     fireEvent.change(screen.getByLabelText('scenes.promptTemplate'), {
       target: { value: 'Rewrite as concise meeting notes.' },
     })
-    fireEvent.click(screen.getByText('scenes.saveAndActivate'))
+    expect(screen.queryByText('scenes.saveAndActivate')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Save'))
 
     await waitFor(() => {
       expect(vi.mocked(updateConfig)).toHaveBeenCalledTimes(1)
@@ -723,11 +906,108 @@ describe('Settings Scenes local custom scenes', () => {
 
     const { config, savedConfig } = useAppStore.getState()
     expect(config.custom_scenes).toHaveLength(1)
-    expect(config.active_scene?.name).toBe('Meeting Notes')
-    expect(config.active_scene?.prompt_template).toBe('Rewrite as concise meeting notes.')
+    expect(config.active_scene).toBeNull()
     expect(savedConfig?.custom_scenes).toHaveLength(1)
-    expect(savedConfig?.active_scene?.name).toBe('Meeting Notes')
+    expect(savedConfig?.active_scene).toBeNull()
     expect(screen.queryByText('settings.unsavedChanges')).toBeNull()
+  })
+
+  it('persists only scene fields and preserves unrelated unsaved settings', async () => {
+    renderSettings()
+    act(() => useAppStore.getState().updateConfig({ auto_start: false }))
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+    clickSidebarItem('settings.scenes')
+
+    fireEvent.click(screen.getByText('scenes.newScene'))
+    fireEvent.change(screen.getByLabelText('scenes.sceneName'), {
+      target: { value: 'Focused Notes' },
+    })
+    fireEvent.change(screen.getByLabelText('scenes.promptTemplate'), {
+      target: { value: 'Keep the notes concise.' },
+    })
+    fireEvent.click(screen.getAllByText('Save')[0])
+
+    await waitFor(() => expect(vi.mocked(updateConfig)).toHaveBeenCalledTimes(1))
+    const persistedConfig = vi.mocked(updateConfig).mock.calls[0][0]
+    expect(persistedConfig.auto_start).toBe(true)
+    expect(useAppStore.getState().config.auto_start).toBe(false)
+    expect(useAppStore.getState().savedConfig?.auto_start).toBe(true)
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+  })
+
+  it('lets existing users clear a legacy globally active scene', async () => {
+    useAppStore.getState().setConfig({
+      ...useAppStore.getState().config,
+      active_scene: {
+        id: 'legacy_scene',
+        source: 'custom',
+        name: 'Legacy Scene',
+        prompt_template: 'Keep using the old scene.',
+      },
+    })
+    seedSavedConfig()
+
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+    fireEvent.click(screen.getByRole('button', { name: 'scenes.clearActive' }))
+
+    await waitFor(() => expect(useAppStore.getState().config.active_scene).toBeNull())
+    expect(useAppStore.getState().savedConfig?.active_scene).toBeNull()
+  })
+
+  it('keeps the scene editor open when persistence fails', async () => {
+    vi.mocked(updateConfig).mockRejectedValueOnce(new Error('disk full'))
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+
+    fireEvent.click(screen.getByText('scenes.newScene'))
+    fireEvent.change(screen.getByLabelText('scenes.sceneName'), {
+      target: { value: 'Meeting Notes' },
+    })
+    fireEvent.change(screen.getByLabelText('scenes.promptTemplate'), {
+      target: { value: 'Keep concise notes.' },
+    })
+    fireEvent.click(screen.getByText('Save'))
+
+    expect(await screen.findByText('scenes.failedToSave')).toBeInTheDocument()
+    expect(screen.getByLabelText('scenes.sceneName')).toHaveValue('Meeting Notes')
+    expect(screen.getByLabelText('scenes.promptTemplate')).toHaveValue('Keep concise notes.')
+  })
+
+  it('removes family assignments that reference a deleted custom scene', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm')
+    useAppStore.getState().setConfig({
+      ...useAppStore.getState().config,
+      custom_scenes: [
+        {
+          id: 'custom_email',
+          name: 'Warm Email',
+          description: '',
+          prompt_template: 'Use a warm email tone.',
+          created_at: '',
+          updated_at: '',
+        },
+      ],
+      family_scene_assignments: [{ family: 'email', scene_id: 'custom_email' }],
+    })
+    seedSavedConfig()
+
+    renderSettings()
+    clickSidebarItem('settings.scenes')
+    const sceneName = screen
+      .getAllByText('Warm Email')
+      .find((element) => element.tagName === 'SPAN')
+    expect(sceneName).toBeDefined()
+    fireEvent.click(sceneName!.closest('button')!)
+    fireEvent.click(screen.getByText('scenes.delete'))
+
+    expect(screen.getByText('scenes.deleteConfirm')).toBeInTheDocument()
+    expect(confirmSpy).not.toHaveBeenCalled()
+    const deleteActions = screen.getAllByText('scenes.delete')
+    fireEvent.click(deleteActions[deleteActions.length - 1])
+
+    await waitFor(() => expect(useAppStore.getState().config.custom_scenes).toEqual([]))
+    expect(useAppStore.getState().config.family_scene_assignments).toEqual([])
   })
 
   it('exports local scenes as a compact JSON file', async () => {

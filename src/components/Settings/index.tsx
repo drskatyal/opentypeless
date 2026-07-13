@@ -9,7 +9,8 @@ import { LlmPane } from './LlmPane'
 import { DictionaryPane } from './DictionaryPane'
 import { ScenesPane } from './ScenesPane'
 import { AboutPane } from './AboutPane'
-import { DirtyBar, useDirtyConfig } from './shared/DirtyBar'
+import { DirtyBar } from './shared/DirtyBar'
+import { useDirtyConfig } from './shared/useDirtyConfig'
 
 const paneTitleKeys: Record<PaneId, string> = {
   general: 'settings.general',
@@ -28,9 +29,9 @@ export function Settings() {
   const isDirty = useDirtyConfig()
   const { t } = useTranslation()
 
-  // Snapshot config when settings opens
+  // First-run onboarding may enter Settings before MainApp has established backend truth.
   useEffect(() => {
-    setSavedConfig(config)
+    if (useAppStore.getState().savedConfig === null) setSavedConfig(config)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

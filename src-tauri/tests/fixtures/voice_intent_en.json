@@ -1,0 +1,5265 @@
+[
+  {
+    "id": "en-001-draft-follow-up",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a follow-up email about tomorrow's launch",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a follow-up email about tomorrow's launch",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-002-discuss-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I need to draft a follow-up email tomorrow",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-003-negated-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not draft this yet",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-004-reported-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "she said \"draft a reply\"",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-005-compose-file",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose.yaml belongs in the config directory",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-006-rewrite-warmer",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this warmer",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-007-ask-selection",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "what does this mean?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-008-youtube-search",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search React tutorials on YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React tutorials",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-009-discuss-search",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I should search for this later",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-010-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a launch update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a launch update",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-011-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a concise thank-you note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a concise thank-you note",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-012-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft the customer follow-up",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "the customer follow-up",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-013-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft an email confirming Tuesday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an email confirming Tuesday",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-014-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a friendly reply saying yes",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a friendly reply saying yes",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-015-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a project status message",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a project status message",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-016-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft three interview questions",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "three interview questions",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-017-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a short release announcement",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a short release announcement",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-018-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a reminder about the deadline",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a reminder about the deadline",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-019-draft-draft",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a professional apology",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a professional apology",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-020-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a launch update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a launch update",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-021-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a concise thank-you note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a concise thank-you note",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-022-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write the customer follow-up",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "the customer follow-up",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-023-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write an email confirming Tuesday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an email confirming Tuesday",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-024-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a friendly reply saying yes",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a friendly reply saying yes",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-025-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a project status message",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a project status message",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-026-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write three interview questions",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "three interview questions",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-027-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a short release announcement",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a short release announcement",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-028-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a reminder about the deadline",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a reminder about the deadline",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-029-draft-write",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write a professional apology",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a professional apology",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-030-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a launch update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a launch update",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-031-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a concise thank-you note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a concise thank-you note",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-032-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose the customer follow-up",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "the customer follow-up",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-033-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose an email confirming Tuesday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an email confirming Tuesday",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-034-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a friendly reply saying yes",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a friendly reply saying yes",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-035-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a project status message",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a project status message",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-036-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose three interview questions",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "three interview questions",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-037-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a short release announcement",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a short release announcement",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-038-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a reminder about the deadline",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a reminder about the deadline",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-039-draft-compose",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose a professional apology",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a professional apology",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-040-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a launch update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a launch update",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-041-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a concise thank-you note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a concise thank-you note",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-042-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with the customer follow-up",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "the customer follow-up",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-043-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with an email confirming Tuesday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an email confirming Tuesday",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-044-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a friendly reply saying yes",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a friendly reply saying yes",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-045-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a project status message",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a project status message",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-046-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with three interview questions",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "three interview questions",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-047-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a short release announcement",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a short release announcement",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-048-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a reminder about the deadline",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a reminder about the deadline",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-049-draft-reply-with",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "reply with a professional apology",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "a professional apology",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-050-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rewrite this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-051-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rewrite this.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-052-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rephrase this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-053-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rephrase this.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-054-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this shorter",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-055-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this shorter.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-056-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this longer",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-057-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this longer.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-058-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this warmer",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-059-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this warmer.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-060-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this friendlier",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-061-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this friendlier.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-062-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this more formal",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-063-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this more formal.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-064-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this more concise",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-065-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make this more concise.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-066-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "fix the grammar",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-067-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "fix the grammar.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-068-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "fix the spelling",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-069-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "fix the spelling.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-070-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "format this as bullets",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-071-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "format this as bullets.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-072-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "turn this into a checklist",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-073-rewrite-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "turn this into a checklist.",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-074-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this to English",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-075-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this to English?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-076-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this into Spanish",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-077-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this into Spanish?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-078-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate the selection to French",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-079-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate the selection to French?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-080-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate the selection into Japanese",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-081-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate the selection into Japanese?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-082-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this to Simplified Chinese",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-083-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this to Simplified Chinese?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-084-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this into German",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-085-translate-positive",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this into German?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-086-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "summarize this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-087-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "summarize this?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-088-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "explain this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-089-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "explain this?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-090-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compare this with the previous paragraph",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-091-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compare this with the previous paragraph?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-092-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "what does this mean",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-093-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "what does this mean?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-094-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "why is this important",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-095-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "why is this important?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-096-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "how does this work",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-097-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "how does this work?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-098-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "who is mentioned here",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-099-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "who is mentioned here?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-100-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "where is the risk",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-101-selection-question",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "where is the risk?",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-102-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Rust ownership guide on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-103-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Google for Rust ownership guide",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-104-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search React server components on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-105-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Google for React server components",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-106-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Tauri global shortcuts on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-107-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Google for Tauri global shortcuts",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-108-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Rust ownership guide on YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-109-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search YouTube for Rust ownership guide",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-110-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search React server components on YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-111-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search YouTube for React server components",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-112-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Tauri global shortcuts on YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-113-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search YouTube for Tauri global shortcuts",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-114-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Rust ownership guide on Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-115-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Amazon for Rust ownership guide",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-116-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search React server components on Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-117-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Amazon for React server components",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-118-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Tauri global shortcuts on Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-119-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Amazon for Tauri global shortcuts",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-120-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Rust ownership guide on GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-121-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search GitHub for Rust ownership guide",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Rust ownership guide",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-122-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search React server components on GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-123-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search GitHub for React server components",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "React server components",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-124-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Tauri global shortcuts on GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-125-search-positive",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search GitHub for Tauri global shortcuts",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Tauri global shortcuts",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-126-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The launch is tomorrow morning",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-127-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "The launch is tomorrow morning",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-128-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I wrote the first draft yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-129-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "I wrote the first draft yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-130-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "Search quality matters for this feature",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-131-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "Search quality matters for this feature",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-132-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "Please keep the existing wording",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-133-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "Please keep the existing wording",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-134-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "Module composition follows dependency order",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-135-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "Module composition follows dependency order",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-136-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The reply arrived late",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-137-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "The reply arrived late",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-138-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "Translation quality improved this week",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-139-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "Translation quality improved this week",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-140-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The rewrite strategy needs discussion",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-141-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "The rewrite strategy needs discussion",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-142-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "A concise update would be useful",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-143-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "A concise update would be useful",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-144-default-safe",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The selected paragraph has three claims",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-145-default-safe",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "The selected paragraph has three claims",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-146-automatic-positive-0",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "draft an automatic language note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an automatic language note",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-147-automatic-positive-1",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "write an automatic mode reply",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an automatic mode reply",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-148-automatic-positive-2",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "compose an automatic mode update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "an automatic mode update",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-149-automatic-positive-3",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "reply with automatic language confirmed",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "automatic language confirmed",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "en-150-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "draft 帮我写一封邮件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-151-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "write 幫我寫一封郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-152-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "起草 project update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-153-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "compose 搜索 Rust 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-154-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not draft a reply",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-155-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not draft a reply please",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-156-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not draft a reply today",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-157-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "don't write an email",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-158-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "don't write an email please",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-159-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "don't write an email today",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-160-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "never compose this message",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-161-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "never compose this message please",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-162-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "never compose this message today",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-163-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "not yet, draft the response",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-164-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "not yet, draft the response please",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-165-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "not yet, draft the response today",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-166-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "please do not rewrite this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-167-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "please do not rewrite this please",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-168-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "please do not rewrite this today",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-169-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "please don't translate this to French",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-170-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "please don't translate this to French please",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-171-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "please don't translate this to French today",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-172-negated-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "do not search Rust on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-173-negated-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "do not search Rust on Google please",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-174-negated-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "do not search Rust on Google today",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-175-negated-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "never search YouTube for this",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-176-negated-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "never search YouTube for this please",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-177-negated-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "never search YouTube for this today",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-178-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not make this shorter",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-179-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not make this shorter please",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-180-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "do not make this shorter today",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-181-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "not yet, fix the grammar",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-182-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "not yet, fix the grammar please",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-183-negated-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "not yet, fix the grammar today",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-184-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "she said \"draft a reply\"",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-185-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "she said \"draft a reply\" yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-186-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "she said \"draft a reply\" in the transcript",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-187-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "he says write a note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-188-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "he says write a note yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-189-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "he says write a note in the transcript",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-190-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "they asked me to compose an email",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-191-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "they asked me to compose an email yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-192-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "they asked me to compose an email in the transcript",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-193-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "the phrase \"rewrite this\" appears here",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-194-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "the phrase \"rewrite this\" appears here yesterday",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-195-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "the phrase \"rewrite this\" appears here in the transcript",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-196-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "the word draft is a verb",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-197-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "the word draft is a verb yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-198-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "the word draft is a verb in the transcript",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-199-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "quote: translate this to French",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-200-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "quote: translate this to French yesterday",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-201-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "quote: translate this to French in the transcript",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-202-reported-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "she said search React on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-203-reported-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "she said search React on Google yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-204-reported-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "she said search React on Google in the transcript",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-205-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "he says make this warmer",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-206-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "he says make this warmer yesterday",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-207-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "he says make this warmer in the transcript",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-208-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "they asked me to fix the grammar",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-209-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "they asked me to fix the grammar yesterday",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-210-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "they asked me to fix the grammar in the transcript",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-211-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "quoted command tokens include compose",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-212-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "quoted command tokens include compose yesterday",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-213-reported-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "quoted command tokens include compose in the transcript",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-214-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose.yaml belongs in config",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-215-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "search(query) returns a result",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-216-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft_email is the function name",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-217-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rewriteThis handles formatting",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-218-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write_file should remain unchanged",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-219-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate_selection is an enum",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-220-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "make_this_shorter is a test id",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-221-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "fixGrammar() is deprecated",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-222-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "search-provider is a field",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-223-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "reply_with_payload is required",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-224-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft.md is a filename",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-225-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose.json is generated",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-226-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "search.ts exports a helper",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-227-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rewrite_this.rs compiles",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-228-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translateThisToEnglish is a symbol",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-229-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "format_this_as() is not a command",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-230-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "turn_this_into_list is snake case",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-231-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "writeMessage() is a callback",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-232-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft-v2.txt is archived",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-233-identifier-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "search?q=test is a query fragment",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-234-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I need to draft the reply tomorrow",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-235-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I need to draft the reply tomorrow after review",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-236-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "We should write a message later",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-237-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "We should write a message later after review",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-238-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "Can we compose the email after lunch",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-239-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "Can we compose the email after lunch after review",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-240-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I might reply with more details later",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-241-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I might reply with more details later after review",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-242-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The next step is to rewrite this section",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-243-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The next step is to rewrite this section after review",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-244-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "We discussed how to make this warmer",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-245-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "We discussed how to make this warmer after review",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-246-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I plan to translate this into French",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-247-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I plan to translate this into French after review",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-248-mid-sentence-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "Maybe search React on Google tomorrow",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-249-mid-sentence-command",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "Maybe search React on Google tomorrow after review",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-250-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The team will fix the grammar next week",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-251-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "The team will fix the grammar next week after review",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-252-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I want to format this as bullets eventually",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-253-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "I want to format this as bullets eventually after review",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-254-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-255-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-256-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-257-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "reply with",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-258-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft:",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-259-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "write...",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-260-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "compose,",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-261-missing-payload",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "reply with:",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-262-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "draft a reply",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-263-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "write a note",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-264-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "compose an email",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-265-unsupported-locale",
+    "mode": "ask",
+    "locale": "fr",
+    "utterance": "search Rust on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-266-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "rewrite this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-267-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "translate this to French",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-268-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "make this warmer",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-269-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "fix the grammar",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-270-unsupported-locale",
+    "mode": "ask",
+    "locale": "fr",
+    "utterance": "search React on YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-271-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "reply with yes",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-272-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "format this as bullets",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-273-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "turn this into a list",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-274-draft-disabled",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "draft a reply",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": false,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-275-rewrite-disabled",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "rewrite this",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": false,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-276-translate-disabled",
+    "mode": "dictate",
+    "locale": "en",
+    "utterance": "translate this to French",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": false,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "en-277-search-disabled",
+    "mode": "ask",
+    "locale": "en",
+    "utterance": "search Rust on Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": false
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  }
+]

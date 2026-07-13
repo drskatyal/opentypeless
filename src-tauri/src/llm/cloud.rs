@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use futures_util::StreamExt;
 use reqwest::Client;
 
-use crate::error::AppError;
+use crate::error::{managed_cloud_error, AppError};
 use crate::with_desktop_client_version;
 
 use super::{prompt, ChunkCallback, LlmConfig, LlmProvider, PolishRequest, PolishResponse};
@@ -94,6 +94,22 @@ fn cloud_llm_forbidden_error(body: &str) -> AppError {
     AppError::Auth("Cloud LLM access denied".to_string())
 }
 
+fn cloud_context_metadata(
+    context: &crate::app_detector::types::ContextProfileSummary,
+) -> serde_json::Value {
+    serde_json::json!({
+        "profileId": context.profile_id,
+        "family": context.family,
+        "overrideId": context.override_id,
+        "promptVersion": prompt::CONTEXT_PROMPT_VERSION,
+    })
+}
+
+fn cloud_voice_intent_metadata(intent: &crate::voice_intent::VoiceIntent) -> serde_json::Value {
+    serde_json::to_value(crate::voice_intent::VoiceIntentMetadata::from(intent))
+        .expect("voice intent metadata must serialize")
+}
+
 #[async_trait]
 impl LlmProvider for CloudLlmProvider {
     async fn polish(
@@ -113,17 +129,19 @@ impl LlmProvider for CloudLlmProvider {
             .as_ref()
             .is_some_and(|s| !s.trim().is_empty());
 
-        let system_prompt = prompt::build_system_prompt_with_scene(prompt::SystemPromptOptions {
-            app_type: req.app_type,
+        let system_prompt = prompt::build_context_system_prompt(prompt::ContextPromptOptions {
+            context: &req.context,
             dictionary: &req.dictionary,
             correction_rules: &req.correction_rules,
             polish_style: &req.polish_style,
+            personal_style_prompt: "",
+            mapped_scene_prompt: &req.mapped_scene_prompt,
             active_scene_prompt: &req.active_scene_prompt,
             polish_custom_prompt: &req.polish_custom_prompt,
-            polish_chinese_script: &req.polish_chinese_script,
             translate_enabled: req.translate_enabled,
             target_lang: &req.target_lang,
             has_selected_text,
+            voice_intent: Some(&req.voice_intent),
         });
 
         let mut messages = vec![serde_json::json!({ "role": "system", "content": system_prompt })];
@@ -162,7 +180,9 @@ impl LlmProvider for CloudLlmProvider {
         let body = serde_json::json!({
             "messages": messages,
             "stream": on_chunk.is_some(),
-            "context": context
+            "context": context,
+            "contextMetadata": cloud_context_metadata(&req.context),
+            "voiceIntentMetadata": cloud_voice_intent_metadata(&req.voice_intent)
         });
 
         // Retry the initial connection (not once streaming starts)
@@ -187,6 +207,15 @@ impl LlmProvider for CloudLlmProvider {
                     if status.is_success() {
                         response = Some(resp);
                         break;
+                    } else if status.as_u16() == 401 {
+                        let text = resp.text().await.unwrap_or_default();
+                        if let Some(error) = managed_cloud_error(status.as_u16(), &text) {
+                            return Err(error);
+                        }
+                        return Err(AppError::Api {
+                            status: status.as_u16(),
+                            body: text,
+                        });
                     } else if status.as_u16() == 403 {
                         let text = resp.text().await.unwrap_or_default();
                         return Err(cloud_llm_forbidden_error(&text));
@@ -308,6 +337,7 @@ impl LlmProvider for CloudLlmProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app_detector::types::{ContextFamily, ContextProfileSummary};
 
     #[test]
     fn forbidden_error_uses_llm_quota_code() {
@@ -323,5 +353,59 @@ mod tests {
             r#"{"error":{"code":"llm_quota_exceeded","message":"LLM quota exceeded"}}"#,
         );
         assert!(matches!(err, AppError::LlmQuota(_)));
+    }
+
+    #[test]
+    fn managed_context_metadata_excludes_labels_icons_and_raw_signals() {
+        let metadata = cloud_context_metadata(&ContextProfileSummary {
+            profile_id: "email.gmail".to_string(),
+            family: ContextFamily::Email,
+            app_label: "Gmail private label".to_string(),
+            icon_key: "gmail".to_string(),
+            override_id: Some("gmail".to_string()),
+            browser_access_status: crate::app_detector::types::BrowserAccessStatus::NotApplicable,
+            browser_target: None,
+        });
+
+        assert_eq!(metadata["profileId"], "email.gmail");
+        assert_eq!(metadata["family"], "email");
+        assert_eq!(metadata["promptVersion"], prompt::CONTEXT_PROMPT_VERSION);
+        let serialized = metadata.to_string();
+        for forbidden in [
+            "private label",
+            "iconKey",
+            "processName",
+            "windowTitle",
+            "browserHost",
+            "transcript",
+        ] {
+            assert!(!serialized.contains(forbidden));
+        }
+    }
+
+    #[test]
+    fn managed_voice_intent_metadata_excludes_payload_and_uses_closed_bands() {
+        let intent = crate::voice_intent::VoiceIntent::from_parts(
+            crate::voice_intent::VoiceIntentKind::DraftInsert,
+            crate::voice_intent::VoiceOutputPlacement::InsertAtCursor,
+            1.0,
+            None,
+            Some("private draft payload".to_string()),
+            Some(crate::voice_intent::CommandLocale::En),
+            None,
+        )
+        .unwrap();
+        let metadata = cloud_voice_intent_metadata(&intent);
+
+        assert_eq!(
+            metadata,
+            serde_json::json!({
+                "kind": "draft_insert",
+                "placement": "insert_at_cursor",
+                "grammarLocale": "en",
+                "confidenceBand": "exact"
+            })
+        );
+        assert!(!metadata.to_string().contains("private draft payload"));
     }
 }

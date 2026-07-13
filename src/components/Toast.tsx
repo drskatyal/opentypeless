@@ -2,23 +2,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, XCircle, Info } from 'lucide-react'
 import { spring } from '../lib/animations'
-
-type ToastType = 'success' | 'error' | 'info'
+import { registerToastHandler, type ToastType } from './toast-service'
 
 interface ToastMessage {
   id: number
   text: string
   type: ToastType
 }
-
-let addToast: (text: string, type?: ToastType) => void = () => {}
-
-export function toast(text: string, type: ToastType = 'info') {
-  addToast(text, type)
-}
-
-toast.success = (text: string) => toast(text, 'success')
-toast.error = (text: string) => toast(text, 'error')
 
 const icons: Record<ToastType, typeof Info> = {
   success: CheckCircle2,
@@ -40,14 +30,11 @@ export function ToastContainer() {
   }, [])
 
   useEffect(() => {
-    addToast = (text: string, type: ToastType = 'info') => {
+    return registerToastHandler((text: string, type: ToastType = 'info') => {
       const id = Date.now()
       setToasts((prev) => [...prev, { id, text, type }])
       setTimeout(() => remove(id), 3000)
-    }
-    return () => {
-      addToast = () => {}
-    }
+    })
   }, [remove])
 
   return (

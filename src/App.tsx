@@ -58,10 +58,22 @@ function CapsuleApp() {
 
 function AskApp() {
   useTheme()
+  const setConfig = useAppStore((s) => s.setConfig)
 
   useEffect(() => {
     useAuthStore.getState().initialize()
-  }, [])
+    getConfig()
+      .then((config) => {
+        setConfig(config)
+        if (config.ui_language && config.ui_language !== i18n.language) {
+          i18n.changeLanguage(config.ui_language)
+          localStorage.setItem('ui_language', config.ui_language)
+        }
+      })
+      .catch((e) => {
+        console.error('Failed to load config in Ask app:', e)
+      })
+  }, [setConfig])
 
   return (
     <>

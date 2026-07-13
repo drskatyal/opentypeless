@@ -33,18 +33,15 @@ describe('appStore platform default shortcuts', () => {
     expect(config.hotkeys.translate).toEqual({ primary: 'LeftShift', modifiers: ['Fn'] })
   })
 
-  it('uses the RightAlt shortcut family on Windows', async () => {
+  it('uses conservative Ctrl shortcuts on Windows', async () => {
     const config = await loadConfigForPlatform('Win32')
 
-    expect(config.hotkey).toBe('RightAlt')
-    expect(config.ask_hotkey).toBe('RightAlt+Space')
-    expect(config.hotkey_mode).toBe('toggle')
-    expect(config.hotkeys.dictation).toEqual({ primary: 'RightAlt', modifiers: [] })
-    expect(config.hotkeys.ask).toEqual({ primary: 'Space', modifiers: ['RightAlt'] })
-    expect(config.hotkeys.translate).toEqual({
-      primary: 'LeftShift',
-      modifiers: ['RightAlt'],
-    })
+    expect(config.hotkey).toBe('Ctrl+/')
+    expect(config.ask_hotkey).toBe('Ctrl+.')
+    expect(config.hotkey_mode).toBe('hold')
+    expect(config.hotkeys.dictation).toEqual({ primary: '/', modifiers: ['Ctrl'] })
+    expect(config.hotkeys.ask).toEqual({ primary: '.', modifiers: ['Ctrl'] })
+    expect(config.hotkeys.translate).toEqual({ primary: '/', modifiers: ['Ctrl', 'Shift'] })
   })
 
   it('keeps conservative Ctrl shortcuts on Linux', async () => {
@@ -55,6 +52,6 @@ describe('appStore platform default shortcuts', () => {
     expect(config.hotkey_mode).toBe('hold')
     expect(config.hotkeys.dictation).toEqual({ primary: '/', modifiers: ['Ctrl'] })
     expect(config.hotkeys.ask).toEqual({ primary: '.', modifiers: ['Ctrl'] })
-    expect(config.hotkeys.translate).toBeNull()
+    expect(config.hotkeys.translate).toEqual({ primary: '/', modifiers: ['Ctrl', 'Shift'] })
   })
 })

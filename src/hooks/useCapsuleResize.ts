@@ -9,6 +9,7 @@ interface CapsuleSize {
 export interface CapsuleVisibilityInput {
   capsuleAutoHide: boolean
   contextMenuOpen: boolean
+  translationTargetMenuOpen?: boolean
   capsuleExpanded: boolean
   hasError: boolean
   pipelineState: PipelineState
@@ -17,12 +18,18 @@ export interface CapsuleVisibilityInput {
 export function getCapsuleVisibility({
   capsuleAutoHide,
   contextMenuOpen,
+  translationTargetMenuOpen = false,
   capsuleExpanded,
   hasError,
   pipelineState,
 }: CapsuleVisibilityInput): boolean {
   return (
-    !capsuleAutoHide || contextMenuOpen || capsuleExpanded || hasError || pipelineState !== 'idle'
+    !capsuleAutoHide ||
+    contextMenuOpen ||
+    translationTargetMenuOpen ||
+    capsuleExpanded ||
+    hasError ||
+    pipelineState !== 'idle'
   )
 }
 
@@ -35,7 +42,9 @@ function getSizeForState(
   expanded: boolean,
   hasError: boolean,
   contextMenuOpen: boolean,
+  translationTargetMenuOpen = false,
 ): CapsuleSize {
+  if (translationTargetMenuOpen) return { width: 360, height: 180 }
   if (contextMenuOpen) return { width: 220, height: 220 }
   if (hasError) return { width: 200, height: 36 }
   if (expanded) return { width: 220, height: 90 }
@@ -63,6 +72,7 @@ export function useCapsuleResize() {
   const capsuleExpanded = useAppStore((s) => s.capsuleExpanded)
   const pipelineError = useAppStore((s) => s.pipelineError)
   const contextMenuOpen = useAppStore((s) => s.contextMenuOpen)
+  const translationTargetMenuOpen = useAppStore((s) => s.translationTargetMenuOpen)
   const setContextMenuReady = useAppStore((s) => s.setContextMenuReady)
   const capsuleAutoHide = useAppStore((s) => s.config.capsule_auto_hide)
   const initialized = useRef(false)
@@ -71,12 +81,19 @@ export function useCapsuleResize() {
   const hasError = pipelineError !== null
 
   useEffect(() => {
-    const size = getSizeForState(pipelineState, capsuleExpanded, hasError, contextMenuOpen)
+    const size = getSizeForState(
+      pipelineState,
+      capsuleExpanded,
+      hasError,
+      contextMenuOpen,
+      translationTargetMenuOpen,
+    )
     const windowWidth = size.width + 24
     const windowHeight = size.height + 24
     const shouldShow = getCapsuleVisibility({
       capsuleAutoHide,
       contextMenuOpen,
+      translationTargetMenuOpen,
       capsuleExpanded,
       hasError,
       pipelineState,
@@ -153,9 +170,16 @@ export function useCapsuleResize() {
     capsuleExpanded,
     hasError,
     contextMenuOpen,
+    translationTargetMenuOpen,
     capsuleAutoHide,
     setContextMenuReady,
   ])
 
-  return getSizeForState(pipelineState, capsuleExpanded, hasError, contextMenuOpen)
+  return getSizeForState(
+    pipelineState,
+    capsuleExpanded,
+    hasError,
+    contextMenuOpen,
+    translationTargetMenuOpen,
+  )
 }

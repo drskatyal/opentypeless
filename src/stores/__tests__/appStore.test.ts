@@ -53,21 +53,18 @@ describe('appStore', () => {
       const isWindows =
         typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('WIN')
       expect(config.theme).toBe('system')
-      expect(config.hotkey).toBe(isMac ? 'Fn' : isWindows ? 'RightAlt' : 'Ctrl+/')
-      expect(config.ask_hotkey).toBe(isMac ? 'Fn+Space' : isWindows ? 'RightAlt+Space' : 'Ctrl+.')
+      expect(config.hotkey).toBe(isMac ? 'Fn' : 'Ctrl+/')
+      expect(config.ask_hotkey).toBe(isMac ? 'Fn+Space' : 'Ctrl+.')
       expect(config.hotkeys.dictation).toEqual(
-        isMac
-          ? { primary: 'Fn', modifiers: [] }
-          : isWindows
-            ? { primary: 'RightAlt', modifiers: [] }
-            : { primary: '/', modifiers: ['Ctrl'] },
+        isMac ? { primary: 'Fn', modifiers: [] } : { primary: '/', modifiers: ['Ctrl'] },
       )
       expect(config.hotkeys.ask).toEqual(
-        isMac
-          ? { primary: 'Space', modifiers: ['Fn'] }
-          : isWindows
-            ? { primary: 'Space', modifiers: ['RightAlt'] }
-            : { primary: '.', modifiers: ['Ctrl'] },
+        isMac ? { primary: 'Space', modifiers: ['Fn'] } : { primary: '.', modifiers: ['Ctrl'] },
+      )
+      expect(config.hotkeys.dictationBindings).toEqual([config.hotkeys.dictation])
+      expect(config.hotkeys.askBindings).toEqual([config.hotkeys.ask])
+      expect(config.hotkeys.translateBindings).toEqual(
+        config.hotkeys.translate ? [config.hotkeys.translate] : [],
       )
       expect(config.hotkeys.dictationMode).toBe(isMac || isWindows ? 'toggle' : 'hold')
       expect(config.output_mode).toBe('keyboard')
@@ -79,6 +76,8 @@ describe('appStore', () => {
       expect(config.polish_chinese_script).toBe('preserve')
       expect(config.custom_scenes).toEqual([])
       expect(config.active_scene).toBeNull()
+      expect(config.translation).toEqual({ targets: ['en'], active_target: 'en' })
+      expect(config.target_lang).toBe('en')
       expect(config.stt_custom_api_key).toBe('')
       expect(config.capsule_auto_hide).toBe(true)
       expect(config.auto_start).toBe(true)
@@ -155,6 +154,72 @@ describe('appStore', () => {
       expect(config.ask_hotkey).toBe('')
       expect(config.hotkeys.ask).toBeNull()
     })
+
+    it('normalizes ordered hotkey binding lists and mirrors index zero', () => {
+      getState().updateConfig({
+        hotkeys: {
+          ...getState().config.hotkeys,
+          dictationBindings: [
+            { primary: 'D', modifiers: ['Shift', 'control'] },
+            { primary: 'D', modifiers: ['Ctrl', 'Shift'] },
+            { primary: 'F8', modifiers: [] },
+            { primary: 'F9', modifiers: [] },
+            { primary: 'F10', modifiers: [] },
+          ],
+          askBindings: [],
+          translateBindings: [
+            { primary: 'T', modifiers: ['Ctrl', 'Shift'] },
+            { primary: 'F7', modifiers: [] },
+          ],
+        },
+      })
+
+      const { config } = getState()
+      expect(config.hotkeys.dictationBindings).toEqual([
+        { primary: 'D', modifiers: ['Ctrl', 'Shift'] },
+        { primary: 'F8', modifiers: [] },
+        { primary: 'F9', modifiers: [] },
+      ])
+      expect(config.hotkeys.dictation).toEqual(config.hotkeys.dictationBindings[0])
+      expect(config.hotkey).toBe('Ctrl+Shift+D')
+      expect(config.hotkeys.askBindings).toEqual([])
+      expect(config.hotkeys.ask).toBeNull()
+      expect(config.ask_hotkey).toBe('')
+      expect(config.hotkeys.translate).toEqual(config.hotkeys.translateBindings[0])
+    })
+
+    it('wraps legacy hotkeys into binding lists', () => {
+      getState().updateConfig({
+        hotkey: 'Ctrl+Shift+;',
+        ask_hotkey: '',
+        hotkey_mode: 'toggle',
+      })
+
+      const { hotkeys } = getState().config
+      expect(hotkeys.dictationBindings).toEqual([{ primary: ';', modifiers: ['Ctrl', 'Shift'] }])
+      expect(hotkeys.askBindings).toEqual([])
+      expect(hotkeys.dictationMode).toBe('toggle')
+    })
+
+    it('keeps ordered translation targets and the legacy target mirror in sync', () => {
+      getState().updateConfig({ target_lang: 'ja' })
+      expect(getState().config.translation).toEqual({
+        targets: ['en', 'ja'],
+        active_target: 'ja',
+      })
+
+      getState().updateConfig({
+        translation: {
+          targets: ['fr', 'fr', 'xx', 'ja', 'de', 'es', 'pt', 'it'],
+          active_target: 'ja',
+        },
+      })
+      expect(getState().config.translation).toEqual({
+        targets: ['fr', 'ja', 'de', 'es', 'pt'],
+        active_target: 'ja',
+      })
+      expect(getState().config.target_lang).toBe('ja')
+    })
   })
 
   describe('history', () => {
@@ -167,8 +232,12 @@ describe('appStore', () => {
         {
           id: 1,
           created_at: '2025-01-01',
-          app_name: 'Test',
-          app_type: 'browser',
+          context_profile_id: 'general.native',
+          context_label: 'General',
+          context_icon_key: 'general',
+          context_family: 'general',
+          browser_access_status: 'not_applicable',
+          provider_kind: 'local',
           raw_text: 'hello',
           polished_text: 'Hello.',
           language: 'en',

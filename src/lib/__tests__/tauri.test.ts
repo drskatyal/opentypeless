@@ -3,10 +3,16 @@ import { invoke } from '@tauri-apps/api/core'
 import {
   addCorrectionRule,
   clearCredential,
+  commitDictionaryImport,
+  exportDictionaryCsv,
+  exportDictionaryJson,
   getCorrectionRules,
   migrateLegacyCredentials,
+  previewDictionaryImport,
   removeCorrectionRule,
   setCorrectionRuleEnabled,
+  updateCorrectionRule,
+  updateDictionaryEntry,
   waitForAccessibilityPermission,
 } from '../tauri'
 
@@ -125,5 +131,54 @@ describe('dictionary correction commands', () => {
       id: 7,
       enabled: false,
     })
+  })
+
+  it('updates dictionary and correction rows through typed commands', async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined)
+
+    await updateDictionaryEntry(4, 'OpenTypeless', 'open typeless')
+    await updateCorrectionRule(7, 'open type less', 'OpenTypeless', false)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'update_dictionary_entry', {
+      id: 4,
+      word: 'OpenTypeless',
+      pronunciation: 'open typeless',
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'update_correction_rule', {
+      id: 7,
+      pattern: 'open type less',
+      replacement: 'OpenTypeless',
+      enabled: false,
+    })
+  })
+
+  it('previews and commits identical import bytes and exports content only', async () => {
+    const report = {
+      accepted: 1,
+      skippedDuplicates: 0,
+      skippedInvalid: 0,
+      errors: [],
+    }
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(report)
+      .mockResolvedValueOnce(report)
+      .mockResolvedValueOnce('{}')
+      .mockResolvedValueOnce('type,word')
+
+    await expect(previewDictionaryImport([65], 'txt')).resolves.toEqual(report)
+    await expect(commitDictionaryImport([65], 'txt')).resolves.toEqual(report)
+    await expect(exportDictionaryJson()).resolves.toBe('{}')
+    await expect(exportDictionaryCsv()).resolves.toBe('type,word')
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'preview_dictionary_import', {
+      bytes: [65],
+      format: 'txt',
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'commit_dictionary_import', {
+      bytes: [65],
+      format: 'txt',
+    })
+    expect(invoke).toHaveBeenNthCalledWith(3, 'export_dictionary_json')
+    expect(invoke).toHaveBeenNthCalledWith(4, 'export_dictionary_csv')
   })
 })

@@ -59,6 +59,9 @@ export function SttPane() {
     : isCustomWhisper
       ? Boolean(config.stt_custom_base_url.trim() && config.stt_custom_model.trim())
       : Boolean(apiKeyDraft)
+  const goUpgrade = () => {
+    window.location.hash = '#/upgrade'
+  }
 
   useEffect(() => {
     if (isCloud || isAppleSpeech) {
@@ -210,7 +213,16 @@ export function SttPane() {
           {!user ? (
             <p className="text-[12px] text-text-secondary">{t('settings.sttSignInHint')}</p>
           ) : !hasCloudAccess ? (
-            <p className="text-[12px] text-text-secondary">{t('settings.sttUpgradeHint')}</p>
+            <div className="space-y-2">
+              <p className="text-[12px] text-text-secondary">{t('settings.sttUpgradeHint')}</p>
+              <button
+                type="button"
+                onClick={goUpgrade}
+                className="rounded-[8px] border border-accent bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent-hover"
+              >
+                {t('nav.upgrade')}
+              </button>
+            </div>
           ) : (
             <p className="text-[12px] text-green-500">{t('settings.sttProActive')}</p>
           )}

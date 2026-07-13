@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DoneStep } from '../DoneStep'
+import * as tauri from '../../../lib/tauri'
 
 const mockConfig = {
   hotkey: 'Fn',
@@ -57,9 +58,11 @@ vi.mock('../../../lib/tauri', () => ({
   checkAccessibilityPermission: vi.fn().mockResolvedValue(true),
   requestAccessibilityPermission: vi.fn().mockResolvedValue(true),
   waitForAccessibilityPermission: vi.fn().mockResolvedValue(true),
+  resumeHotkey: vi.fn().mockResolvedValue(undefined),
 }))
 
 beforeEach(() => {
+  vi.clearAllMocks()
   Object.assign(mockConfig, {
     hotkey: 'Fn',
     ask_hotkey: 'Fn+Space',
@@ -73,14 +76,7 @@ afterEach(() => cleanup())
 describe('DoneStep', () => {
   it.each([
     ['macOS', 'Fn', 'Fn+Space', 'toggle', 'Press Fn', 'Ask Anything Fn+Space'],
-    [
-      'Windows',
-      'RightAlt',
-      'RightAlt+Space',
-      'toggle',
-      'Press RightAlt',
-      'Ask Anything RightAlt+Space',
-    ],
+    ['Windows', 'Ctrl+/', 'Ctrl+.', 'hold', 'Hold Ctrl+/', 'Ask Anything Ctrl+.'],
     ['Linux', 'Ctrl+/', 'Ctrl+.', 'hold', 'Hold Ctrl+/', 'Ask Anything Ctrl+.'],
   ])(
     'teaches current %s shortcuts and capsule controls during onboarding',
@@ -113,5 +109,26 @@ describe('DoneStep', () => {
 
     expect(screen.getByText('Press Fn')).toBeInTheDocument()
     expect(screen.queryByText(/Ask Anything/)).not.toBeInTheDocument()
+  })
+
+  it('does not repeat the Accessibility grant already handled by Permissions', () => {
+    const originalPlatform = window.navigator.platform
+    Object.defineProperty(window.navigator, 'platform', {
+      value: 'MacIntel',
+      configurable: true,
+    })
+    Object.assign(mockConfig, { output_mode: 'keyboard' })
+
+    try {
+      render(<DoneStep />)
+
+      expect(tauri.checkAccessibilityPermission).not.toHaveBeenCalled()
+      expect(screen.queryByText('onboarding.done.accessibilityRequired')).not.toBeInTheDocument()
+    } finally {
+      Object.defineProperty(window.navigator, 'platform', {
+        value: originalPlatform,
+        configurable: true,
+      })
+    }
   })
 })

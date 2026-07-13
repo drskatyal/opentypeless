@@ -2,6 +2,20 @@ use crate::credentials::{resolve_config_secret, SystemCredentialVault};
 use crate::SessionTokenStore;
 use crate::{api_base_url, with_desktop_client_version};
 
+#[tauri::command]
+pub fn get_llm_model_capability(
+    provider: String,
+    base_url: String,
+    model: String,
+) -> crate::llm::model_capabilities::ModelCapability {
+    crate::llm::model_capabilities::model_capability(
+        &provider,
+        &base_url,
+        &model,
+        crate::llm::prompt::CONTEXT_PROMPT_VERSION,
+    )
+}
+
 fn synthetic_operation_id() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -85,7 +99,7 @@ pub async fn test_llm_connection(
     let api_key = resolve_config_secret(&api_key, "llm", &provider, &SystemCredentialVault)
         .map_err(|e| e.to_string())?;
 
-    if api_key.is_empty() || base_url.is_empty() {
+    if base_url.is_empty() || !crate::llm::has_usable_provider_credentials(&provider, &api_key) {
         return Ok(false);
     }
 
@@ -102,10 +116,8 @@ pub async fn test_llm_connection(
         "max_tokens": 1
     });
 
-    let resp = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
+    let request = client.post(&url).header("Content-Type", "application/json");
+    let resp = crate::llm::apply_provider_auth_header(request, &provider, &api_key)
         .json(&body)
         .timeout(std::time::Duration::from_secs(15))
         .send()
@@ -115,9 +127,25 @@ pub async fn test_llm_connection(
     Ok(resp.status().is_success())
 }
 
+fn build_fetch_models_request(
+    client: &reqwest::Client,
+    provider: &str,
+    api_key: &str,
+    url: &str,
+) -> reqwest::RequestBuilder {
+    crate::llm::apply_provider_auth_header(client.get(url), provider, api_key)
+}
+
 #[tauri::command]
-pub async fn fetch_llm_models(api_key: String, base_url: String) -> Result<Vec<String>, String> {
+pub async fn fetch_llm_models(
+    api_key: String,
+    provider: String,
+    base_url: String,
+) -> Result<Vec<String>, String> {
     if base_url.is_empty() {
+        return Ok(vec![]);
+    }
+    if !crate::llm::has_usable_provider_credentials(&provider, &api_key) {
         return Ok(vec![]);
     }
 
@@ -130,9 +158,7 @@ pub async fn fetch_llm_models(api_key: String, base_url: String) -> Result<Vec<S
     let client = reqwest::Client::new();
     let url = format!("{}/models", base_url.trim_end_matches('/'));
 
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+    let resp = build_fetch_models_request(&client, &provider, &api_key, &url)
         .timeout(std::time::Duration::from_secs(10))
         .send()
         .await
@@ -212,6 +238,37 @@ mod tests {
         assert!(has_managed_cloud_access(&lifetime_legacy_quota));
         assert!(has_managed_cloud_access(&lifetime_cloud_words));
     }
+
+    #[test]
+    fn model_request_omits_authorization_for_keyless_ollama() {
+        let request = build_fetch_models_request(
+            &reqwest::Client::new(),
+            "ollama",
+            "",
+            "http://localhost:11434/v1/models",
+        )
+        .build()
+        .unwrap();
+
+        assert!(request.headers().get("Authorization").is_none());
+    }
+
+    #[test]
+    fn model_request_keeps_authorization_for_keyed_providers() {
+        let request = build_fetch_models_request(
+            &reqwest::Client::new(),
+            "openai",
+            "sk-test",
+            "https://api.openai.com/v1/models",
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(
+            request.headers().get("Authorization").unwrap(),
+            "Bearer sk-test"
+        );
+    }
 }
 
 #[tauri::command]
@@ -271,7 +328,7 @@ pub async fn bench_llm_connection(
     let api_key = resolve_config_secret(&api_key, "llm", &provider, &SystemCredentialVault)
         .map_err(|e| e.to_string())?;
 
-    if api_key.is_empty() || base_url.is_empty() {
+    if base_url.is_empty() || !crate::llm::has_usable_provider_credentials(&provider, &api_key) {
         return Err("API key or base URL is empty".to_string());
     }
 
@@ -288,10 +345,8 @@ pub async fn bench_llm_connection(
     });
 
     let t0 = std::time::Instant::now();
-    let resp = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
+    let request = client.post(&url).header("Content-Type", "application/json");
+    let resp = crate::llm::apply_provider_auth_header(request, &provider, &api_key)
         .json(&body)
         .timeout(std::time::Duration::from_secs(15))
         .send()

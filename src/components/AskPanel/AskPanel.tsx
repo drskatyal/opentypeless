@@ -8,7 +8,7 @@ import {
   stopAskDictation,
   takePendingAskMessage,
 } from '../../lib/tauri'
-import type { AskDictationStartResult } from '../../lib/tauri'
+import type { AskDictationResult, AskDictationStartResult } from '../../lib/tauri'
 
 interface AskPanelProps {
   embedded?: boolean
@@ -16,16 +16,7 @@ interface AskPanelProps {
   title?: string
 }
 
-interface AskResultPayload {
-  question: string
-  answer: string
-  intent: string
-  output: 'popupAnswer' | 'openedSearch'
-  usedSelectedText: boolean
-  selectedTextTruncated: boolean
-  searchProvider: string | null
-  searchUrl: string | null
-}
+type AskResultPayload = AskDictationResult
 
 function currentNativeWindow() {
   try {
@@ -324,19 +315,27 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
   const capsuleActive = dictationState === 'recording' || dictationState === 'processing'
   const displayTitle = title === 'Ask' ? t('ask.title') : title
   const resultText = error || answer
-  const canCopyAnswer = Boolean(answer && !error)
+  const canCopyAnswer = Boolean(answer && !error && result?.output !== 'openedSearch')
   const recordingContextLabel = recordingContext?.usedSelectedText
     ? recordingContext.selectedTextTruncated
       ? t('ask.usingSelectedTextTruncated')
       : t('ask.usingSelectedText')
     : null
-  const contextLabel = result?.usedSelectedText
-    ? result.selectedTextTruncated
-      ? t('ask.usingSelectedTextTruncated')
-      : t('ask.usingSelectedText')
-    : result?.output === 'openedSearch' && result.searchProvider
-      ? t('ask.openedSearch', { provider: result.searchProvider })
-      : t('ask.questionLabel')
+  const contextLabel =
+    result?.fallbackReason === 'feature_disabled'
+      ? t('ask.routeDisabled')
+      : result?.output === 'copiedFallback'
+        ? result.fallbackReason === 'target_changed' ||
+          result.fallbackReason === 'focus_restore_failed'
+          ? t('ask.targetChanged')
+          : t('ask.copiedInstead')
+        : result?.usedSelectedText
+          ? result.selectedTextTruncated
+            ? t('ask.usingSelectedTextTruncated')
+            : t('ask.usingSelectedText')
+          : result?.output === 'openedSearch' && result.searchProvider
+            ? t('ask.searchOpened', { provider: result.searchProvider })
+            : t('ask.questionLabel')
   const copyAction = canCopyAnswer ? (
     <div className="flex shrink-0 items-center gap-2">
       {copied && <span className="text-[11px] text-success">{t('ask.copied')}</span>}
@@ -452,7 +451,7 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
                   </div>
                 </div>
                 <div className="min-h-0 overflow-y-auto rounded-[12px] border border-border bg-bg-secondary/65 px-3 py-2">
-                  {result && !error && (
+                  {result && !error && result.output !== 'openedSearch' && (
                     <p className="mb-2 text-[12px] leading-5 text-text-secondary">
                       {result.question}
                     </p>
@@ -500,7 +499,7 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
                 {copyAction}
               </div>
             )}
-            {result && !error && (
+            {result && !error && result.output !== 'openedSearch' && (
               <p className="mb-2 text-[12px] leading-5 text-text-secondary">{result.question}</p>
             )}
             <p

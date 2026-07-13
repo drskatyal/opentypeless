@@ -1,3 +1,5 @@
+use crate::app_detector::types::{BrowserAccessStatus, BrowserTarget};
+use crate::app_detector::ContextDetectorHandle;
 use crate::hotkey::{HotkeySupervisor, HotkeySupervisorSnapshot, HotkeySupervisorState};
 use crate::native_hotkey::{NativeHotkeyBinding, NativeHotkeyRuntime};
 use crate::pipeline;
@@ -11,6 +13,16 @@ use serde::Serialize;
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+#[tauri::command]
+pub fn request_browser_access(
+    detector: tauri::State<'_, ContextDetectorHandle>,
+    target: BrowserTarget,
+) -> BrowserAccessStatus {
+    let status = crate::app_detector::platform::request_browser_access(target);
+    detector.notify_focus_changed();
+    status
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -76,8 +88,20 @@ pub struct HotkeyStatusError {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct HotkeyConflictRef {
+    pub role: String,
+    pub index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct HotkeyRoleStatus {
     pub role: String,
+    pub index: usize,
+    pub display: String,
+    pub backend: String,
+    pub valid: bool,
+    pub conflict_with: Option<HotkeyConflictRef>,
     pub adapter: String,
     pub state: String,
     pub message: Option<String>,
@@ -155,7 +179,13 @@ fn register_configured_shortcuts_guarded(
     for registered in &plan.global {
         app.global_shortcut()
             .register(registered.shortcut)
-            .map_err(|e| e.to_string())?;
+            .map_err(|error| {
+                format!(
+                    "{} hotkey at index {} failed to register: {error}",
+                    registered.role.as_str(),
+                    registered.index
+                )
+            })?;
     }
 
     if let Some(native_runtime) = app.try_state::<NativeHotkeyRuntime>() {
@@ -164,6 +194,7 @@ fn register_configured_shortcuts_guarded(
             .iter()
             .map(|registered| NativeHotkeyBinding {
                 role: registered.role,
+                index: registered.index,
                 trigger: registered.trigger,
             })
             .collect();
@@ -206,7 +237,29 @@ fn effective_hotkey_config(config: &storage::AppConfig) -> storage::HotkeyConfig
         );
     }
 
-    config.hotkeys.clone()
+    let mut hotkeys = config.hotkeys.clone();
+    replace_effective_primary(
+        &mut hotkeys.dictation_bindings,
+        Some(hotkeys.dictation.clone()),
+    );
+    replace_effective_primary(&mut hotkeys.ask_bindings, hotkeys.ask.clone());
+    replace_effective_primary(&mut hotkeys.translate_bindings, hotkeys.translate.clone());
+    hotkeys
+}
+
+fn replace_effective_primary(
+    bindings: &mut Vec<storage::ShortcutBinding>,
+    primary: Option<storage::ShortcutBinding>,
+) {
+    let current = bindings.first();
+    if current == primary.as_ref() {
+        return;
+    }
+    match (bindings.first_mut(), primary) {
+        (Some(current), Some(primary)) => *current = primary,
+        (None, Some(primary)) => bindings.push(primary),
+        (_, None) => bindings.clear(),
+    }
 }
 
 #[cfg(test)]
@@ -232,17 +285,28 @@ fn hotkey_capability_for(caps: &platform::PlatformCapabilities) -> HotkeyCapabil
     }
 }
 
+struct HotkeyRoleStatusContext<'a> {
+    validation_error: Option<&'a crate::hotkey::HotkeyPairError>,
+    registration_error: Option<&'a str>,
+    supervisor: Option<&'a HotkeySupervisorSnapshot>,
+    capability: &'a HotkeyCapability,
+}
+
 fn hotkey_role_status(
     role: &str,
+    index: usize,
     binding: Option<&storage::ShortcutBinding>,
-    validation_error: Option<&crate::hotkey::HotkeyPairError>,
-    registration_error: Option<&str>,
-    supervisor: Option<&HotkeySupervisorSnapshot>,
-    capability: &HotkeyCapability,
+    conflict_with: Option<HotkeyConflictRef>,
+    context: &HotkeyRoleStatusContext<'_>,
 ) -> HotkeyRoleStatus {
     let Some(binding) = binding else {
         return HotkeyRoleStatus {
             role: role.to_string(),
+            index,
+            display: String::new(),
+            backend: "unavailable".to_string(),
+            valid: true,
+            conflict_with: None,
             adapter: "unavailable".to_string(),
             state: "disabled".to_string(),
             message: None,
@@ -254,78 +318,91 @@ fn hotkey_role_status(
     } else {
         "tauriGlobalShortcut"
     };
+    let display = binding
+        .to_hotkey_string()
+        .unwrap_or_else(|| binding.primary.clone());
+    let valid = crate::hotkey::binding_is_valid_for_platform(binding, &context.capability.platform)
+        && conflict_with.is_none();
+    let status = |adapter: &str,
+                  state: &str,
+                  message: Option<String>,
+                  last_error: Option<HotkeyStatusError>| HotkeyRoleStatus {
+        role: role.to_string(),
+        index,
+        display: display.clone(),
+        backend: adapter.to_string(),
+        valid,
+        conflict_with: conflict_with.clone(),
+        adapter: adapter.to_string(),
+        state: state.to_string(),
+        message,
+        last_error,
+    };
 
-    if let Some(error) = validation_error {
-        return HotkeyRoleStatus {
-            role: role.to_string(),
-            adapter: adapter.to_string(),
-            state: "failed".to_string(),
-            message: Some(error.to_string()),
-            last_error: Some(HotkeyStatusError {
-                code: "invalidBinding".to_string(),
+    if let Some(error) = context.validation_error {
+        return status(
+            adapter,
+            "failed",
+            Some(error.to_string()),
+            Some(HotkeyStatusError {
+                code: if error.is_conflict() {
+                    "conflict".to_string()
+                } else {
+                    "invalidBinding".to_string()
+                },
                 message: error.to_string(),
             }),
-        };
+        );
     }
 
-    if !crate::hotkey::binding_is_valid_for_registration(binding) {
-        return HotkeyRoleStatus {
-            role: role.to_string(),
-            adapter: adapter.to_string(),
-            state: "failed".to_string(),
-            message: Some("Invalid shortcut binding".to_string()),
-            last_error: Some(HotkeyStatusError {
+    if !valid {
+        return status(
+            adapter,
+            "failed",
+            Some("Invalid shortcut binding".to_string()),
+            Some(HotkeyStatusError {
                 code: "invalidBinding".to_string(),
                 message: "Invalid shortcut binding".to_string(),
             }),
-        };
+        );
     }
 
-    if let Some(snapshot) = supervisor {
+    if let Some(snapshot) = context.supervisor {
         if snapshot.state == HotkeySupervisorState::Starting {
-            return HotkeyRoleStatus {
-                role: role.to_string(),
-                adapter: adapter.to_string(),
-                state: "starting".to_string(),
-                message: snapshot.last_error.clone(),
-                last_error: snapshot.last_error.as_ref().map(|error| HotkeyStatusError {
+            return status(
+                adapter,
+                "starting",
+                snapshot.last_error.clone(),
+                snapshot.last_error.as_ref().map(|error| HotkeyStatusError {
                     code: "registrationFailed".to_string(),
                     message: error.clone(),
                 }),
-            };
+            );
         }
 
         if snapshot.state == HotkeySupervisorState::Disabled {
-            return HotkeyRoleStatus {
-                role: role.to_string(),
-                adapter: "unavailable".to_string(),
-                state: "disabled".to_string(),
-                message: None,
-                last_error: None,
-            };
+            return status("unavailable", "disabled", None, None);
         }
     }
 
-    if let Some(error) = registration_error {
-        return HotkeyRoleStatus {
-            role: role.to_string(),
-            adapter: adapter.to_string(),
-            state: "failed".to_string(),
-            message: Some(error.to_string()),
-            last_error: Some(HotkeyStatusError {
+    if let Some(error) = context.registration_error {
+        return status(
+            adapter,
+            "failed",
+            Some(error.to_string()),
+            Some(HotkeyStatusError {
                 code: "registrationFailed".to_string(),
                 message: error.to_string(),
             }),
-        };
+        );
     }
 
-    HotkeyRoleStatus {
-        role: role.to_string(),
-        adapter: adapter.to_string(),
-        state: "installed".to_string(),
-        message: capability.status_hint.clone(),
-        last_error: None,
-    }
+    status(
+        adapter,
+        "installed",
+        context.capability.status_hint.clone(),
+        None,
+    )
 }
 
 #[cfg(test)]
@@ -353,7 +430,7 @@ fn hotkey_status_for_with_capability_and_supervisor(
         .as_ref()
         .and_then(storage::ShortcutBinding::to_hotkey_string)
         .unwrap_or_else(|| config.ask_hotkey.clone());
-    let validation_result = crate::hotkey::validate_hotkey_config(&hotkeys);
+    let validation_result = crate::hotkey::validate_hotkey_config_for_platform(&hotkeys, &caps.os);
     let validation_error = validation_result.as_ref().err();
     let capability = hotkey_capability_for(&caps);
     let supervisor_error = supervisor
@@ -362,63 +439,118 @@ fn hotkey_status_for_with_capability_and_supervisor(
     let effective_registration_error = registration_error.or(supervisor_error);
     let registration_error_ref = effective_registration_error.as_deref();
     let supervisor_ref = supervisor.as_ref();
-    let role_bindings = [
-        (
-            crate::hotkey::HotkeyRole::Dictation.as_str(),
-            Some(&hotkeys.dictation),
-        ),
-        (
-            crate::hotkey::HotkeyRole::Ask.as_str(),
-            hotkeys.ask.as_ref(),
-        ),
-        (
+    let role_context = HotkeyRoleStatusContext {
+        validation_error,
+        registration_error: registration_error_ref,
+        supervisor: supervisor_ref,
+        capability: &capability,
+    };
+    let mut role_bindings: Vec<(&str, usize, Option<&storage::ShortcutBinding>)> = Vec::new();
+    role_bindings.extend(
+        hotkeys
+            .dictation_bindings
+            .iter()
+            .enumerate()
+            .map(|(index, binding)| {
+                (
+                    crate::hotkey::HotkeyRole::Dictation.as_str(),
+                    index,
+                    Some(binding),
+                )
+            }),
+    );
+    if hotkeys.ask_bindings.is_empty() {
+        role_bindings.push((crate::hotkey::HotkeyRole::Ask.as_str(), 0, None));
+    } else {
+        role_bindings.extend(
+            hotkeys
+                .ask_bindings
+                .iter()
+                .enumerate()
+                .map(|(index, binding)| {
+                    (
+                        crate::hotkey::HotkeyRole::Ask.as_str(),
+                        index,
+                        Some(binding),
+                    )
+                }),
+        );
+    }
+    if hotkeys.translate_bindings.is_empty() {
+        role_bindings.push((
             crate::hotkey::HotkeyRole::TranslateSelection.as_str(),
-            hotkeys.translate.as_ref(),
-        ),
+            0,
+            None,
+        ));
+    } else {
+        role_bindings.extend(hotkeys.translate_bindings.iter().enumerate().map(
+            |(index, binding)| {
+                (
+                    crate::hotkey::HotkeyRole::TranslateSelection.as_str(),
+                    index,
+                    Some(binding),
+                )
+            },
+        ));
+    }
+    role_bindings.extend([
         (
             crate::hotkey::HotkeyRole::EditSelection.as_str(),
+            0,
             hotkeys.edit_selection.as_ref(),
         ),
         (
             crate::hotkey::HotkeyRole::SwitchScene.as_str(),
+            0,
             hotkeys.switch_scene.as_ref(),
         ),
         (
             crate::hotkey::HotkeyRole::OpenApp.as_str(),
+            0,
             hotkeys.open_app.as_ref(),
         ),
-    ];
+    ]);
     let roles = role_bindings
-        .into_iter()
-        .map(|(role, binding)| {
-            hotkey_role_status(
-                role,
-                binding,
-                validation_error,
-                registration_error_ref,
-                supervisor_ref,
-                &capability,
-            )
+        .iter()
+        .enumerate()
+        .map(|(position, (role, index, binding))| {
+            let conflict_with = binding.and_then(|binding| {
+                let value = binding.to_hotkey_string()?;
+                role_bindings.iter().enumerate().find_map(
+                    |(other_position, (other_role, other_index, other_binding))| {
+                        if position == other_position {
+                            return None;
+                        }
+                        let other_value = other_binding.as_ref().copied()?.to_hotkey_string()?;
+                        crate::hotkey::hotkeys_conflict(&value, &other_value).then(|| {
+                            HotkeyConflictRef {
+                                role: (*other_role).to_string(),
+                                index: *other_index,
+                            }
+                        })
+                    },
+                )
+            });
+            hotkey_role_status(role, *index, *binding, conflict_with, &role_context)
         })
         .collect();
 
     HotkeyStatus {
         dictation: HotkeyBindingStatus {
             value: dictation_value,
-            valid: crate::hotkey::binding_is_valid_for_registration(&hotkeys.dictation),
+            valid: crate::hotkey::binding_is_valid_for_platform(&hotkeys.dictation, &caps.os),
         },
         ask: HotkeyBindingStatus {
             value: ask_value,
             valid: hotkeys.ask.is_none()
-                || hotkeys
-                    .ask
-                    .as_ref()
-                    .is_some_and(crate::hotkey::binding_is_valid_for_registration),
+                || hotkeys.ask.as_ref().is_some_and(|binding| {
+                    crate::hotkey::binding_is_valid_for_platform(binding, &caps.os)
+                }),
         },
-        conflict: matches!(
-            validation_result,
-            Err(crate::hotkey::HotkeyPairError::ConflictingHotkeys)
-        ),
+        conflict: validation_result
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.is_conflict()),
         registration_error: effective_registration_error,
         roles,
         capability,
@@ -498,7 +630,7 @@ fn config_requires_accessibility_permission(
 
 fn config_uses_macos_native_hotkey(config: &storage::AppConfig) -> bool {
     let hotkeys = effective_hotkey_config(config);
-    crate::hotkey::hotkey_registration_plan_from_config(&hotkeys)
+    crate::hotkey::hotkey_registration_plan_from_config_for_platform(&hotkeys, "macos")
         .map(|plan| {
             plan.native.iter().any(|registered| {
                 registered.trigger == crate::native_hotkey::NativeHotkeyTrigger::Fn
@@ -819,6 +951,14 @@ pub async fn update_hotkey(
 ) -> Result<(), String> {
     let previous = config_state.load().await.map_err(|e| e.to_string())?;
     let mut config = previous.clone();
+    let binding = storage::ShortcutBinding::from_hotkey(&hotkey)
+        .ok_or_else(|| format!("Invalid hotkey: {hotkey}"))?;
+    if let Some(primary) = config.hotkeys.dictation_bindings.first_mut() {
+        *primary = binding.clone();
+    } else {
+        config.hotkeys.dictation_bindings.push(binding.clone());
+    }
+    config.hotkeys.dictation = binding;
     config.hotkey = hotkey;
     config.normalize_values();
 
@@ -867,6 +1007,19 @@ pub async fn update_ask_hotkey(
 ) -> Result<(), String> {
     let previous = config_state.load().await.map_err(|e| e.to_string())?;
     let mut config = previous.clone();
+    if hotkey.trim().is_empty() {
+        config.hotkeys.ask_bindings.clear();
+        config.hotkeys.ask = None;
+    } else {
+        let binding = storage::ShortcutBinding::from_hotkey(&hotkey)
+            .ok_or_else(|| format!("Invalid Ask hotkey: {hotkey}"))?;
+        if let Some(primary) = config.hotkeys.ask_bindings.first_mut() {
+            *primary = binding.clone();
+        } else {
+            config.hotkeys.ask_bindings.push(binding.clone());
+        }
+        config.hotkeys.ask = Some(binding);
+    }
     config.ask_hotkey = hotkey;
     config.normalize_values();
 
@@ -958,6 +1111,7 @@ mod tests {
         let config = storage::AppConfig {
             hotkey: "Ctrl+/".to_string(),
             ask_hotkey: "Ctrl+.".to_string(),
+            hotkeys: storage::HotkeyConfig::from_legacy("Ctrl+/", "Ctrl+.", "hold"),
             ..storage::AppConfig::default()
         };
 
@@ -993,6 +1147,7 @@ mod tests {
         let config = storage::AppConfig {
             hotkey: "Ctrl+/".to_string(),
             ask_hotkey: "Ctrl+.".to_string(),
+            hotkeys: storage::HotkeyConfig::from_legacy("Ctrl+/", "Ctrl+.", "hold"),
             ..storage::AppConfig::default()
         };
         let caps = platform::PlatformCapabilities {
@@ -1051,17 +1206,15 @@ mod tests {
     fn hotkey_status_includes_configured_advanced_roles() {
         let mut config = storage::AppConfig::default();
         config.hotkeys.dictation = storage::ShortcutBinding::from_hotkey("Ctrl+/").unwrap();
+        config.hotkeys.dictation_bindings = vec![config.hotkeys.dictation.clone()];
+        config.hotkeys.ask = storage::ShortcutBinding::from_hotkey("Ctrl+.");
+        config.hotkeys.ask_bindings = config.hotkeys.ask.clone().into_iter().collect();
         config.hotkeys.translate = storage::ShortcutBinding::from_hotkey("Ctrl+Shift+T");
         config.hotkeys.edit_selection = storage::ShortcutBinding::from_hotkey("Ctrl+Shift+E");
         config.hotkeys.switch_scene = storage::ShortcutBinding::from_hotkey("Ctrl+Shift+S");
         config.hotkeys.open_app = storage::ShortcutBinding::from_hotkey("Ctrl+Shift+O");
         config.hotkey = config.hotkeys.dictation.to_hotkey_string().unwrap();
-        config.ask_hotkey = config
-            .hotkeys
-            .ask
-            .as_ref()
-            .and_then(storage::ShortcutBinding::to_hotkey_string)
-            .unwrap();
+        config.ask_hotkey = "Ctrl+.".to_string();
         let caps = platform::PlatformCapabilities {
             os: "linux".to_string(),
             session_type: "x11".to_string(),
@@ -1088,9 +1241,48 @@ mod tests {
     }
 
     #[test]
+    fn hotkey_status_reports_indexed_core_binding_entries() {
+        let mut config = storage::AppConfig {
+            hotkeys: storage::HotkeyConfig::from_legacy("Ctrl+/", "Ctrl+.", "hold"),
+            ..Default::default()
+        };
+        config
+            .hotkeys
+            .dictation_bindings
+            .push(storage::ShortcutBinding::from_hotkey("F8").unwrap());
+        config.hotkey = "Ctrl+/".to_string();
+        config.ask_hotkey = "Ctrl+.".to_string();
+        config.hotkey_mode = "hold".to_string();
+        let caps = platform::PlatformCapabilities {
+            os: "linux".to_string(),
+            session_type: "x11".to_string(),
+            global_hotkey_reliable: true,
+            keyboard_output_reliable: true,
+            clipboard_auto_paste_reliable: true,
+        };
+
+        let status = hotkey_status_for_with_capability(&config, None, caps);
+        let dictation: Vec<&HotkeyRoleStatus> = status
+            .roles
+            .iter()
+            .filter(|entry| entry.role == "dictation")
+            .collect();
+
+        assert_eq!(dictation.len(), 2);
+        assert_eq!(dictation[0].index, 0);
+        assert_eq!(dictation[0].display, "Ctrl+/");
+        assert_eq!(dictation[0].backend, "tauriGlobalShortcut");
+        assert!(dictation[0].valid);
+        assert_eq!(dictation[0].conflict_with, None);
+        assert_eq!(dictation[1].index, 1);
+        assert_eq!(dictation[1].display, "F8");
+    }
+
+    #[test]
     fn hotkey_status_reports_native_hook_for_native_dictation() {
         let config = storage::AppConfig {
             hotkey: "RightAlt".to_string(),
+            ask_hotkey: "Ctrl+.".to_string(),
             hotkey_mode: "toggle".to_string(),
             hotkeys: storage::HotkeyConfig::from_legacy("RightAlt", "Ctrl+.", "toggle"),
             ..storage::AppConfig::default()
@@ -1104,7 +1296,6 @@ mod tests {
         };
 
         let status = hotkey_status_for_with_capability(&config, None, caps);
-
         assert!(status.dictation.valid);
         assert_eq!(status.roles[0].role, "dictation");
         assert_eq!(status.roles[0].adapter, "nativeHook");
@@ -1228,6 +1419,7 @@ mod tests {
     fn diagnostics_rows_cover_core_runtime_health_for_configured_native_hook() {
         let config = storage::AppConfig {
             hotkey: "RightAlt".to_string(),
+            ask_hotkey: "Ctrl+.".to_string(),
             hotkey_mode: "toggle".to_string(),
             hotkeys: storage::HotkeyConfig::from_legacy("RightAlt", "Ctrl+.", "toggle"),
             ..storage::AppConfig::default()
@@ -1269,6 +1461,11 @@ mod tests {
             registration_error: None,
             roles: vec![HotkeyRoleStatus {
                 role: "dictation".to_string(),
+                index: 0,
+                display: "RightAlt".to_string(),
+                backend: "nativeHook".to_string(),
+                valid: true,
+                conflict_with: None,
                 adapter: "nativeHook".to_string(),
                 state: "disabled".to_string(),
                 message: None,
@@ -1290,9 +1487,13 @@ mod tests {
     fn hotkey_status_reports_disabled_optional_ask_role() {
         let mut config = storage::AppConfig::default();
         config.hotkeys.dictation = storage::ShortcutBinding::from_hotkey("Ctrl+/").unwrap();
+        config.hotkeys.dictation_bindings = vec![config.hotkeys.dictation.clone()];
         config.hotkey = "Ctrl+/".to_string();
         config.hotkeys.ask = None;
+        config.hotkeys.ask_bindings.clear();
         config.ask_hotkey = String::new();
+        config.hotkeys.translate = None;
+        config.hotkeys.translate_bindings.clear();
         let caps = platform::PlatformCapabilities {
             os: "linux".to_string(),
             session_type: "wayland".to_string(),

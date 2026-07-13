@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { LlmPane } from '../LlmPane'
 import * as tauri from '../../../lib/tauri'
 
@@ -12,6 +12,7 @@ vi.mock('react-i18next', () => ({
     t: (key: string, params?: any) => {
       const translations: Record<string, string> = {
         'settings.provider': 'Provider',
+        'nav.upgrade': 'Upgrade',
         'settings.apiKey': 'API Key',
         'settings.model': 'Model',
         'settings.baseUrl': 'Base URL',
@@ -22,9 +23,21 @@ vi.mock('react-i18next', () => ({
         'settings.storedLocally': 'Stored locally',
         'settings.fetchModels': 'Fetch models',
         'settings.modelsAvailable': `${params?.count || 0} models available`,
+        'settings.modelCertified': 'Optimized context and thought-aware support',
+        'settings.modelBestEffort': 'Context and thought-aware support is best effort',
         'settings.llmModelPlaceholder': 'e.g. gpt-4o-mini',
         'settings.enableAiPolish': 'AI cleanup for dictation',
         'settings.enableAiPolishDesc': 'Cleans up dictation before output',
+        'settings.contextAdaptation': 'Adapt writing to the current app',
+        'settings.contextAdaptationHint': 'Uses a private local app category',
+        'settings.contextAdaptationApps': 'Apps adapted by context',
+        'settings.lastDictationContext': 'Last dictation context',
+        'settings.browserAccessHint':
+          'Allow browser access to use Gmail, Docs, and Slack Web modes.',
+        'settings.appStyleMenu': 'App writing style',
+        'settings.useDifferentWritingStyle': 'Use a different writing style',
+        'settings.manageAppMappings': 'Manage app mappings',
+        'settings.appStyleDialogTitle': 'Writing style for this app',
         'settings.polishStyle': 'Polish style',
         'settings.polishStyleMinimal': 'Minimal',
         'settings.polishStyleClean': 'Clean',
@@ -41,11 +54,14 @@ vi.mock('react-i18next', () => ({
         'settings.translationModeDesc': 'Translate each dictation result',
         'settings.selectedTextContext': 'Use selected text as context',
         'settings.selectedTextContextDesc': 'Use selected text for context',
-        'settings.targetLanguage': 'Target Language',
+        'settings.targetLanguage': 'Translate to',
+        'settings.manageTranslationTargets': 'Manage languages',
         'settings.cloudLlmPro': 'Cloud LLM (Pro)',
-        'settings.llmSignInHint': 'Sign in to use cloud LLM',
-        'settings.llmUpgradeHint': 'Upgrade to Pro to use cloud LLM',
-        'settings.llmProActive': 'Cloud LLM active',
+        'settings.llmSignInHint':
+          'Sign in and subscribe to Pro to use cloud AI polish. No API key needed.',
+        'settings.llmUpgradeHint':
+          'Upgrade to Pro for cloud AI polish and monthly usage. No API key needed.',
+        'settings.llmProActive': 'Pro active — cloud AI polish is ready. No API key needed.',
         'settings.askAnything': 'Ask Anything',
         'settings.askAnythingDesc': 'Voice question, one-shot answer. No chat history.',
         'ask.ready': 'Ready to ask',
@@ -75,14 +91,17 @@ const mockAppStore = {
     llm_base_url: 'https://api.openai.com/v1',
     llm_model: 'gpt-4o-mini',
     polish_enabled: true,
+    context_adaptation_enabled: true,
     polish_style: 'clean',
     polish_custom_prompt: '',
     polish_chinese_script: 'preserve',
     custom_scenes: [],
     active_scene: null as any,
+    family_scene_assignments: [],
     translate_enabled: false,
     selected_text_enabled: false,
     target_lang: 'en',
+    translation: { targets: ['en'], active_target: 'en' },
   },
   updateConfig: vi.fn(),
   setConfig: vi.fn(),
@@ -93,6 +112,7 @@ const mockAppStore = {
   setLlmLatencyMs: vi.fn(),
   llmModels: [] as string[],
   setLlmModels: vi.fn(),
+  lastContext: null as any,
 }
 
 const mockAuthStore = {
@@ -138,18 +158,22 @@ describe('LlmPane', () => {
       llm_base_url: 'https://api.openai.com/v1',
       llm_model: 'gpt-4o-mini',
       polish_enabled: true,
+      context_adaptation_enabled: true,
       polish_style: 'clean',
       polish_custom_prompt: '',
       polish_chinese_script: 'preserve',
       custom_scenes: [],
       active_scene: null,
+      family_scene_assignments: [],
       translate_enabled: false,
       selected_text_enabled: false,
       target_lang: 'en',
+      translation: { targets: ['en'], active_target: 'en' },
     }
     mockAppStore.llmTestStatus = 'idle'
     mockAppStore.llmLatencyMs = null
     mockAppStore.llmModels = []
+    mockAppStore.lastContext = null
     mockAuthStore.user = null
     mockAuthStore.plan = null
     mockAuthStore.source = 'free'
@@ -159,6 +183,9 @@ describe('LlmPane', () => {
     vi.clearAllMocks()
     vi.mocked(tauri.readCredential).mockResolvedValue(null)
     vi.mocked(tauri.setCredential).mockResolvedValue(undefined)
+    vi.mocked(tauri.getLlmModelCapability).mockResolvedValue('unknown')
+    vi.mocked(tauri.getLatestMappingCandidate).mockResolvedValue(null)
+    vi.mocked(tauri.listCustomAppMappings).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -216,7 +243,10 @@ describe('LlmPane', () => {
     it('shows cloud info when provider is cloud and user not signed in', () => {
       mockAppStore.config.llm_provider = 'cloud'
       render(<LlmPane />)
-      expect(screen.getByText('Sign in to use cloud LLM')).toBeInTheDocument()
+      expect(screen.getByText('Cloud LLM (Pro)')).toBeInTheDocument()
+      expect(
+        screen.getByText('Sign in and subscribe to Pro to use cloud AI polish. No API key needed.'),
+      ).toBeInTheDocument()
     })
 
     it('shows upgrade hint when user is signed in but not pro', () => {
@@ -225,7 +255,14 @@ describe('LlmPane', () => {
       mockAuthStore.plan = 'free'
 
       render(<LlmPane />)
-      expect(screen.getByText('Upgrade to Pro to use cloud LLM')).toBeInTheDocument()
+      expect(screen.getByText('Cloud LLM (Pro)')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Upgrade to Pro for cloud AI polish and monthly usage. No API key needed.',
+        ),
+      ).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }))
+      expect(window.location.hash).toBe('#/upgrade')
     })
 
     it('shows active status when user is pro', () => {
@@ -234,7 +271,9 @@ describe('LlmPane', () => {
       mockAuthStore.plan = 'pro'
 
       render(<LlmPane />)
-      expect(screen.getByText('Cloud LLM active')).toBeInTheDocument()
+      expect(
+        screen.getByText('Pro active — cloud AI polish is ready. No API key needed.'),
+      ).toBeInTheDocument()
     })
   })
 
@@ -286,6 +325,51 @@ describe('LlmPane', () => {
       render(<LlmPane />)
       const button = screen.getByRole('button', { name: /test/i })
       expect(button).not.toBeDisabled()
+    })
+
+    it('allows testing Ollama without an API key', async () => {
+      vi.mocked(tauri.benchLlmConnection).mockResolvedValue(42)
+      mockAppStore.config.llm_provider = 'ollama'
+      mockAppStore.config.llm_api_key = ''
+      mockAppStore.config.llm_base_url = 'http://localhost:11434/v1'
+      mockAppStore.config.llm_model = 'llama3.2'
+
+      render(<LlmPane />)
+      const button = screen.getByRole('button', { name: /test/i })
+
+      expect(screen.queryByPlaceholderText('Enter API Key')).not.toBeInTheDocument()
+      expect(button).not.toBeDisabled()
+      fireEvent.click(button)
+      await waitFor(() =>
+        expect(tauri.benchLlmConnection).toHaveBeenCalledWith(
+          '',
+          'ollama',
+          'http://localhost:11434/v1',
+          'llama3.2',
+        ),
+      )
+    })
+
+    it('auto-fetches Ollama models without an API key', async () => {
+      vi.useFakeTimers()
+      try {
+        mockAppStore.config.llm_provider = 'ollama'
+        mockAppStore.config.llm_api_key = ''
+        mockAppStore.config.llm_base_url = 'http://localhost:11434/v1'
+
+        render(<LlmPane />)
+        await vi.advanceTimersByTimeAsync(500)
+
+        expect(tauri.fetchLlmModels).toHaveBeenCalledWith('', 'ollama', 'http://localhost:11434/v1')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not fetch keyed-provider models before an API key is entered', () => {
+      render(<LlmPane />)
+
+      expect(screen.getByTitle('Fetch models')).toBeDisabled()
     })
 
     it('shows loading state during test', () => {
@@ -382,13 +466,27 @@ describe('LlmPane', () => {
       render(<LlmPane />)
 
       expect(screen.getByText('Advanced polish settings')).toBeInTheDocument()
+      expect(screen.queryByText('Optional writing rules')).not.toBeInTheDocument()
       expect(screen.queryByText('Chinese output')).not.toBeInTheDocument()
       expect(screen.queryByText('Custom polish instructions')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use selected text as context')).not.toBeInTheDocument()
 
       fireEvent.click(screen.getByRole('button', { name: /advanced polish settings/i }))
 
       expect(screen.getByText('Custom polish instructions')).toBeInTheDocument()
+      expect(screen.getByText('Use selected text as context')).toBeInTheDocument()
+      expect(screen.getByText('Use selected text for context')).toBeInTheDocument()
       expect(screen.queryByText('Chinese output')).not.toBeInTheDocument()
+    })
+
+    it('keeps selected-text controls reachable when cleanup is disabled', () => {
+      mockAppStore.config.polish_enabled = false
+      render(<LlmPane />)
+
+      fireEvent.click(screen.getByRole('button', { name: /advanced polish settings/i }))
+
+      expect(screen.getByText('Use selected text as context')).toBeInTheDocument()
+      expect(screen.queryByText('Custom polish instructions')).not.toBeInTheDocument()
     })
 
     it('updates custom polish instructions from advanced settings', () => {
@@ -412,7 +510,7 @@ describe('LlmPane', () => {
       expect(screen.queryByText('Chinese output')).not.toBeInTheDocument()
     })
 
-    it('shows and clears the active scene immediately', async () => {
+    it('does not expose legacy global active scenes in AI Polish', () => {
       mockAppStore.config.active_scene = {
         id: 'custom_meeting',
         source: 'custom',
@@ -422,24 +520,35 @@ describe('LlmPane', () => {
 
       render(<LlmPane />)
 
-      expect(screen.getByText('Active scene: Meeting Notes')).toBeInTheDocument()
-      fireEvent.click(screen.getByText('Clear scene'))
-
-      await waitFor(() => {
-        expect(tauri.updateConfig).toHaveBeenCalledWith(
-          expect.objectContaining({ active_scene: null }),
-        )
-      })
-      expect(mockAppStore.setConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ active_scene: null }),
-      )
-      expect(mockAppStore.setSavedConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ active_scene: null }),
-      )
+      expect(screen.queryByText('Active scene: Meeting Notes')).not.toBeInTheDocument()
+      expect(screen.queryByText('Clear scene')).not.toBeInTheDocument()
     })
   })
 
   describe('Model input', () => {
+    it('does not expose model capability implementation notes in the default flow', async () => {
+      vi.mocked(tauri.getLlmModelCapability).mockResolvedValueOnce('certified')
+      render(<LlmPane />)
+
+      expect(
+        screen.queryByText('Optimized context and thought-aware support'),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Context and thought-aware support is best effort'),
+      ).not.toBeInTheDocument()
+      expect(tauri.getLlmModelCapability).not.toHaveBeenCalled()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
+    it('keeps model editing available without a best-effort banner', () => {
+      render(<LlmPane />)
+
+      expect(
+        screen.queryByText('Context and thought-aware support is best effort'),
+      ).not.toBeInTheDocument()
+      expect(screen.getByPlaceholderText('e.g. gpt-4o-mini')).not.toBeDisabled()
+    })
+
     it('updates config and resets latency when model changes', () => {
       render(<LlmPane />)
       const input = screen.getByPlaceholderText('e.g. gpt-4o-mini')
@@ -472,11 +581,197 @@ describe('LlmPane', () => {
   })
 
   describe('Feature toggles', () => {
-    it('shows target language selector when translation is enabled', () => {
+    it('keeps context adaptation adjacent to AI polish and disables it when polish is off', () => {
+      mockAppStore.config.polish_enabled = false
+      render(<LlmPane />)
+
+      const contextSwitch = screen
+        .getByText('Adapt writing to the current app')
+        .closest('label')
+        ?.querySelector('[role="switch"]')
+      expect(contextSwitch).toBeDisabled()
+    })
+
+    it('updates the context adaptation preference', () => {
+      render(<LlmPane />)
+      const contextSwitch = screen
+        .getByText('Adapt writing to the current app')
+        .closest('label')
+        ?.querySelector('[role="switch"]')
+      expect(contextSwitch).not.toBeNull()
+      fireEvent.click(contextSwitch!)
+      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({
+        context_adaptation_enabled: false,
+      })
+    })
+
+    it('shows a compact noninteractive line of representative adapted apps', () => {
+      render(<LlmPane />)
+
+      const coverage = screen.getByLabelText('Apps adapted by context')
+      for (const name of [
+        'Gmail',
+        'Slack',
+        'Lark',
+        'WeChat',
+        'Google Docs',
+        'Notion',
+        'GitHub',
+        'Cursor',
+      ]) {
+        expect(within(coverage).getByLabelText(name)).toBeInTheDocument()
+      }
+      expect(within(coverage).getByText('+63')).toBeInTheDocument()
+      expect(within(coverage).getByText('+65')).toHaveClass('context-app-count--compact')
+      expect(within(coverage).getByLabelText('Lark')).toHaveClass('context-app--compact-duplicate')
+      expect(within(coverage).getByLabelText('Notion')).toHaveClass(
+        'context-app--compact-duplicate',
+      )
+      expect(within(coverage).queryByRole('button')).not.toBeInTheDocument()
+      expect(within(coverage).queryByRole('link')).not.toBeInTheDocument()
+      expect(coverage).toHaveAttribute('aria-disabled', 'false')
+      expect(coverage).toHaveClass('gap-1')
+    })
+
+    it('dims representative apps whenever app adaptation is not active', () => {
+      mockAppStore.config.context_adaptation_enabled = false
+      render(<LlmPane />)
+
+      expect(screen.getByLabelText('Apps adapted by context')).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+    })
+
+    it('keeps helper copy and advanced toggles out of the default flow', () => {
+      render(<LlmPane />)
+
+      expect(screen.queryByText('Cleans up dictation before output')).not.toBeInTheDocument()
+      expect(screen.queryByText('Translate each dictation result')).not.toBeInTheDocument()
+      expect(screen.queryByText('Uses a private local app category')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use selected text as context')).not.toBeInTheDocument()
+      expect(screen.queryByText('Use selected text for context')).not.toBeInTheDocument()
+    })
+
+    it('hides last context until an operation snapshot exists', () => {
+      render(<LlmPane />)
+      expect(screen.queryByText('Last dictation context')).not.toBeInTheDocument()
+    })
+
+    it('shows only the safe last operation context after dictation', () => {
+      mockAppStore.lastContext = {
+        profileId: 'chat.slack',
+        family: 'work_chat',
+        appLabel: 'Slack',
+        iconKey: 'slack',
+        overrideId: 'slack',
+        browserAccessStatus: 'available',
+      }
+      render(<LlmPane />)
+
+      expect(screen.getByText('Last dictation context')).toBeInTheDocument()
+      expect(screen.getByText('Slack')).toBeInTheDocument()
+      expect(screen.queryByText(/window|host|confidence/i)).not.toBeInTheDocument()
+    })
+
+    it('shows a short browser access hint when browser context needs URL access', () => {
+      mockAppStore.lastContext = {
+        profileId: 'general.browser',
+        family: 'general',
+        appLabel: 'Browser',
+        iconKey: 'general',
+        overrideId: null,
+        browserAccessStatus: 'needs_permission',
+      }
+
+      render(<LlmPane />)
+
+      expect(
+        screen.getByText('Allow browser access to use Gmail, Docs, and Slack Web modes.'),
+      ).toBeInTheDocument()
+    })
+
+    it('keeps the app-style overflow hidden without a live candidate or user mappings', async () => {
+      mockAppStore.lastContext = {
+        profileId: 'chat.slack',
+        family: 'work_chat',
+        appLabel: 'Slack',
+        iconKey: 'slack',
+        overrideId: 'slack',
+        browserAccessStatus: 'available',
+      }
+
+      render(<LlmPane />)
+
+      await waitFor(() => expect(tauri.listCustomAppMappings).toHaveBeenCalled())
+      expect(screen.queryByRole('button', { name: 'App writing style' })).not.toBeInTheDocument()
+    })
+
+    it('opens one compact writing-style dialog from a live safe candidate', async () => {
+      mockAppStore.lastContext = {
+        profileId: 'general.browser',
+        family: 'general',
+        appLabel: 'Example',
+        iconKey: 'general',
+        overrideId: null,
+        browserAccessStatus: 'available',
+      }
+      vi.mocked(tauri.getLatestMappingCandidate).mockResolvedValue({
+        generation: 7,
+        matcherType: 'exact_web_host',
+        displayValue: 'docs.example.com',
+        suggestedLabel: 'docs.example.com',
+        currentFamily: 'document',
+        iconKey: 'general',
+      })
+
+      render(<LlmPane />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'App writing style' }))
+      fireEvent.click(screen.getByText('Use a different writing style'))
+
+      expect(
+        await screen.findByRole('dialog', { name: 'Writing style for this app' }),
+      ).toBeVisible()
+      expect(screen.getByText('docs.example.com')).toBeInTheDocument()
+    })
+
+    it('shows mapping management only for user-created mappings', async () => {
+      mockAppStore.lastContext = {
+        profileId: 'chat.slack',
+        family: 'work_chat',
+        appLabel: 'Slack',
+        iconKey: 'slack',
+        overrideId: 'slack',
+        browserAccessStatus: 'available',
+      }
+      vi.mocked(tauri.listCustomAppMappings).mockResolvedValue([
+        {
+          id: 'mapping-1',
+          label: 'Work Slack',
+          matcherType: 'native_bundle_id',
+          displayValue: 'Work Slack · macOS',
+          family: 'work_chat',
+          sceneId: null,
+          enabled: true,
+          iconKey: 'slack',
+        },
+      ])
+
+      render(<LlmPane />)
+
+      fireEvent.click(await screen.findByRole('button', { name: 'App writing style' }))
+      expect(screen.getByText('Manage app mappings')).toBeInTheDocument()
+      expect(screen.queryByText('Use a different writing style')).not.toBeInTheDocument()
+      expect(screen.queryByText('Gmail')).not.toBeInTheDocument()
+    })
+
+    it('shows a compact translate-to control next to translation when enabled', () => {
       mockAppStore.config.translate_enabled = true
 
       render(<LlmPane />)
-      expect(screen.getByText('Target Language')).toBeInTheDocument()
+      expect(screen.getByText('Translate to')).toBeInTheDocument()
+      expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     })
   })
 })

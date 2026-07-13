@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ApiError } from '../api'
+import { ApiError, CloudApiError } from '../api'
 import { API_BASE_URL, APP_VERSION_HEADER_VALUE, CLIENT_VERSION_HEADER } from '../constants'
+
+const invalidateCloudSessionOnce = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+
+vi.mock('../cloud-session', () => ({
+  invalidateCloudSessionOnce,
+}))
 
 const API_BASE = API_BASE_URL
 
@@ -68,6 +74,10 @@ describe('request() via getSubscriptionStatus', () => {
 })
 
 describe('request() error handling', () => {
+  beforeEach(() => {
+    invalidateCloudSessionOnce.mockClear()
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -101,6 +111,71 @@ describe('request() error handling', () => {
 
     const { getSubscriptionStatus } = await import('../api')
     await expect(getSubscriptionStatus()).rejects.toThrow('Internal Server Error')
+  })
+
+  it('parses AUTH_SESSION_INVALID and invalidates the cloud session once', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: () =>
+          Promise.resolve({
+            error: { code: 'AUTH_SESSION_INVALID', message: 'Session expired' },
+          }),
+      }),
+    )
+
+    const { getSubscriptionStatus } = await import('../api')
+    const error = await getSubscriptionStatus().catch((caught) => caught)
+
+    expect(error).toBeInstanceOf(CloudApiError)
+    expect(error).toMatchObject({
+      status: 401,
+      code: 'AUTH_SESSION_INVALID',
+      message: 'Session expired',
+    })
+    expect(invalidateCloudSessionOnce).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['AUTH_REQUIRED', 401, 'Authentication required'],
+    ['QUOTA_EXCEEDED', 403, 'Cloud quota exceeded'],
+  ])('parses %s without invalidating the current identity', async (code, status, message) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        statusText: 'Request failed',
+        json: () => Promise.resolve({ error: { code, message } }),
+      }),
+    )
+
+    const { getSubscriptionStatus } = await import('../api')
+    const error = await getSubscriptionStatus().catch((caught) => caught)
+
+    expect(error).toMatchObject({ status, code, message })
+    expect(invalidateCloudSessionOnce).not.toHaveBeenCalled()
+  })
+
+  it('retains rollout compatibility with legacy top-level error strings', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: () => Promise.resolve({ error: 'Subscription required' }),
+      }),
+    )
+
+    const { getSubscriptionStatus } = await import('../api')
+    const error = await getSubscriptionStatus().catch((caught) => caught)
+
+    expect(error).toMatchObject({ status: 403, code: null, message: 'Subscription required' })
+    expect(invalidateCloudSessionOnce).not.toHaveBeenCalled()
   })
 })
 

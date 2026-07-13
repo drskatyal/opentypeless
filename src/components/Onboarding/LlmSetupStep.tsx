@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '../../stores/appStore'
-import { LLM_PROVIDERS, LLM_DEFAULT_CONFIG } from '../../lib/constants'
+import { useAppStore, type LlmProvider } from '../../stores/appStore'
+import {
+  LLM_DEFAULT_CONFIG,
+  ONBOARDING_LLM_PROVIDERS,
+  llmProviderRequiresApiKey,
+} from '../../lib/constants'
 import { testLlmConnection, fetchLlmModels } from '../../lib/tauri'
 import { CheckCircle2, XCircle, Loader2, RefreshCw } from 'lucide-react'
 
@@ -15,12 +19,39 @@ export function LlmSetupStep() {
   const [models, setModels] = useState<string[]>([])
   const [fetchingModels, setFetchingModels] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fallbackProvider =
+    (ONBOARDING_LLM_PROVIDERS[0]?.value as LlmProvider | undefined) ?? 'zhipu'
+  const selectedProvider: LlmProvider = ONBOARDING_LLM_PROVIDERS.some(
+    (provider) => provider.value === config.llm_provider,
+  )
+    ? config.llm_provider
+    : fallbackProvider
+  const requiresApiKey = llmProviderRequiresApiKey(selectedProvider)
 
-  const doFetchModels = useCallback(async (apiKey: string, baseUrl: string) => {
+  useEffect(() => {
+    if (selectedProvider === config.llm_provider) return
+    const defaults = LLM_DEFAULT_CONFIG[selectedProvider]
+    updateConfig({
+      llm_provider: selectedProvider,
+      llm_base_url: defaults?.baseUrl ?? config.llm_base_url,
+      llm_model: defaults?.model ?? config.llm_model,
+    })
+    setLlmTestStatus('idle')
+    setModels([])
+  }, [
+    config.llm_base_url,
+    config.llm_model,
+    config.llm_provider,
+    selectedProvider,
+    setLlmTestStatus,
+    updateConfig,
+  ])
+
+  const doFetchModels = useCallback(async (apiKey: string, provider: string, baseUrl: string) => {
     if (!baseUrl) return
     setFetchingModels(true)
     try {
-      const list = await fetchLlmModels(apiKey, baseUrl)
+      const list = await fetchLlmModels(apiKey, provider, baseUrl)
       setModels(list)
     } catch {
       setModels([])
@@ -32,21 +63,21 @@ export function LlmSetupStep() {
   // Auto-fetch when API key changes (debounced)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!config.llm_api_key || !config.llm_base_url) return
+    if ((requiresApiKey && !config.llm_api_key) || !config.llm_base_url) return
     debounceRef.current = setTimeout(() => {
-      doFetchModels(config.llm_api_key, config.llm_base_url)
+      doFetchModels(config.llm_api_key, selectedProvider, config.llm_base_url)
     }, 500)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [config.llm_api_key, config.llm_base_url, doFetchModels])
+  }, [config.llm_api_key, config.llm_base_url, doFetchModels, requiresApiKey, selectedProvider])
 
   const handleTest = async () => {
     setLlmTestStatus('testing')
     try {
       const ok = await testLlmConnection(
         config.llm_api_key,
-        config.llm_provider,
+        selectedProvider,
         config.llm_base_url,
         config.llm_model,
       )
@@ -60,7 +91,7 @@ export function LlmSetupStep() {
     <div className="space-y-5">
       <Field label={t('onboarding.llm.serviceLabel')}>
         <select
-          value={config.llm_provider}
+          value={selectedProvider}
           onChange={(e) => {
             const provider = e.target.value as typeof config.llm_provider
             const defaults = LLM_DEFAULT_CONFIG[provider]
@@ -74,7 +105,7 @@ export function LlmSetupStep() {
           }}
           className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
-          {LLM_PROVIDERS.map((p) => (
+          {ONBOARDING_LLM_PROVIDERS.map((p) => (
             <option key={p.value} value={p.value}>
               {t(p.labelKey)}
             </option>
@@ -82,29 +113,31 @@ export function LlmSetupStep() {
         </select>
       </Field>
 
-      <Field label={t('onboarding.llm.apiKeyLabel')}>
-        <div className="flex gap-2">
-          <input
-            type="password"
-            value={config.llm_api_key}
-            onChange={(e) => {
-              updateConfig({ llm_api_key: e.target.value })
-              setLlmTestStatus('idle')
-            }}
-            placeholder={t('onboarding.llm.apiKeyPlaceholder')}
-            className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
-          />
-          <button
-            onClick={handleTest}
-            disabled={!config.llm_api_key || llmTestStatus === 'testing'}
-            className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-          >
-            {llmTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
-            {t('onboarding.llm.testButton')}
-          </button>
-        </div>
-        <TestStatusHint status={llmTestStatus} />
-      </Field>
+      {requiresApiKey && (
+        <Field label={t('onboarding.llm.apiKeyLabel')}>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={config.llm_api_key}
+              onChange={(e) => {
+                updateConfig({ llm_api_key: e.target.value })
+                setLlmTestStatus('idle')
+              }}
+              placeholder={t('onboarding.llm.apiKeyPlaceholder')}
+              className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+            />
+            <button
+              onClick={handleTest}
+              disabled={!config.llm_api_key || llmTestStatus === 'testing'}
+              className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+            >
+              {llmTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
+              {t('onboarding.llm.testButton')}
+            </button>
+          </div>
+          <TestStatusHint status={llmTestStatus} />
+        </Field>
+      )}
 
       <Field label={t('onboarding.llm.modelLabel')}>
         <div className="flex gap-2">
@@ -123,8 +156,10 @@ export function LlmSetupStep() {
             </datalist>
           </div>
           <button
-            onClick={() => doFetchModels(config.llm_api_key, config.llm_base_url)}
-            disabled={fetchingModels || !config.llm_base_url}
+            onClick={() => doFetchModels(config.llm_api_key, selectedProvider, config.llm_base_url)}
+            disabled={
+              fetchingModels || !config.llm_base_url || (requiresApiKey && !config.llm_api_key)
+            }
             className="px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-secondary cursor-pointer hover:border-border-focus disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
             title={t('onboarding.llm.fetchModelsTitle')}
           >
@@ -139,14 +174,28 @@ export function LlmSetupStep() {
       </Field>
 
       <Field label={t('onboarding.llm.baseUrlLabel')}>
-        <input
-          value={config.llm_base_url}
-          onChange={(e) => updateConfig({ llm_base_url: e.target.value })}
-          placeholder={
-            LLM_DEFAULT_CONFIG[config.llm_provider]?.baseUrl ?? 'https://api.openai.com/v1'
-          }
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
-        />
+        <div className="flex gap-2">
+          <input
+            value={config.llm_base_url}
+            onChange={(e) => updateConfig({ llm_base_url: e.target.value })}
+            placeholder={
+              LLM_DEFAULT_CONFIG[selectedProvider]?.baseUrl ?? 'https://api.openai.com/v1'
+            }
+            className="min-w-0 flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+          />
+          {!requiresApiKey && (
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={!config.llm_base_url || llmTestStatus === 'testing'}
+              className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+            >
+              {llmTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
+              {t('onboarding.llm.testButton')}
+            </button>
+          )}
+        </div>
+        {!requiresApiKey && <TestStatusHint status={llmTestStatus} />}
       </Field>
     </div>
   )

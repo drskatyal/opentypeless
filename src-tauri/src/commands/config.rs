@@ -51,6 +51,7 @@ fn emit_config_patch(app: &tauri::AppHandle, patch: &Value) {
 
 fn prepare_config_for_save(mut config: storage::AppConfig) -> Result<storage::AppConfig, String> {
     sync_hotkey_fields_before_save(&mut config);
+    crate::hotkey::validate_hotkey_config(&config.hotkeys).map_err(|e| e.to_string())?;
     config.normalize_values();
     crate::hotkey::validate_hotkey_config(&config.hotkeys).map_err(|e| e.to_string())?;
     Ok(config)
@@ -59,11 +60,35 @@ fn prepare_config_for_save(mut config: storage::AppConfig) -> Result<storage::Ap
 fn sync_hotkey_fields_before_save(config: &mut storage::AppConfig) {
     let default = storage::AppConfig::default();
     let typed_was_changed = config.hotkeys != default.hotkeys;
+    let core_lists_changed = config.hotkeys.dictation_bindings
+        != default.hotkeys.dictation_bindings
+        || config.hotkeys.ask_bindings != default.hotkeys.ask_bindings
+        || config.hotkeys.translate_bindings != default.hotkeys.translate_bindings;
+    let core_scalars_changed = config.hotkeys.dictation != default.hotkeys.dictation
+        || config.hotkeys.ask != default.hotkeys.ask
+        || config.hotkeys.translate != default.hotkeys.translate;
     let legacy_was_changed = config.hotkey != default.hotkey
         || config.ask_hotkey != default.ask_hotkey
         || config.hotkey_mode != default.hotkey_mode;
 
     if typed_was_changed || !legacy_was_changed {
+        if core_scalars_changed && !core_lists_changed {
+            replace_primary_binding(
+                &mut config.hotkeys.dictation_bindings,
+                Some(config.hotkeys.dictation.clone()),
+            );
+            replace_primary_binding(&mut config.hotkeys.ask_bindings, config.hotkeys.ask.clone());
+            replace_primary_binding(
+                &mut config.hotkeys.translate_bindings,
+                config.hotkeys.translate.clone(),
+            );
+        } else {
+            if let Some(primary) = config.hotkeys.dictation_bindings.first().cloned() {
+                config.hotkeys.dictation = primary;
+            }
+            config.hotkeys.ask = config.hotkeys.ask_bindings.first().cloned();
+            config.hotkeys.translate = config.hotkeys.translate_bindings.first().cloned();
+        }
         config.hotkey = config
             .hotkeys
             .dictation
@@ -76,6 +101,31 @@ fn sync_hotkey_fields_before_save(config: &mut storage::AppConfig) {
             .and_then(storage::ShortcutBinding::to_hotkey_string)
             .unwrap_or_default();
         config.hotkey_mode = config.hotkeys.dictation_mode.clone();
+    } else {
+        let legacy = storage::HotkeyConfig::from_legacy(
+            &config.hotkey,
+            &config.ask_hotkey,
+            &config.hotkey_mode,
+        );
+        replace_primary_binding(
+            &mut config.hotkeys.dictation_bindings,
+            Some(legacy.dictation.clone()),
+        );
+        replace_primary_binding(&mut config.hotkeys.ask_bindings, legacy.ask.clone());
+        config.hotkeys.dictation = legacy.dictation;
+        config.hotkeys.ask = legacy.ask;
+        config.hotkeys.dictation_mode = legacy.dictation_mode;
+    }
+}
+
+fn replace_primary_binding(
+    bindings: &mut Vec<storage::ShortcutBinding>,
+    primary: Option<storage::ShortcutBinding>,
+) {
+    match (bindings.first_mut(), primary) {
+        (Some(current), Some(primary)) => *current = primary,
+        (None, Some(primary)) => bindings.push(primary),
+        (_, None) => bindings.clear(),
     }
 }
 
@@ -353,6 +403,21 @@ mod tests {
     }
 
     #[test]
+    fn prepare_config_for_save_rejects_secondary_role_conflicts() {
+        let mut config = storage::AppConfig::default();
+        config
+            .hotkeys
+            .dictation_bindings
+            .push(storage::ShortcutBinding::from_hotkey("Ctrl+Shift+E").unwrap());
+        config.hotkeys.edit_selection = storage::ShortcutBinding::from_hotkey("Ctrl+Shift+E");
+
+        let error = prepare_config_for_save(config).unwrap_err();
+
+        assert!(error.contains("index 1"));
+        assert!(error.contains("editSelection"));
+    }
+
+    #[test]
     fn hotkey_runtime_config_changed_detects_shortcut_and_mode_changes() {
         let previous = storage::AppConfig::default();
 
@@ -374,6 +439,14 @@ mod tests {
         };
         changed_mode = prepare_config_for_save(changed_mode).unwrap();
         assert!(hotkey_runtime_config_changed(&previous, &changed_mode));
+
+        let mut changed_secondary = previous.clone();
+        changed_secondary
+            .hotkeys
+            .dictation_bindings
+            .push(storage::ShortcutBinding::from_hotkey("F8").unwrap());
+        changed_secondary = prepare_config_for_save(changed_secondary).unwrap();
+        assert!(hotkey_runtime_config_changed(&previous, &changed_secondary));
     }
 
     #[test]

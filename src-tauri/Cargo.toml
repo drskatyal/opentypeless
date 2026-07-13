@@ -40,6 +40,9 @@ async-trait = "0.1"
 arboard = "3"
 http = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
+csv = "1.3"
+unicode-normalization = "0.1"
+uuid = { version = "1", features = ["v4", "serde"] }
 chrono = "0.4"
 url = "2"
 flate2 = "1"

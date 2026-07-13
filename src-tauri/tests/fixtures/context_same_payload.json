@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "rawTranscript": "hey quick update the api migration is blocked by the expired staging certificate i can finish it tomorrow after sam renews it",
+  "criticalSpans": ["api migration", "expired staging certificate", "tomorrow", "sam"],
+  "families": {
+    "general": { "forbiddenAdditions": ["subject:", "#", "dear"] },
+    "email": { "forbiddenAdditions": ["subject:", "dear", "regards"] },
+    "work_chat": { "forbiddenAdditions": ["subject:", "regards"] },
+    "personal_chat": { "forbiddenAdditions": ["status update", "subject:"] },
+    "document": { "forbiddenAdditions": ["subject:", "regards"] },
+    "project_management": { "forbiddenAdditions": ["ticket", "assignee"] },
+    "developer_collaboration": { "forbiddenAdditions": ["commit", "pull request"] },
+    "prompt_or_code": { "forbiddenAdditions": ["```", "implementation"] },
+    "support": { "forbiddenAdditions": ["refund", "policy"] },
+    "social": { "forbiddenAdditions": ["#", "emoji"] }
+  }
+}

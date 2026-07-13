@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "promptVersion": "context-v1",
+  "models": [
+    {
+      "provider": "cloud",
+      "baseUrl": "https://www.opentypeless.com/api/proxy",
+      "model": "default",
+      "capability": "certified"
+    }
+  ]
+}

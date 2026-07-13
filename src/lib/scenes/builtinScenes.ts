@@ -29,7 +29,7 @@ export const BUILTIN_SCENES: BuiltInScene[] = [
     nameKey: 'scenes.builtin.professionalEmail.name',
     descriptionKey: 'scenes.builtin.professionalEmail.description',
     promptTemplate:
-      'Rewrite the transcript as a concise professional email. Keep the tone clear, polite, and direct. Do not add facts that were not spoken.',
+      'Rewrite the transcript as a concise professional email body. Use a greeting when the recipient is spoken, clear body paragraphs, and a light closing when appropriate. Do not add facts or generate a subject unless requested.',
   },
   {
     id: 'builtin_support_reply',

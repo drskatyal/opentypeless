@@ -1,4 +1,6 @@
+pub mod app_mappings;
 pub mod ask;
+pub mod backup;
 pub mod config;
 pub mod credentials;
 pub mod dictionary;
@@ -6,3 +8,4 @@ pub mod history;
 pub mod llm;
 pub mod misc;
 pub mod stt;
+pub mod translation;

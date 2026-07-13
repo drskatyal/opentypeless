@@ -1,0 +1,4980 @@
+[
+  {
+    "id": "zh-hant-001-draft-follow-up",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫一封明天發佈會的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一封明天發佈會的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-002-discuss-draft",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我明天需要起草一封跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-003-negated-draft",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要幫我寫這封郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-004-reported-draft",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他說「起草一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-005-translate-selection",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段翻譯成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-006-github-search",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 GitHub 搜尋 tauri global shortcut",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "tauri global shortcut",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-007-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封明天的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-008-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封一則簡短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一則簡短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-009-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封確認週二的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "確認週二的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-010-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封專業的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "專業的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-011-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封發佈進度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "發佈進度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-012-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封三個訪談問題",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三個訪談問題",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-013-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封友善的感謝訊息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友善的感謝訊息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-014-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封同意方案的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-015-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草明天的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-016-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草一則簡短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一則簡短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-017-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草確認週二的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "確認週二的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-018-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草專業的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "專業的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-019-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草發佈進度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "發佈進度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-020-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草三個訪談問題",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三個訪談問題",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-021-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草友善的感謝訊息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友善的感謝訊息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-022-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草同意方案的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-023-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫明天的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-024-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫一則簡短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一則簡短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-025-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫確認週二的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "確認週二的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-026-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫專業的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "專業的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-027-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫發佈進度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "發佈進度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-028-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫三個訪談問題",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三個訪談問題",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-029-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫友善的感謝訊息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友善的感謝訊息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-030-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫同意方案的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-031-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說明天的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-032-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說一則簡短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一則簡短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-033-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說確認週二的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "確認週二的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-034-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說專業的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "專業的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-035-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說發佈進度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "發佈進度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-036-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說三個訪談問題",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三個訪談問題",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-037-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說友善的感謝訊息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友善的感謝訊息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-038-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說同意方案的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-039-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個明天的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-040-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個一則簡短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一則簡短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-041-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個確認週二的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "確認週二的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-042-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個專業的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "專業的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-043-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個發佈進度更新",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "發佈進度更新",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-044-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個三個訪談問題",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "三個訪談問題",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-045-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個友善的感謝訊息",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "友善的感謝訊息",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-046-draft-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個同意方案的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "同意方案的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-047-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-048-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "改寫這段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-049-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-050-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "潤色這段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-051-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段寫得更簡潔",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-052-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段寫得更簡潔。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-053-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "精簡這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-054-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "精簡這段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-055-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "擴寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-056-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "擴寫這段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-057-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "修正這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-058-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "修正這段。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-059-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段改成條列",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-060-rewrite-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段改成條列。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "rewrite_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-061-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段翻譯成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-062-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段翻譯成英文。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-063-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段翻譯成英文？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-064-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段翻譯成英文！",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-065-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "翻譯這段到日文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-066-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "翻譯這段到日文。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-067-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "翻譯這段到日文？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-068-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "翻譯這段到日文！",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-069-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "將選取文字翻譯成法文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-070-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "將選取文字翻譯成法文。",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-071-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "將選取文字翻譯成法文？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-072-translate-positive",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "將選取文字翻譯成法文！",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "translate_selection",
+    "expectedPlacement": "replace_selection",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-073-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "總結這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-074-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "總結這段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-075-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "解釋這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-076-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "解釋這段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-077-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "比較這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-078-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "比較這段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-079-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這段是什麼意思",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-080-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這段是什麼意思？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-081-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "為什麼這樣寫",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-082-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "為什麼這樣寫？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-083-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "怎麼理解這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-084-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "怎麼理解這段？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-085-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "誰提到了風險",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-086-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "誰提到了風險？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-087-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "哪裡需要修改",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-088-selection-question",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "哪裡需要修改？",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-089-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 Google 搜尋 Rust 所有權教學",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-090-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Rust 所有權教學 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-091-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 Google 搜尋 React 元件測試",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-092-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 React 元件測試 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-093-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 Google 搜尋 Tauri 全域快捷鍵",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-094-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Tauri 全域快捷鍵 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "google",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-095-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 YouTube 搜尋 Rust 所有權教學",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-096-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Rust 所有權教學 在 YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-097-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 YouTube 搜尋 React 元件測試",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-098-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 React 元件測試 在 YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-099-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 YouTube 搜尋 Tauri 全域快捷鍵",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-100-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Tauri 全域快捷鍵 在 YouTube",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "youtube",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-101-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 Amazon 搜尋 Rust 所有權教學",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-102-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Rust 所有權教學 在 Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-103-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 Amazon 搜尋 React 元件測試",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-104-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 React 元件測試 在 Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-105-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 Amazon 搜尋 Tauri 全域快捷鍵",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-106-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Tauri 全域快捷鍵 在 Amazon",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "amazon",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-107-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 GitHub 搜尋 Rust 所有權教學",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-108-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Rust 所有權教學 在 GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Rust 所有權教學",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-109-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 GitHub 搜尋 React 元件測試",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-110-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 React 元件測試 在 GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "React 元件測試",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-111-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "在 GitHub 搜尋 Tauri 全域快捷鍵",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-112-search-positive",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Tauri 全域快捷鍵 在 GitHub",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "search",
+    "expectedPlacement": "open_url",
+    "expectedProvider": "github",
+    "expectedPayload": "Tauri 全域快捷鍵",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-113-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "明天早上發佈",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-114-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "明天早上發佈",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-115-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "昨天完成了初稿",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-116-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "昨天完成了初稿",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-117-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "搜尋品質很重要",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-118-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋品質很重要",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-119-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "保留現在的措辭",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-120-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "保留現在的措辭",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-121-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆稍後才到",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-122-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "回覆稍後才到",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-123-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "翻譯品質有所提升",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-124-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "翻譯品質有所提升",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-125-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "需要討論改寫策略",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-126-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "需要討論改寫策略",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-127-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這段有三個觀點",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-128-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "這段有三個觀點",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-129-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先確認需求",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-130-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "先確認需求",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-131-default-safe",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "今天不做變更",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-132-default-safe",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "今天不做變更",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-133-automatic-positive-0",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "寫一封明天的跟進郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "明天的跟進郵件",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-134-automatic-positive-1",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "起草一則簡短通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "一則簡短通知",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-135-automatic-positive-2",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "幫我寫確認週二的回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "確認週二的回覆",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-136-automatic-positive-3",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "回覆說專業的道歉信",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "draft_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": "專業的道歉信",
+    "expectedFallbackReason": null,
+    "destructiveBlocker": false
+  },
+  {
+    "id": "zh-hant-137-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "draft 幫我寫一封郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-138-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "write 寫個通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-139-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "起草 project update",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-140-automatic-mixed-blocker",
+    "mode": "dictate",
+    "locale": "automatic",
+    "utterance": "幫我写一封混合文字郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-141-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-142-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-143-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-144-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-145-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "別寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-146-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "別起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-147-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "別改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-148-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "別潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-149-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不用寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-150-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不用起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-151-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不用改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-152-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不用潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-153-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先別寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-154-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先別起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-155-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先別改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-156-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先別潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-157-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "暫時不要寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-158-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "暫時不要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-159-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "暫時不要改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-160-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "暫時不要潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-161-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不需要寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-162-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不需要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-163-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不需要改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-164-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不需要潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-165-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要幫我寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-166-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要幫我起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-167-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要幫我改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-168-negated-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "不要幫我潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "negated",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-169-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他說「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-170-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他說「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-171-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他說「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-172-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他說「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-173-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "她說「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-174-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "她說「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-175-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "她說「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-176-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "她說「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-177-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他們說「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-178-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他們說「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-179-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他們說「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-180-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "他們說「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-181-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "原文是「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-182-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "原文是「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-183-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "原文是「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-184-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "原文是「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-185-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這句話是「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-186-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這句話是「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-187-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這句話是「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-188-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "這句話是「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-189-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "引用「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-190-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "引用「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-191-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "引用「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-192-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "引用「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-193-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "文件裡寫著「寫一封回覆」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-194-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "文件裡寫著「起草郵件」",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-195-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "文件裡寫著「改寫這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-196-reported-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "文件裡寫著「潤色這段」",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-197-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "compose.yaml 是設定檔",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-198-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "search(query) 是函式",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-199-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "draft_email 是欄位",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-200-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "rewriteThis 是方法",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-201-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "write_file 不要改",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-202-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "translate_selection 是列舉",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-203-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "make_this_shorter 是測試名稱",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-204-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "fixGrammar() 已棄用",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-205-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "search-provider 是欄位",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-206-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "reply_with_payload 是參數",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-207-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "compose.yaml 是設定檔 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-208-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "search(query) 是函式 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-209-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "draft_email 是欄位 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-210-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "rewriteThis 是方法 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-211-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "write_file 不要改 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-212-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "translate_selection 是列舉 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-213-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "make_this_shorter 是測試名稱 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-214-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "fixGrammar() 已棄用 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-215-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "search-provider 是欄位 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-216-identifier-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "reply_with_payload 是參數 v2",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "code_or_identifier",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-217-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我明天需要起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-218-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我明天需要起草郵件，等評審後",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-219-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我們稍後再寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-220-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我們稍後再寫一封回覆，等評審後",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-221-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "團隊會改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-222-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "團隊會改寫這段，等評審後",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-223-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "下週翻譯這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-224-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "下週翻譯這段，等評審後",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-225-mid-sentence-command",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "也許明天在 Google 搜尋",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-226-mid-sentence-command",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "也許明天在 Google 搜尋，等評審後",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-227-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先討論如何潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-228-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "先討論如何潤色這段，等評審後",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-229-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "之後再精簡這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-230-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "之後再精簡這段，等評審後",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-231-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我想修正這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-232-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "我想修正這段，等評審後",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-233-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "有人說要寫個通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-234-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "有人說要寫個通知，等評審後",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "quoted_or_reported",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-235-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "計畫把這段改成條列",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-236-mid-sentence-command",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "計畫把這段改成條列，等評審後",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "ambiguous",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-237-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-238-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-239-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-240-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-241-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-242-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-243-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "起草：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-244-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "幫我寫：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-245-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "回覆說：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-246-missing-payload",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫個：",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "missing_payload",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-247-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-248-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "起草郵件",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-249-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-250-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "潤色這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-251-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "把這段翻譯成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-252-unsupported-locale",
+    "mode": "ask",
+    "locale": "fr",
+    "utterance": "搜尋 Rust 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-253-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "精簡這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-254-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "擴寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-255-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "修正這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-256-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "總結這段",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-257-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "解釋這段",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-258-unsupported-locale",
+    "mode": "dictate",
+    "locale": "fr",
+    "utterance": "寫個通知",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "unsupported_locale",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-259-draft-disabled",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "寫一封回覆",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": false,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "dictate_insert",
+    "expectedPlacement": "insert_at_cursor",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-260-rewrite-disabled",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "改寫這段",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": false,
+      "translate_selection": true,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-261-translate-disabled",
+    "mode": "dictate",
+    "locale": "zh-Hant",
+    "utterance": "把這段翻譯成英文",
+    "hasSelection": true,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": false,
+      "search": true
+    },
+    "expectedKind": "ask_selection",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  },
+  {
+    "id": "zh-hant-262-search-disabled",
+    "mode": "ask",
+    "locale": "zh-Hant",
+    "utterance": "搜尋 Rust 在 Google",
+    "hasSelection": false,
+    "flags": {
+      "draft_insert": true,
+      "rewrite_selection": true,
+      "translate_selection": true,
+      "search": false
+    },
+    "expectedKind": "open_question",
+    "expectedPlacement": "popup_answer",
+    "expectedProvider": null,
+    "expectedPayload": null,
+    "expectedFallbackReason": "feature_disabled",
+    "destructiveBlocker": true
+  }
+]

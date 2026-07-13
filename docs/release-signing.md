@@ -59,6 +59,11 @@ configuration. This default artifact configuration must have a `<zip-file>`
 root because GitHub's `actions/upload-artifact` action stores files as a ZIP
 archive.
 
+Signing policies whose slug starts with `test-` or `test_` are dry-run only.
+They may verify the build-to-SignPath integration, but the workflow refuses to
+publish those installers to a production GitHub Release. Publishing requires a
+production SignPath policy whose Authenticode result is `Valid`.
+
 ## Windows Certificate Notes
 
 Use a real code signing certificate. SSL/TLS certificates do not sign Windows

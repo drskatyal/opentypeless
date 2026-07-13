@@ -1,12 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Upload, Download, Loader2, ExternalLink, ClipboardCheck } from 'lucide-react'
+import {
+  LogOut,
+  Upload,
+  Download,
+  Loader2,
+  ExternalLink,
+  ClipboardCheck,
+  Mail,
+  KeyRound,
+} from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
 import { API_BASE_URL } from '../../lib/constants'
 import { uploadBackup, downloadBackup, createPortalSession } from '../../lib/api'
+import { createBackupSettings, mergeBackupSettings } from '../../lib/backup-settings'
+import {
+  getConfig,
+  restoreBackupData,
+  setAutoStart,
+  updateConfig as persistConfig,
+} from '../../lib/tauri'
 import {
   EMAIL_VERIFICATION_STATE_TTL_MS,
   OAUTH_STATE_TTL_MS,
@@ -14,8 +30,11 @@ import {
   handleDeepLinkUrl,
 } from '../../lib/deep-link'
 import { createDesktopAuthCallbackURL } from '../../lib/desktop-auth-callback'
+import { PasswordDialog } from './PasswordDialog'
+import { PasswordField } from './PasswordField'
 
 type Tab = 'signin' | 'signup'
+type AuthMode = 'auth' | 'forgot' | 'forgot-sent'
 
 function accountErrorMessage(message: string | null, t: ReturnType<typeof useTranslation>['t']) {
   if (!message) return null
@@ -53,15 +72,23 @@ export function AccountPage() {
 
 function AuthForm() {
   const [tab, setTab] = useState<Tab>('signin')
+  const [mode, setMode] = useState<AuthMode>('auth')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const { signIn, signUp, loading, error, emailVerificationPending, resendVerification } =
-    useAuthStore()
+  const {
+    signIn,
+    signUp,
+    requestPasswordReset,
+    loading,
+    error,
+    emailVerificationPending,
+    resendVerification,
+  } = useAuthStore()
   const [localError, setLocalError] = useState<string | null>(null)
   const [resent, setResent] = useState(false)
   const [oauthPending, setOauthPending] = useState<'google' | 'github' | null>(null)
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   // Keep the UI timeout aligned with the persisted OAuth state TTL.
   useEffect(() => {
@@ -80,7 +107,10 @@ function AuthForm() {
     e.preventDefault()
     setLocalError(null)
     try {
-      if (tab === 'signin') {
+      if (mode === 'forgot') {
+        await requestPasswordReset(email, i18n.resolvedLanguage ?? i18n.language ?? 'en')
+        setMode('forgot-sent')
+      } else if (tab === 'signin') {
         const verificationCallbackURL = createDesktopAuthCallbackURL(
           EMAIL_VERIFICATION_STATE_TTL_MS,
         )
@@ -113,7 +143,7 @@ function AuthForm() {
   if (emailVerificationPending) {
     return (
       <div className="max-w-[340px] mx-auto py-8 px-6 space-y-5 text-[13px] text-center">
-        <div className="text-[40px]">📧</div>
+        <Mail size={32} className="mx-auto text-text-secondary" aria-hidden="true" />
         <h2 className="text-[16px] font-semibold text-text-primary">
           {t('account.verifyEmailTitle', 'Check your email')}
         </h2>
@@ -194,6 +224,34 @@ function AuthForm() {
     } catch {
       setLocalError(t('account.oauthClipboardInvalid', 'No valid sign-in link found.'))
     }
+  }
+
+  if (mode === 'forgot-sent') {
+    return (
+      <div className="max-w-[340px] mx-auto py-8 px-6 space-y-4 text-[13px] text-center">
+        <Mail size={28} className="mx-auto text-text-secondary" aria-hidden="true" />
+        <h2 className="text-[16px] font-semibold text-text-primary">
+          {t('account.resetLinkSent', 'Check your email')}
+        </h2>
+        <p className="text-text-secondary">
+          {t(
+            'account.resetLinkSentDesc',
+            'If an account exists for that email, a password reset link is on its way.',
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setMode('auth')
+            setTab('signin')
+            setLocalError(null)
+          }}
+          className="px-4 py-2 rounded-[8px] border border-border bg-transparent text-text-primary text-[13px] cursor-pointer hover:bg-bg-secondary transition-colors"
+        >
+          {t('account.backToSignIn', 'Back to Sign In')}
+        </button>
+      </div>
+    )
   }
 
   if (oauthPending) {
@@ -302,47 +360,64 @@ function AuthForm() {
     )
   }
 
+  const forgotMode = mode === 'forgot'
+
   return (
     <div className="max-w-[340px] mx-auto py-8 px-6 space-y-5 text-[13px]">
       <div className="text-center mb-2">
-        <h1 className="text-[18px] font-semibold text-text-primary">{t('account.title')}</h1>
-        <p className="text-text-secondary mt-1">{t('account.subtitle')}</p>
+        <h1 className="text-[18px] font-semibold text-text-primary">
+          {forgotMode
+            ? t('account.forgotPasswordTitle', 'Forgot your password?')
+            : t('account.title')}
+        </h1>
+        <p className="text-text-secondary mt-1">
+          {forgotMode
+            ? t(
+                'account.forgotPasswordDescription',
+                'Enter your email and we will send a secure reset link.',
+              )
+            : t('account.subtitle')}
+        </p>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex border border-border rounded-[8px] overflow-hidden">
-        <button
-          onClick={() => {
-            setTab('signin')
-            setLocalError(null)
-          }}
-          className={`flex-1 py-2 text-[13px] font-medium border-none cursor-pointer transition-colors ${
-            tab === 'signin'
-              ? 'bg-bg-secondary text-text-primary'
-              : 'bg-transparent text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          {t('account.signIn')}
-        </button>
-        <button
-          onClick={() => {
-            setTab('signup')
-            setLocalError(null)
-          }}
-          className={`flex-1 py-2 text-[13px] font-medium border-none cursor-pointer transition-colors ${
-            tab === 'signup'
-              ? 'bg-bg-secondary text-text-primary'
-              : 'bg-transparent text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          {t('account.signUp')}
-        </button>
-      </div>
+      {!forgotMode && (
+        <div className="flex border border-border rounded-[8px] overflow-hidden">
+          <button
+            onClick={() => {
+              setTab('signin')
+              setLocalError(null)
+            }}
+            className={`flex-1 py-2 text-[13px] font-medium border-none cursor-pointer transition-colors ${
+              tab === 'signin'
+                ? 'bg-bg-secondary text-text-primary'
+                : 'bg-transparent text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {t('account.signIn')}
+          </button>
+          <button
+            onClick={() => {
+              setTab('signup')
+              setLocalError(null)
+            }}
+            className={`flex-1 py-2 text-[13px] font-medium border-none cursor-pointer transition-colors ${
+              tab === 'signup'
+                ? 'bg-bg-secondary text-text-primary'
+                : 'bg-transparent text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {t('account.signUp')}
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        {tab === 'signup' && (
+        {!forgotMode && tab === 'signup' && (
           <input
             type="text"
+            aria-label={t('account.name')}
+            autoComplete="name"
             placeholder={t('account.name')}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -351,6 +426,8 @@ function AuthForm() {
         )}
         <input
           type="email"
+          aria-label={t('account.email')}
+          autoComplete="email"
           placeholder={t('account.email')}
           value={email}
           onChange={(e) => {
@@ -360,18 +437,34 @@ function AuthForm() {
           className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-secondary text-text-primary text-[13px] outline-none focus:border-accent transition-colors"
           required
         />
-        <input
-          type="password"
-          placeholder={t('account.password')}
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            useAuthStore.setState({ error: null })
-          }}
-          minLength={8}
-          className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-secondary text-text-primary text-[13px] outline-none focus:border-accent transition-colors"
-          required
-        />
+        {!forgotMode && (
+          <>
+            <PasswordField
+              label={t('account.password')}
+              value={password}
+              onChange={(value) => {
+                setPassword(value)
+                useAuthStore.setState({ error: null })
+              }}
+              autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+            />
+            {tab === 'signin' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('forgot')
+                    setLocalError(null)
+                    useAuthStore.setState({ error: null })
+                  }}
+                  className="p-0 text-[12px] text-accent bg-transparent border-none cursor-pointer hover:underline"
+                >
+                  {t('account.forgotPassword', 'Forgot password?')}
+                </button>
+              </div>
+            )}
+          </>
+        )}
         {displayError && <p className="text-red-500 text-[12px]">{displayError}</p>}
         <button
           type="submit"
@@ -379,53 +472,74 @@ function AuthForm() {
           className="w-full py-2 rounded-[8px] bg-accent text-white text-[13px] font-medium cursor-pointer border-none hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading && <Loader2 size={14} className="animate-spin" />}
-          {tab === 'signin' ? t('account.signIn') : t('account.signUp')}
+          {forgotMode
+            ? t('account.sendResetLink', 'Send reset link')
+            : tab === 'signin'
+              ? t('account.signIn')
+              : t('account.signUp')}
         </button>
+        {forgotMode && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode('auth')
+              setTab('signin')
+              setLocalError(null)
+            }}
+            className="w-full py-2 text-[12px] text-accent bg-transparent border-none cursor-pointer hover:underline"
+          >
+            {t('account.backToSignIn', 'Back to Sign In')}
+          </button>
+        )}
       </form>
 
       {/* Divider */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-border" />
-        <span className="text-text-tertiary text-[12px]">{t('account.orContinueWith')}</span>
-        <div className="flex-1 h-px bg-border" />
-      </div>
+      {!forgotMode && (
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-text-tertiary text-[12px]">{t('account.orContinueWith')}</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+      )}
 
       {/* OAuth buttons */}
-      <div className="space-y-2">
-        <button
-          onClick={() => handleOAuth('google')}
-          className="w-full py-2 rounded-[8px] border border-border bg-transparent text-text-primary text-[13px] font-medium cursor-pointer hover:bg-bg-secondary transition-colors flex items-center justify-center gap-2"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24">
-            <path
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-              fill="#4285F4"
-            />
-            <path
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              fill="#34A853"
-            />
-            <path
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              fill="#FBBC05"
-            />
-            <path
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              fill="#EA4335"
-            />
-          </svg>
-          {t('account.continueWithGoogle')}
-        </button>
-        <button
-          onClick={() => handleOAuth('github')}
-          className="w-full py-2 rounded-[8px] border border-border bg-transparent text-text-primary text-[13px] font-medium cursor-pointer hover:bg-bg-secondary transition-colors flex items-center justify-center gap-2"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-          </svg>
-          {t('account.continueWithGithub')}
-        </button>
-      </div>
+      {!forgotMode && (
+        <div className="space-y-2">
+          <button
+            onClick={() => handleOAuth('google')}
+            className="w-full py-2 rounded-[8px] border border-border bg-transparent text-text-primary text-[13px] font-medium cursor-pointer hover:bg-bg-secondary transition-colors flex items-center justify-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                fill="#4285F4"
+              />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+              />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
+            </svg>
+            {t('account.continueWithGoogle')}
+          </button>
+          <button
+            onClick={() => handleOAuth('github')}
+            className="w-full py-2 rounded-[8px] border border-border bg-transparent text-text-primary text-[13px] font-medium cursor-pointer hover:bg-bg-secondary transition-colors flex items-center justify-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            {t('account.continueWithGithub')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -448,18 +562,32 @@ function AccountDetails() {
     sttSecondsLimit,
     llmTokensUsed,
     llmTokensLimit,
+    credentialCapability,
+    refreshCredentialCapability,
+    changePassword,
+    loading,
     signOut,
   } = useAuthStore()
   const config = useAppStore((s) => s.config)
   const history = useAppStore((s) => s.history)
   const dictionary = useAppStore((s) => s.dictionary)
+  const correctionRules = useAppStore((s) => s.correctionRules)
   const setConfig = useAppStore((s) => s.setConfig)
+  const setSavedConfig = useAppStore((s) => s.setSavedConfig)
   const setHistory = useAppStore((s) => s.setHistory)
   const setDictionary = useAppStore((s) => s.setDictionary)
+  const setCorrectionRules = useAppStore((s) => s.setCorrectionRules)
   const { t } = useTranslation()
   const [backupLoading, setBackupLoading] = useState(false)
   const [backupMsg, setBackupMsg] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [securityOpen, setSecurityOpen] = useState(false)
+  const passwordTriggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (credentialCapability !== 'unknown') return
+    void refreshCredentialCapability().catch(() => {})
+  }, [credentialCapability, refreshCredentialCapability])
 
   const hasCloudAccess = useAuthStore(hasManagedCloudAccess)
   const isAppSumo = source === 'appsumo'
@@ -482,13 +610,12 @@ function AccountDetails() {
     setBackupLoading(true)
     setBackupMsg(null)
     try {
-      const {
-        stt_api_key: _stt_api_key,
-        stt_custom_api_key: _stt_custom_api_key,
-        llm_api_key: _llm_api_key,
-        ...safeConfig
-      } = config
-      await uploadBackup({ history, dictionary, settings: safeConfig })
+      const safeConfig = createBackupSettings(config)
+      await uploadBackup({
+        history,
+        dictionary: { entries: dictionary, correction_rules: correctionRules },
+        settings: safeConfig,
+      })
       setBackupMsg(t('account.toast.backupOk'))
     } catch (e) {
       setBackupMsg(e instanceof Error ? e.message : t('account.toast.backupFail'))
@@ -500,11 +627,31 @@ function AccountDetails() {
   const handleRestore = async () => {
     setBackupLoading(true)
     setBackupMsg(null)
+    let autoStartApplied = false
     try {
       const data = await downloadBackup()
-      if (data.history) setHistory(data.history as never)
-      if (data.dictionary) setDictionary(data.dictionary as never)
-      if (data.settings) setConfig(data.settings as never)
+      if (data.settings) {
+        const restoredConfig = mergeBackupSettings(config, data.settings)
+        if (restoredConfig.auto_start !== config.auto_start) {
+          await setAutoStart(restoredConfig.auto_start)
+          autoStartApplied = true
+        }
+        try {
+          await persistConfig(restoredConfig)
+        } catch (error) {
+          if (autoStartApplied) await setAutoStart(config.auto_start).catch(() => {})
+          throw error
+        }
+        const persistedConfig = await getConfig().catch(() => restoredConfig)
+        setConfig(persistedConfig)
+        setSavedConfig(persistedConfig)
+      }
+      if (data.history != null || data.dictionary != null) {
+        const restoredData = await restoreBackupData(data.history ?? null, data.dictionary ?? null)
+        setHistory(restoredData.history)
+        setDictionary(restoredData.dictionary)
+        setCorrectionRules(restoredData.correctionRules)
+      }
       setBackupMsg(t('account.toast.restoreOk'))
     } catch (e) {
       setBackupMsg(e instanceof Error ? e.message : t('account.toast.restoreFail'))
@@ -524,6 +671,11 @@ function AccountDetails() {
       setPortalLoading(false)
     }
   }
+
+  const passwordActionLabel =
+    credentialCapability === 'present'
+      ? t('account.changePassword', 'Change password')
+      : t('account.setPassword', 'Set password')
 
   return (
     <div className="max-w-[400px] mx-auto py-8 px-6 space-y-5 text-[13px]">
@@ -555,6 +707,44 @@ function AccountDetails() {
           />
         )}
       </div>
+
+      {/* Security */}
+      <section className="border border-border rounded-[10px] overflow-hidden">
+        <div className="min-h-10 px-3 py-2.5 flex items-center justify-between gap-3 bg-bg-secondary/50">
+          <div className="flex items-center gap-2 text-text-primary font-medium">
+            <KeyRound size={14} aria-hidden="true" />
+            <span>{t('account.security', 'Security')}</span>
+          </div>
+          {credentialCapability === 'unknown' ? (
+            <Loader2
+              size={14}
+              className="animate-spin text-text-tertiary"
+              aria-label={t('common.loading')}
+            />
+          ) : (
+            <button
+              ref={passwordTriggerRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={securityOpen}
+              onClick={() => setSecurityOpen(true)}
+              className="h-7 rounded-[6px] border border-border bg-bg-primary px-2.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+            >
+              {passwordActionLabel}
+            </button>
+          )}
+        </div>
+      </section>
+
+      {securityOpen && credentialCapability !== 'unknown' && (
+        <PasswordDialog
+          credentialCapability={credentialCapability}
+          loading={loading}
+          returnFocusRef={passwordTriggerRef}
+          onCancel={() => setSecurityOpen(false)}
+          onSubmit={changePassword}
+        />
+      )}
 
       {/* Quota */}
       {wordsLimit > 0 ? (

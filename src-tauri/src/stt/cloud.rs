@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::error::AppError;
+use crate::error::{managed_cloud_error, AppError};
 use crate::with_desktop_client_version;
 
 use super::whisper_compat::WhisperCompatProvider;
@@ -194,6 +194,8 @@ impl SttProvider for CloudSttProvider {
                         tracing::info!("Cloud STT transcription: {} chars", text.len());
 
                         return Ok(if text.is_empty() { None } else { Some(text) });
+                    } else if let Some(error) = managed_cloud_error(status.as_u16(), &body) {
+                        return Err(error);
                     } else if status.as_u16() == 403 {
                         return Err(cloud_stt_forbidden_error(&body));
                     } else if status.as_u16() >= 500 && attempt < 2 {

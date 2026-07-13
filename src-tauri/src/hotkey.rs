@@ -161,8 +161,28 @@ impl HotkeySupervisor {
 pub enum HotkeyPairError {
     InvalidDictationHotkey(String),
     InvalidAskHotkey(String),
-    InvalidRoleHotkey { role: &'static str, value: String },
+    InvalidRoleHotkey {
+        role: &'static str,
+        value: String,
+    },
+    InvalidIndexedHotkey {
+        role: HotkeyRole,
+        index: usize,
+        value: String,
+    },
+    UnsupportedNativeHotkey {
+        role: HotkeyRole,
+        index: usize,
+        value: String,
+        platform: String,
+    },
     ConflictingHotkeys,
+    ConflictingRoleHotkeys {
+        role: HotkeyRole,
+        index: usize,
+        conflict_role: HotkeyRole,
+        conflict_index: usize,
+    },
 }
 
 impl std::fmt::Display for HotkeyPairError {
@@ -173,10 +193,47 @@ impl std::fmt::Display for HotkeyPairError {
             Self::InvalidRoleHotkey { role, value } => {
                 write!(f, "Invalid {role} hotkey: {value}")
             }
+            Self::InvalidIndexedHotkey { role, index, value } => {
+                write!(
+                    f,
+                    "Invalid {} hotkey at index {index}: {value}",
+                    role.as_str()
+                )
+            }
+            Self::UnsupportedNativeHotkey {
+                role,
+                index,
+                value,
+                platform,
+            } => write!(
+                f,
+                "Unsupported {} hotkey at index {index} on {platform}: {value}",
+                role.as_str()
+            ),
             Self::ConflictingHotkeys => {
                 write!(f, "Dictation and Ask hotkeys must use different shortcuts")
             }
+            Self::ConflictingRoleHotkeys {
+                role,
+                index,
+                conflict_role,
+                conflict_index,
+            } => write!(
+                f,
+                "{} hotkey at index {index} conflicts with {} hotkey at index {conflict_index}",
+                role.as_str(),
+                conflict_role.as_str()
+            ),
         }
+    }
+}
+
+impl HotkeyPairError {
+    pub fn is_conflict(&self) -> bool {
+        matches!(
+            self,
+            Self::ConflictingHotkeys | Self::ConflictingRoleHotkeys { .. }
+        )
     }
 }
 
@@ -206,6 +263,7 @@ impl HotkeyRole {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisteredGlobalHotkey {
     pub role: HotkeyRole,
+    pub index: usize,
     pub shortcut: Shortcut,
 }
 
@@ -214,6 +272,7 @@ pub type RegisteredHotkey = RegisteredGlobalHotkey;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisteredNativeHotkey {
     pub role: HotkeyRole,
+    pub index: usize,
     pub trigger: NativeHotkeyTrigger,
 }
 
@@ -227,11 +286,12 @@ fn push_optional_registered_hotkey(
     plan: &mut HotkeyRegistrationPlan,
     role: HotkeyRole,
     binding: Option<&storage::ShortcutBinding>,
+    platform: &str,
 ) -> Result<(), HotkeyPairError> {
     let Some(binding) = binding else {
         return Ok(());
     };
-    push_registered_hotkey(plan, role, binding)
+    push_registered_hotkey(plan, role, 0, binding, platform)
 }
 
 fn binding_display(binding: &storage::ShortcutBinding) -> String {
@@ -240,7 +300,18 @@ fn binding_display(binding: &storage::ShortcutBinding) -> String {
         .unwrap_or_else(|| binding.primary.clone())
 }
 
-fn invalid_binding_error(role: HotkeyRole, binding: &storage::ShortcutBinding) -> HotkeyPairError {
+fn invalid_binding_error(
+    role: HotkeyRole,
+    index: usize,
+    binding: &storage::ShortcutBinding,
+) -> HotkeyPairError {
+    if index > 0 {
+        return HotkeyPairError::InvalidIndexedHotkey {
+            role,
+            index,
+            value: binding_display(binding),
+        };
+    }
     match role {
         HotkeyRole::Dictation => HotkeyPairError::InvalidDictationHotkey(binding_display(binding)),
         HotkeyRole::Ask => HotkeyPairError::InvalidAskHotkey(binding_display(binding)),
@@ -251,38 +322,104 @@ fn invalid_binding_error(role: HotkeyRole, binding: &storage::ShortcutBinding) -
     }
 }
 
-fn native_conflicts(plan: &HotkeyRegistrationPlan, trigger: NativeHotkeyTrigger) -> bool {
+fn native_conflict(
+    plan: &HotkeyRegistrationPlan,
+    trigger: NativeHotkeyTrigger,
+) -> Option<&RegisteredNativeHotkey> {
     plan.native
         .iter()
-        .any(|registered| registered.trigger == trigger)
+        .find(|registered| registered.trigger == trigger)
 }
 
-fn global_conflicts(plan: &HotkeyRegistrationPlan, shortcut: &Shortcut) -> bool {
+fn global_conflict<'a>(
+    plan: &'a HotkeyRegistrationPlan,
+    shortcut: &Shortcut,
+) -> Option<&'a RegisteredGlobalHotkey> {
     plan.global
         .iter()
-        .any(|registered| shortcuts_match(&registered.shortcut, shortcut))
+        .find(|registered| shortcuts_match(&registered.shortcut, shortcut))
+}
+
+fn conflict_error(
+    role: HotkeyRole,
+    index: usize,
+    conflict_role: HotkeyRole,
+    conflict_index: usize,
+) -> HotkeyPairError {
+    if index == 0
+        && conflict_index == 0
+        && matches!(
+            (role, conflict_role),
+            (HotkeyRole::Ask, HotkeyRole::Dictation) | (HotkeyRole::Dictation, HotkeyRole::Ask)
+        )
+    {
+        HotkeyPairError::ConflictingHotkeys
+    } else {
+        HotkeyPairError::ConflictingRoleHotkeys {
+            role,
+            index,
+            conflict_role,
+            conflict_index,
+        }
+    }
 }
 
 fn push_registered_hotkey(
     plan: &mut HotkeyRegistrationPlan,
     role: HotkeyRole,
+    index: usize,
     binding: &storage::ShortcutBinding,
+    platform: &str,
 ) -> Result<(), HotkeyPairError> {
     if let Some(trigger) = native_trigger_from_binding(binding) {
-        if native_conflicts(plan, trigger) {
-            return Err(HotkeyPairError::ConflictingHotkeys);
+        if !native_trigger_supported_on_platform(trigger, platform) {
+            return Err(HotkeyPairError::UnsupportedNativeHotkey {
+                role,
+                index,
+                value: trigger.canonical().to_string(),
+                platform: platform.to_string(),
+            });
         }
-        plan.native.push(RegisteredNativeHotkey { role, trigger });
+        if let Some(conflict) = native_conflict(plan, trigger) {
+            return Err(conflict_error(role, index, conflict.role, conflict.index));
+        }
+        plan.native.push(RegisteredNativeHotkey {
+            role,
+            index,
+            trigger,
+        });
         return Ok(());
     }
 
-    let shortcut =
-        shortcut_from_binding(binding).ok_or_else(|| invalid_binding_error(role, binding))?;
-    if global_conflicts(plan, &shortcut) {
-        return Err(HotkeyPairError::ConflictingHotkeys);
+    let shortcut = shortcut_from_binding(binding)
+        .ok_or_else(|| invalid_binding_error(role, index, binding))?;
+    if let Some(conflict) = global_conflict(plan, &shortcut) {
+        return Err(conflict_error(role, index, conflict.role, conflict.index));
     }
-    plan.global.push(RegisteredGlobalHotkey { role, shortcut });
+    plan.global.push(RegisteredGlobalHotkey {
+        role,
+        index,
+        shortcut,
+    });
     Ok(())
+}
+
+pub fn native_trigger_supported_on_platform(trigger: NativeHotkeyTrigger, platform: &str) -> bool {
+    match platform {
+        "macos" => matches!(
+            trigger,
+            NativeHotkeyTrigger::Fn
+                | NativeHotkeyTrigger::FnSpace
+                | NativeHotkeyTrigger::FnLeftShift
+        ),
+        "windows" => matches!(
+            trigger,
+            NativeHotkeyTrigger::RightAlt
+                | NativeHotkeyTrigger::RightAltSpace
+                | NativeHotkeyTrigger::RightAltLeftShift
+        ),
+        _ => false,
+    }
 }
 
 pub fn native_trigger_from_binding(
@@ -324,26 +461,64 @@ pub fn native_trigger_from_binding(
 pub fn hotkey_registration_plan_from_config(
     config: &storage::HotkeyConfig,
 ) -> Result<HotkeyRegistrationPlan, HotkeyPairError> {
+    hotkey_registration_plan_from_config_for_platform(config, std::env::consts::OS)
+}
+
+pub(crate) fn hotkey_registration_plan_from_config_for_platform(
+    config: &storage::HotkeyConfig,
+    platform: &str,
+) -> Result<HotkeyRegistrationPlan, HotkeyPairError> {
     let mut plan = HotkeyRegistrationPlan::default();
 
-    push_registered_hotkey(&mut plan, HotkeyRole::Dictation, &config.dictation)?;
-    push_optional_registered_hotkey(&mut plan, HotkeyRole::Ask, config.ask.as_ref())?;
-    push_optional_registered_hotkey(
-        &mut plan,
-        HotkeyRole::TranslateSelection,
-        config.translate.as_ref(),
-    )?;
+    let dictation_bindings = if config.dictation_bindings.is_empty() {
+        std::slice::from_ref(&config.dictation)
+    } else {
+        config.dictation_bindings.as_slice()
+    };
+    let ask_bindings = if config.ask_bindings.is_empty() {
+        config.ask.as_slice()
+    } else {
+        config.ask_bindings.as_slice()
+    };
+    let translate_bindings = if config.translate_bindings.is_empty() {
+        config.translate.as_slice()
+    } else {
+        config.translate_bindings.as_slice()
+    };
+
+    for (index, binding) in dictation_bindings.iter().enumerate() {
+        push_registered_hotkey(&mut plan, HotkeyRole::Dictation, index, binding, platform)?;
+    }
+    for (index, binding) in ask_bindings.iter().enumerate() {
+        push_registered_hotkey(&mut plan, HotkeyRole::Ask, index, binding, platform)?;
+    }
+    for (index, binding) in translate_bindings.iter().enumerate() {
+        push_registered_hotkey(
+            &mut plan,
+            HotkeyRole::TranslateSelection,
+            index,
+            binding,
+            platform,
+        )?;
+    }
     push_optional_registered_hotkey(
         &mut plan,
         HotkeyRole::EditSelection,
         config.edit_selection.as_ref(),
+        platform,
     )?;
     push_optional_registered_hotkey(
         &mut plan,
         HotkeyRole::SwitchScene,
         config.switch_scene.as_ref(),
+        platform,
     )?;
-    push_optional_registered_hotkey(&mut plan, HotkeyRole::OpenApp, config.open_app.as_ref())?;
+    push_optional_registered_hotkey(
+        &mut plan,
+        HotkeyRole::OpenApp,
+        config.open_app.as_ref(),
+        platform,
+    )?;
 
     Ok(plan)
 }
@@ -426,7 +601,15 @@ pub fn shortcut_from_binding(binding: &storage::ShortcutBinding) -> Option<Short
 }
 
 pub fn binding_is_valid_for_registration(binding: &storage::ShortcutBinding) -> bool {
-    native_trigger_from_binding(binding).is_some() || shortcut_from_binding(binding).is_some()
+    binding_is_valid_for_platform(binding, std::env::consts::OS)
+}
+
+pub fn binding_is_valid_for_platform(binding: &storage::ShortcutBinding, platform: &str) -> bool {
+    if let Some(trigger) = native_trigger_from_binding(binding) {
+        native_trigger_supported_on_platform(trigger, platform)
+    } else {
+        shortcut_from_binding(binding).is_some()
+    }
 }
 
 pub fn validate_hotkey_pair(
@@ -438,6 +621,9 @@ pub fn validate_hotkey_pair(
     let ask = storage::ShortcutBinding::from_hotkey(ask_hotkey)
         .ok_or_else(|| HotkeyPairError::InvalidAskHotkey(ask_hotkey.to_string()))?;
     let config = storage::HotkeyConfig {
+        dictation_bindings: vec![dictation.clone()],
+        ask_bindings: vec![ask.clone()],
+        translate_bindings: Vec::new(),
         dictation,
         ask: Some(ask),
         translate: None,
@@ -452,6 +638,13 @@ pub fn validate_hotkey_pair(
 
 pub fn validate_hotkey_config(config: &storage::HotkeyConfig) -> Result<(), HotkeyPairError> {
     hotkey_registration_plan_from_config(config).map(|_| ())
+}
+
+pub(crate) fn validate_hotkey_config_for_platform(
+    config: &storage::HotkeyConfig,
+    platform: &str,
+) -> Result<(), HotkeyPairError> {
+    hotkey_registration_plan_from_config_for_platform(config, platform).map(|_| ())
 }
 
 fn is_ask_shortcut(handle: &tauri::AppHandle, shortcut: &Shortcut) -> bool {
@@ -599,7 +792,8 @@ async fn stop_ask_shortcut(handle: tauri::AppHandle) {
     )
     .await
     {
-        Ok(result) => show_ask_result_window(&handle, &result),
+        Ok(result) if result.should_show_window() => show_ask_result_window(&handle, &result),
+        Ok(_) => {}
         Err(message) if message == "Ask dictation is not recording" => {}
         Err(message) => show_ask_error_window(&handle, message),
     }
@@ -1009,6 +1203,7 @@ mod tests {
             primary: "/".to_string(),
             modifiers: vec!["Control".to_string()],
         });
+        config.ask_bindings = config.ask.clone().into_iter().collect();
 
         assert_eq!(
             validate_hotkey_config(&config).unwrap_err(),
@@ -1018,12 +1213,17 @@ mod tests {
 
     #[test]
     fn native_single_key_dictation_uses_native_adapter_plan() {
+        let dictation = storage::ShortcutBinding {
+            primary: "RightAlt".to_string(),
+            modifiers: vec![],
+        };
+        let ask = storage::ShortcutBinding::from_hotkey("Ctrl+.");
         let config = storage::HotkeyConfig {
-            dictation: storage::ShortcutBinding {
-                primary: "RightAlt".to_string(),
-                modifiers: vec![],
-            },
-            ask: storage::ShortcutBinding::from_hotkey("Ctrl+."),
+            dictation_bindings: vec![dictation.clone()],
+            ask_bindings: ask.clone().into_iter().collect(),
+            translate_bindings: Vec::new(),
+            dictation,
+            ask,
             translate: None,
             edit_selection: None,
             switch_scene: None,
@@ -1031,7 +1231,7 @@ mod tests {
             dictation_mode: "toggle".to_string(),
         };
 
-        let plan = hotkey_registration_plan_from_config(&config).unwrap();
+        let plan = hotkey_registration_plan_from_config_for_platform(&config, "windows").unwrap();
 
         assert_eq!(plan.native.len(), 1);
         assert_eq!(plan.native[0].role, HotkeyRole::Dictation);
@@ -1045,17 +1245,23 @@ mod tests {
 
     #[test]
     fn native_typeless_mode_shortcuts_use_native_adapter_plan() {
+        let dictation = storage::ShortcutBinding::from_hotkey("Fn").unwrap();
+        let ask = storage::ShortcutBinding::from_hotkey("Fn+Space");
+        let translate = storage::ShortcutBinding::from_hotkey("Fn+LeftShift");
         let config = storage::HotkeyConfig {
-            dictation: storage::ShortcutBinding::from_hotkey("Fn").unwrap(),
-            ask: storage::ShortcutBinding::from_hotkey("Fn+Space"),
-            translate: storage::ShortcutBinding::from_hotkey("Fn+LeftShift"),
+            dictation_bindings: vec![dictation.clone()],
+            ask_bindings: ask.clone().into_iter().collect(),
+            translate_bindings: translate.clone().into_iter().collect(),
+            dictation,
+            ask,
+            translate,
             edit_selection: None,
             switch_scene: None,
             open_app: None,
             dictation_mode: "toggle".to_string(),
         };
 
-        let plan = hotkey_registration_plan_from_config(&config).unwrap();
+        let plan = hotkey_registration_plan_from_config_for_platform(&config, "macos").unwrap();
 
         assert!(plan.global.is_empty());
         assert!(plan.native.iter().any(|entry| {
@@ -1074,15 +1280,20 @@ mod tests {
 
     #[test]
     fn fn_dictation_conflicts_with_fn_ask_binding() {
+        let dictation = storage::ShortcutBinding {
+            primary: "Fn".to_string(),
+            modifiers: vec![],
+        };
+        let ask = storage::ShortcutBinding {
+            primary: "Fn".to_string(),
+            modifiers: vec![],
+        };
         let config = storage::HotkeyConfig {
-            dictation: storage::ShortcutBinding {
-                primary: "Fn".to_string(),
-                modifiers: vec![],
-            },
-            ask: Some(storage::ShortcutBinding {
-                primary: "Fn".to_string(),
-                modifiers: vec![],
-            }),
+            dictation_bindings: vec![dictation.clone()],
+            ask_bindings: vec![ask.clone()],
+            translate_bindings: Vec::new(),
+            dictation,
+            ask: Some(ask),
             translate: None,
             edit_selection: None,
             switch_scene: None,
@@ -1091,7 +1302,7 @@ mod tests {
         };
 
         assert_eq!(
-            hotkey_registration_plan_from_config(&config).unwrap_err(),
+            hotkey_registration_plan_from_config_for_platform(&config, "macos").unwrap_err(),
             HotkeyPairError::ConflictingHotkeys
         );
     }
@@ -1123,22 +1334,19 @@ mod tests {
 
         #[cfg(target_os = "windows")]
         {
-            assert!(plan.native.iter().any(|entry| {
-                entry.role == HotkeyRole::Dictation
-                    && entry.trigger == crate::native_hotkey::NativeHotkeyTrigger::RightAlt
-            }));
-            assert!(plan.native.iter().any(|entry| {
-                entry.role == HotkeyRole::Ask
-                    && entry.trigger == crate::native_hotkey::NativeHotkeyTrigger::RightAltSpace
-            }));
-            assert!(plan.native.iter().any(|entry| {
-                entry.role == HotkeyRole::TranslateSelection
-                    && entry.trigger == crate::native_hotkey::NativeHotkeyTrigger::RightAltLeftShift
-            }));
-            assert!(!plan
+            assert!(plan
                 .global
                 .iter()
                 .any(|entry| entry.role == HotkeyRole::Dictation));
+            assert!(plan
+                .global
+                .iter()
+                .any(|entry| entry.role == HotkeyRole::Ask));
+            assert!(plan
+                .global
+                .iter()
+                .any(|entry| entry.role == HotkeyRole::TranslateSelection));
+            assert!(plan.native.is_empty());
         }
 
         #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
@@ -1176,6 +1384,107 @@ mod tests {
                 HotkeyRole::OpenApp,
             ]
         );
+    }
+
+    #[test]
+    fn hotkey_binding_lists_register_every_core_binding_with_stable_indices() {
+        let mut config = storage::HotkeyConfig::from_legacy("Ctrl+/", "Ctrl+.", "hold");
+        config.dictation_bindings = vec![
+            storage::ShortcutBinding::from_hotkey("Ctrl+/").unwrap(),
+            storage::ShortcutBinding::from_hotkey("F8").unwrap(),
+        ];
+        config.ask_bindings = vec![
+            storage::ShortcutBinding::from_hotkey("Ctrl+.").unwrap(),
+            storage::ShortcutBinding::from_hotkey("F9").unwrap(),
+        ];
+        config.translate_bindings =
+            vec![storage::ShortcutBinding::from_hotkey("Ctrl+Shift+T").unwrap()];
+
+        let plan = hotkey_registration_plan_from_config(&config).unwrap();
+        let core: Vec<(HotkeyRole, usize)> = plan
+            .global
+            .iter()
+            .map(|entry| (entry.role, entry.index))
+            .collect();
+
+        assert_eq!(
+            core,
+            vec![
+                (HotkeyRole::Dictation, 0),
+                (HotkeyRole::Dictation, 1),
+                (HotkeyRole::Ask, 0),
+                (HotkeyRole::Ask, 1),
+                (HotkeyRole::TranslateSelection, 0),
+            ]
+        );
+    }
+
+    #[test]
+    fn hotkey_binding_lists_reject_secondary_cross_role_conflicts() {
+        let mut config = storage::HotkeyConfig::from_legacy("Ctrl+/", "Ctrl+.", "hold");
+        config
+            .dictation_bindings
+            .push(storage::ShortcutBinding::from_hotkey("Ctrl+Shift+E").unwrap());
+        config.edit_selection = storage::ShortcutBinding::from_hotkey("Ctrl+Shift+E");
+
+        assert_eq!(
+            hotkey_registration_plan_from_config(&config).unwrap_err(),
+            HotkeyPairError::ConflictingRoleHotkeys {
+                role: HotkeyRole::EditSelection,
+                index: 0,
+                conflict_role: HotkeyRole::Dictation,
+                conflict_index: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn hotkey_binding_lists_reject_duplicate_normalized_triggers() {
+        let mut config = storage::HotkeyConfig::from_legacy("Ctrl+/", "", "hold");
+        config.dictation_bindings = vec![
+            storage::ShortcutBinding {
+                primary: "/".to_string(),
+                modifiers: vec!["Control".to_string()],
+            },
+            storage::ShortcutBinding {
+                primary: "/".to_string(),
+                modifiers: vec!["Ctrl".to_string()],
+            },
+        ];
+
+        assert!(matches!(
+            hotkey_registration_plan_from_config(&config),
+            Err(HotkeyPairError::ConflictingRoleHotkeys {
+                role: HotkeyRole::Dictation,
+                index: 1,
+                conflict_role: HotkeyRole::Dictation,
+                conflict_index: 0,
+            })
+        ));
+    }
+
+    #[test]
+    fn hotkey_binding_lists_validate_native_triggers_for_target_platform() {
+        assert!(native_trigger_supported_on_platform(
+            NativeHotkeyTrigger::FnSpace,
+            "macos"
+        ));
+        assert!(!native_trigger_supported_on_platform(
+            NativeHotkeyTrigger::RightAlt,
+            "macos"
+        ));
+        assert!(native_trigger_supported_on_platform(
+            NativeHotkeyTrigger::RightAltLeftShift,
+            "windows"
+        ));
+        assert!(!native_trigger_supported_on_platform(
+            NativeHotkeyTrigger::Fn,
+            "windows"
+        ));
+        assert!(!native_trigger_supported_on_platform(
+            NativeHotkeyTrigger::Fn,
+            "linux"
+        ));
     }
 
     #[test]

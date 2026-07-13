@@ -16,6 +16,33 @@ const fetchWithToken: typeof fetch = (url, init) => {
   return fetch(url, { ...init, headers })
 }
 
+async function openTypelessAuthRequest(path: string, body: unknown): Promise<void> {
+  const response = await fetchWithToken(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (response.ok) return
+
+  const result = (await response.json().catch(() => null)) as {
+    error?: string | { message?: string }
+  } | null
+  const message =
+    typeof result?.error === 'string'
+      ? result.error
+      : (result?.error?.message ?? response.statusText)
+  throw new Error(message || 'Authentication request failed')
+}
+
+export function requestOpenTypelessPasswordReset(email: string, locale: string): Promise<void> {
+  return openTypelessAuthRequest('/api/opentypeless/auth/request-password-reset', { email, locale })
+}
+
+export function setOpenTypelessPassword(newPassword: string): Promise<void> {
+  return openTypelessAuthRequest('/api/opentypeless/auth/set-password', { newPassword })
+}
+
 export const authClient = createAuthClient({
   baseURL: API_BASE_URL,
   fetchOptions: {

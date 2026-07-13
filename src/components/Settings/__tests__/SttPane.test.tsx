@@ -12,6 +12,7 @@ vi.mock('react-i18next', () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         'settings.provider': 'Provider',
+        'nav.upgrade': 'Upgrade',
         'settings.apiKey': 'API Key',
         'settings.test': 'Test',
         'settings.enterApiKey': 'Enter API Key',
@@ -278,6 +279,8 @@ describe('SttPane', () => {
 
       render(<SttPane />)
       expect(screen.getByText('Upgrade to Pro to use cloud STT')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }))
+      expect(window.location.hash).toBe('#/upgrade')
     })
 
     it('shows active status when user is pro', () => {

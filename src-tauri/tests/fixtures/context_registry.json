@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "profileId": "email.gmail",
+      "positiveSignals": [{ "browserHost": "mail.google.com", "supportedBrowser": true }],
+      "negativeSignals": [
+        { "browserHost": "mail.google.com.evil.example", "supportedBrowser": true },
+        { "browserHost": "gmail.com", "supportedBrowser": true },
+        { "browserHost": "mail.google.com", "supportedBrowser": false }
+      ],
+      "expectedFamily": "email",
+      "expectedLabel": "Gmail",
+      "expectedIconKey": "gmail",
+      "expectedOverrideId": "gmail",
+      "releaseTier": "reference"
+    },
+    {
+      "profileId": "chat.slack",
+      "positiveSignals": [{ "browserHost": "app.slack.com", "supportedBrowser": true }],
+      "negativeSignals": [
+        { "browserHost": "app.slack.com.evil.example", "supportedBrowser": true },
+        { "browserHost": "evSlack.com", "supportedBrowser": true },
+        { "browserHost": "app.slack.com", "supportedBrowser": false }
+      ],
+      "expectedFamily": "work_chat",
+      "expectedLabel": "Slack",
+      "expectedIconKey": "slack",
+      "expectedOverrideId": "slack",
+      "releaseTier": "reference"
+    }
+  ]
+}

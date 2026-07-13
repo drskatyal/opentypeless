@@ -9,13 +9,7 @@ import {
   updateConfig,
   setAutoStart,
 } from '../../../lib/tauri'
-import { toast } from '../../Toast'
-
-export function useDirtyConfig() {
-  const config = useAppStore((s) => s.config)
-  const savedConfig = useAppStore((s) => s.savedConfig)
-  return savedConfig !== null && JSON.stringify(config) !== JSON.stringify(savedConfig)
-}
+import { toast } from '../../toast-service'
 
 type SaveResult = 'idle' | 'success' | 'error'
 
@@ -124,7 +118,7 @@ export function DirtyBar() {
             disabled={saving}
             className="px-3 py-1.5 text-[12px] text-text-secondary hover:text-text-primary bg-transparent border-none cursor-pointer rounded-[10px] hover:bg-bg-tertiary transition-colors disabled:opacity-50"
           >
-            Reset
+            {t('common.reset')}
           </button>
           <button
             onClick={handleSave}

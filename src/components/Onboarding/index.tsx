@@ -9,11 +9,12 @@ import { AccountStep } from './AccountStep'
 import { ModeSelectStep } from './ModeSelectStep'
 import { SttSetupStep } from './SttSetupStep'
 import { LlmSetupStep } from './LlmSetupStep'
+import { PermissionsStep } from './PermissionsStep'
 import { QuickTestStep } from './QuickTestStep'
 import { DoneStep } from './DoneStep'
 import { slideRight } from '../../lib/animations'
 
-const TOTAL_STEPS = 7
+const TOTAL_STEPS = 8
 
 export function Onboarding() {
   const { t } = useTranslation()
@@ -40,8 +41,10 @@ export function Onboarding() {
       case 4:
         return llmTestStatus === 'success' // LLM must pass (BYOK only)
       case 5:
-        return true // Quick test — optional
+        return true // Permissions — optional
       case 6:
+        return true // Quick test — optional
+      case 7:
         return true // Done
       default:
         return false
@@ -57,6 +60,7 @@ export function Onboarding() {
       subtitle: t('onboarding.steps.speechRecognitionSub'),
     },
     { title: t('onboarding.steps.aiPolish'), subtitle: t('onboarding.steps.aiPolishSub') },
+    { title: t('onboarding.steps.permissions'), subtitle: t('onboarding.steps.permissionsSub') },
     { title: t('onboarding.steps.howItWorks'), subtitle: t('onboarding.steps.howItWorksSub') },
     { title: t('onboarding.steps.setupComplete'), subtitle: undefined },
   ]
@@ -99,7 +103,7 @@ export function Onboarding() {
         // Best-effort save
       }
 
-      // If coming back from Quick Test in cloud mode, go back to Mode Select (step 2)
+      // Cloud mode skips provider setup, so Permissions returns to Mode Select.
       if (step === 5 && onboardingMode === 'cloud') {
         setStep(2)
         return
@@ -166,8 +170,9 @@ export function Onboarding() {
           {step === 2 && <ModeSelectStep />}
           {step === 3 && <SttSetupStep />}
           {step === 4 && <LlmSetupStep />}
-          {step === 5 && <QuickTestStep />}
-          {step === 6 && <DoneStep />}
+          {step === 5 && <PermissionsStep />}
+          {step === 6 && <QuickTestStep />}
+          {step === 7 && <DoneStep />}
         </motion.div>
       </AnimatePresence>
     </OnboardingLayout>

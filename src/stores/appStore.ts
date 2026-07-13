@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { TARGET_LANGUAGES } from '../lib/constants'
 
 export type PipelineState =
   | 'idle'
@@ -9,6 +10,8 @@ export type PipelineState =
   | 'outputting'
   | 'ask_recording'
   | 'ask_thinking'
+
+export type VoiceMode = 'dictate' | 'ask' | 'translate'
 
 export type SttProvider =
   | 'deepgram'
@@ -50,6 +53,19 @@ export type Theme = 'light' | 'dark' | 'system'
 export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
 export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
 export type SceneSource = 'custom' | 'builtin' | 'cloud'
+export type ContextFamily =
+  | 'email'
+  | 'work_chat'
+  | 'personal_chat'
+  | 'document'
+  | 'project_management'
+  | 'developer_collaboration'
+  | 'prompt_or_code'
+  | 'support'
+  | 'social'
+  | 'general'
+export type BrowserAccessStatus = 'available' | 'needs_permission' | 'not_applicable' | 'unknown'
+export type BrowserTarget = 'safari' | 'chrome' | 'edge' | 'brave' | 'arc'
 
 export interface ShortcutBinding {
   primary: string
@@ -60,6 +76,9 @@ export interface HotkeyConfig {
   dictation: ShortcutBinding
   ask: ShortcutBinding | null
   translate: ShortcutBinding | null
+  dictationBindings: ShortcutBinding[]
+  askBindings: ShortcutBinding[]
+  translateBindings: ShortcutBinding[]
   editSelection: ShortcutBinding | null
   switchScene: ShortcutBinding | null
   openApp: ShortcutBinding | null
@@ -77,8 +96,12 @@ export interface PlatformCapabilities {
 export interface HistoryEntry {
   id: number
   created_at: string
-  app_name: string
-  app_type: string
+  context_profile_id: string
+  context_label: string
+  context_icon_key: string
+  context_family: ContextFamily
+  browser_access_status: BrowserAccessStatus
+  provider_kind: 'managed_cloud' | 'byok' | 'local'
   raw_text: string
   polished_text: string
   language: string | null
@@ -90,6 +113,16 @@ export interface HistoryEntry {
   active_scene_prompt_truncated: boolean
   output_status: string | null
   output_error: string | null
+}
+
+export interface ContextProfileSummary {
+  profileId: string
+  family: ContextFamily
+  appLabel: string
+  iconKey: string
+  overrideId: string | null
+  browserAccessStatus?: BrowserAccessStatus
+  browserTarget?: BrowserTarget | null
 }
 
 export interface InsertResult {
@@ -123,11 +156,33 @@ export interface CustomScene {
   updated_at: string
 }
 
+export interface SystemSceneOverride {
+  id: string
+  prompt_template: string
+}
+
 export interface ActiveScene {
   id: string
   source: SceneSource
   name: string
   prompt_template: string
+}
+
+export interface FamilySceneAssignment {
+  family: ContextFamily
+  scene_id: string
+}
+
+export interface VoiceRoutingFlags {
+  draft_insert: boolean
+  rewrite_selection: boolean
+  translate_selection: boolean
+  search: boolean
+}
+
+export interface TranslationConfig {
+  targets: string[]
+  active_target: string
 }
 
 export interface AppConfig {
@@ -144,13 +199,18 @@ export interface AppConfig {
   llm_model: string
   llm_base_url: string
   polish_enabled: boolean
+  context_adaptation_enabled: boolean
+  voice_routing_flags: VoiceRoutingFlags
   polish_style: PolishStyle
   polish_custom_prompt: string
   polish_chinese_script: PolishChineseScript
   custom_scenes: CustomScene[]
+  system_scene_overrides: SystemSceneOverride[]
   active_scene: ActiveScene | null
+  family_scene_assignments: FamilySceneAssignment[]
   translate_enabled: boolean
   target_lang: string
+  translation: TranslationConfig
   hotkey: string
   ask_hotkey: string
   hotkey_mode: HotkeyMode
@@ -180,6 +240,8 @@ interface AppState {
   // Pipeline
   pipelineState: PipelineState
   setPipelineState: (state: PipelineState) => void
+  activeVoiceMode: VoiceMode | null
+  setActiveVoiceMode: (mode: VoiceMode | null) => void
 
   // Recording
   audioVolume: number
@@ -197,6 +259,8 @@ interface AppState {
   setTargetApp: (app: string) => void
   lastInsertResult: InsertResult | null
   setLastInsertResult: (result: InsertResult | null) => void
+  lastContext: ContextProfileSummary | null
+  setLastContext: (context: ContextProfileSummary | null) => void
 
   // Config
   config: AppConfig
@@ -259,6 +323,8 @@ interface AppState {
   setContextMenuOpen: (open: boolean) => void
   contextMenuReady: boolean
   setContextMenuReady: (ready: boolean) => void
+  translationTargetMenuOpen: boolean
+  setTranslationTargetMenuOpen: (open: boolean) => void
 
   // Reset recording state
   resetRecording: () => void
@@ -277,24 +343,21 @@ export const isWindowsPlatform = () =>
 
 function defaultDictationHotkey(): string {
   if (isMacPlatform()) return 'Fn'
-  if (isWindowsPlatform()) return 'RightAlt'
   return 'Ctrl+/'
 }
 
 function defaultDictationHotkeyMode(): HotkeyMode {
-  return isMacPlatform() || isWindowsPlatform() ? 'toggle' : 'hold'
+  return isMacPlatform() ? 'toggle' : 'hold'
 }
 
 function defaultAskHotkey(): string {
   if (isMacPlatform()) return 'Fn+Space'
-  if (isWindowsPlatform()) return 'RightAlt+Space'
   return 'Ctrl+.'
 }
 
 function defaultTranslateHotkey(): string | null {
   if (isMacPlatform()) return 'Fn+LeftShift'
-  if (isWindowsPlatform()) return 'RightAlt+LeftShift'
-  return null
+  return 'Ctrl+Shift+/'
 }
 
 const modifierOrder = ['Fn', 'RightAlt', 'Command', 'Super', 'Ctrl', 'Option', 'Alt', 'Shift']
@@ -385,7 +448,7 @@ function normalizePrimary(value: string): string | null {
   return null
 }
 
-function bindingFromHotkey(value: string): ShortcutBinding | null {
+export function bindingFromHotkey(value: string): ShortcutBinding | null {
   const parts = value
     .split('+')
     .map((part) => part.trim())
@@ -410,19 +473,111 @@ function bindingFromHotkey(value: string): ShortcutBinding | null {
   return { primary, modifiers }
 }
 
-function hotkeyFromBinding(binding: ShortcutBinding): string {
+export function hotkeyFromBinding(binding: ShortcutBinding): string {
   return [...binding.modifiers, binding.primary].join('+')
 }
 
-function hotkeyConfigFromLegacy(config: AppConfig): HotkeyConfig {
+const MAX_HOTKEY_BINDINGS_PER_ROLE = 3
+
+function normalizeBinding(binding: ShortcutBinding | null | undefined): ShortcutBinding | null {
+  if (!binding) return null
+  return bindingFromHotkey(hotkeyFromBinding(binding))
+}
+
+function hotkeyBindingIdentity(binding: ShortcutBinding): string {
+  const modifiers = binding.modifiers.map((modifier) => {
+    if (modifier === 'Option') return 'Alt'
+    if (modifier === 'Command') return 'Super'
+    return modifier
+  })
+  return [...modifiers, binding.primary].join('+')
+}
+
+function normalizeBindingList(bindings: ShortcutBinding[] | null | undefined): ShortcutBinding[] {
+  const normalized: ShortcutBinding[] = []
+  const seen = new Set<string>()
+  for (const binding of Array.isArray(bindings) ? bindings : []) {
+    const next = normalizeBinding(binding)
+    if (!next) continue
+    const identity = hotkeyBindingIdentity(next)
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    normalized.push(next)
+    if (normalized.length === MAX_HOTKEY_BINDINGS_PER_ROLE) break
+  }
+  return normalized
+}
+
+function normalizeHotkeyConfig(config: AppConfig, hotkeysValue: HotkeyConfig): HotkeyConfig {
+  const hotkeys = hotkeysValue as HotkeyConfig & {
+    dictationBindings?: ShortcutBinding[]
+    askBindings?: ShortcutBinding[]
+    translateBindings?: ShortcutBinding[]
+  }
+  const scalarDictation = normalizeBinding(hotkeys.dictation)
+  const dictationBindings = normalizeBindingList(
+    hotkeys.dictationBindings?.length
+      ? hotkeys.dictationBindings
+      : scalarDictation
+        ? [scalarDictation]
+        : [],
+  )
+  if (dictationBindings.length === 0) {
+    dictationBindings.push(bindingFromHotkey(defaultDictationHotkey())!)
+  }
+
+  const hasAskList = Array.isArray(hotkeys.askBindings)
+  const askBindings = normalizeBindingList(
+    hasAskList ? hotkeys.askBindings : hotkeys.ask ? [hotkeys.ask] : [],
+  )
+  const hasTranslateList = Array.isArray(hotkeys.translateBindings)
+  const translateBindings = normalizeBindingList(
+    hasTranslateList ? hotkeys.translateBindings : hotkeys.translate ? [hotkeys.translate] : [],
+  )
+
   return {
-    dictation: bindingFromHotkey(config.hotkey) ?? bindingFromHotkey(defaultDictationHotkey())!,
-    ask: config.ask_hotkey.trim()
-      ? (bindingFromHotkey(config.ask_hotkey) ?? bindingFromHotkey(defaultAskHotkey()))
-      : null,
-    translate:
-      config.hotkeys?.translate ??
-      (defaultTranslateHotkey() ? bindingFromHotkey(defaultTranslateHotkey()!) : null),
+    dictation: dictationBindings[0],
+    ask: askBindings[0] ?? null,
+    translate: translateBindings[0] ?? null,
+    dictationBindings,
+    askBindings,
+    translateBindings,
+    editSelection: normalizeBinding(hotkeys.editSelection),
+    switchScene: normalizeBinding(hotkeys.switchScene),
+    openApp: normalizeBinding(hotkeys.openApp),
+    dictationMode:
+      hotkeys.dictationMode === 'toggle'
+        ? 'toggle'
+        : hotkeys.dictationMode === 'hold'
+          ? 'hold'
+          : config.hotkey_mode === 'toggle'
+            ? 'toggle'
+            : defaultDictationHotkeyMode(),
+  }
+}
+
+function hotkeyConfigFromLegacy(config: AppConfig): HotkeyConfig {
+  const dictation = bindingFromHotkey(config.hotkey) ?? bindingFromHotkey(defaultDictationHotkey())!
+  const ask = config.ask_hotkey.trim()
+    ? (bindingFromHotkey(config.ask_hotkey) ?? bindingFromHotkey(defaultAskHotkey()))
+    : null
+  const existingTranslate =
+    config.hotkeys?.translate ??
+    (defaultTranslateHotkey() ? bindingFromHotkey(defaultTranslateHotkey()!) : null)
+  const translateBindings = normalizeBindingList(
+    config.hotkeys?.translateBindings?.length
+      ? config.hotkeys.translateBindings
+      : existingTranslate
+        ? [existingTranslate]
+        : [],
+  )
+  return normalizeHotkeyConfig(config, {
+    dictation,
+    ask,
+    translate: translateBindings[0] ?? null,
+    dictationBindings: [dictation],
+    askBindings: ask ? [ask] : [],
+    translateBindings,
     editSelection: config.hotkeys?.editSelection ?? null,
     switchScene: config.hotkeys?.switchScene ?? null,
     openApp: config.hotkeys?.openApp ?? null,
@@ -432,7 +587,7 @@ function hotkeyConfigFromLegacy(config: AppConfig): HotkeyConfig {
         : config.hotkey_mode === 'hold'
           ? 'hold'
           : defaultDictationHotkeyMode(),
-  }
+  })
 }
 
 function syncLegacyHotkeysToTyped(config: AppConfig): AppConfig {
@@ -440,7 +595,9 @@ function syncLegacyHotkeysToTyped(config: AppConfig): AppConfig {
 }
 
 function syncTypedHotkeysToLegacy(config: AppConfig): AppConfig {
-  const hotkeys = config.hotkeys ?? hotkeyConfigFromLegacy(config)
+  const hotkeys = config.hotkeys
+    ? normalizeHotkeyConfig(config, config.hotkeys)
+    : hotkeyConfigFromLegacy(config)
   return {
     ...config,
     hotkey: hotkeyFromBinding(hotkeys.dictation),
@@ -450,9 +607,96 @@ function syncTypedHotkeysToLegacy(config: AppConfig): AppConfig {
   }
 }
 
-function syncHotkeyConfig(previous: AppConfig, partial: Partial<AppConfig>): AppConfig {
+const supportedTranslationCodes = new Set(TARGET_LANGUAGES.map((language) => language.value))
+
+function normalizeTranslationTargets(targets: string[]): string[] {
+  const normalized: string[] = []
+  for (const value of targets) {
+    const code = value.trim().toLowerCase()
+    if (!supportedTranslationCodes.has(code) || normalized.includes(code)) continue
+    normalized.push(code)
+    if (normalized.length === 5) break
+  }
+  return normalized
+}
+
+function syncTranslationConfig(previous: AppConfig, partial: Partial<AppConfig>): AppConfig {
   const merged = { ...previous, ...partial }
-  if (partial.hotkeys) return syncTypedHotkeysToLegacy(merged)
+  if (partial.translation) {
+    const targets = normalizeTranslationTargets(partial.translation.targets)
+    const requestedActive = partial.translation.active_target.trim().toLowerCase()
+    if (targets.length === 0) {
+      targets.push(supportedTranslationCodes.has(requestedActive) ? requestedActive : 'en')
+    }
+    const activeTarget = targets.includes(requestedActive) ? requestedActive : targets[0]
+    return {
+      ...merged,
+      target_lang: activeTarget,
+      translation: { targets, active_target: activeTarget },
+    }
+  }
+
+  if ('target_lang' in partial) {
+    const requested = partial.target_lang?.trim().toLowerCase() ?? ''
+    const activeTarget = supportedTranslationCodes.has(requested)
+      ? requested
+      : previous.translation?.active_target || 'en'
+    const targets = normalizeTranslationTargets(previous.translation?.targets ?? [activeTarget])
+    if (!targets.includes(activeTarget)) {
+      if (targets.length === 5) targets[targets.length - 1] = activeTarget
+      else targets.push(activeTarget)
+    }
+    return {
+      ...merged,
+      target_lang: activeTarget,
+      translation: { targets, active_target: activeTarget },
+    }
+  }
+
+  const current = merged.translation
+  if (!current) {
+    const activeTarget = supportedTranslationCodes.has(merged.target_lang)
+      ? merged.target_lang
+      : 'en'
+    return {
+      ...merged,
+      target_lang: activeTarget,
+      translation: { targets: [activeTarget], active_target: activeTarget },
+    }
+  }
+  return merged
+}
+
+function syncHotkeyConfig(previous: AppConfig, partial: Partial<AppConfig>): AppConfig {
+  const merged = syncTranslationConfig(previous, partial)
+  if (partial.hotkeys) {
+    const hotkeys = { ...partial.hotkeys }
+    const listsChanged =
+      JSON.stringify(hotkeys.dictationBindings) !==
+        JSON.stringify(previous.hotkeys.dictationBindings) ||
+      JSON.stringify(hotkeys.askBindings) !== JSON.stringify(previous.hotkeys.askBindings) ||
+      JSON.stringify(hotkeys.translateBindings) !==
+        JSON.stringify(previous.hotkeys.translateBindings)
+    if (!listsChanged) {
+      if (JSON.stringify(hotkeys.dictation) !== JSON.stringify(previous.hotkeys.dictation)) {
+        hotkeys.dictationBindings = [
+          hotkeys.dictation,
+          ...(hotkeys.dictationBindings ?? []).slice(1),
+        ]
+      }
+      if (JSON.stringify(hotkeys.ask) !== JSON.stringify(previous.hotkeys.ask)) {
+        hotkeys.askBindings = hotkeys.ask
+          ? [hotkeys.ask, ...(hotkeys.askBindings ?? []).slice(1)]
+          : []
+      }
+      if (JSON.stringify(hotkeys.translate) !== JSON.stringify(previous.hotkeys.translate)) {
+        hotkeys.translateBindings = hotkeys.translate
+          ? [hotkeys.translate, ...(hotkeys.translateBindings ?? []).slice(1)]
+          : []
+      }
+    }
+    return syncTypedHotkeysToLegacy({ ...merged, hotkeys })
+  }
   if ('hotkey' in partial || 'ask_hotkey' in partial || 'hotkey_mode' in partial) {
     return syncLegacyHotkeysToTyped(merged)
   }
@@ -473,13 +717,23 @@ const defaultConfig: AppConfig = {
   llm_model: 'google/gemini-2.5-flash',
   llm_base_url: 'https://openrouter.ai/api/v1',
   polish_enabled: true,
+  context_adaptation_enabled: true,
+  voice_routing_flags: {
+    draft_insert: true,
+    rewrite_selection: true,
+    translate_selection: true,
+    search: true,
+  },
   polish_style: 'clean',
   polish_custom_prompt: '',
   polish_chinese_script: 'preserve',
   custom_scenes: [],
+  system_scene_overrides: [],
   active_scene: null,
+  family_scene_assignments: [],
   translate_enabled: false,
   target_lang: 'en',
+  translation: { targets: ['en'], active_target: 'en' },
   hotkey: defaultDictationHotkey(),
   ask_hotkey: defaultAskHotkey(),
   hotkey_mode: defaultDictationHotkeyMode(),
@@ -487,6 +741,11 @@ const defaultConfig: AppConfig = {
     dictation: bindingFromHotkey(defaultDictationHotkey())!,
     ask: bindingFromHotkey(defaultAskHotkey()),
     translate: defaultTranslateHotkey() ? bindingFromHotkey(defaultTranslateHotkey()!) : null,
+    dictationBindings: [bindingFromHotkey(defaultDictationHotkey())!],
+    askBindings: [bindingFromHotkey(defaultAskHotkey())!],
+    translateBindings: defaultTranslateHotkey()
+      ? [bindingFromHotkey(defaultTranslateHotkey()!)!]
+      : [],
     editSelection: null,
     switchScene: null,
     openApp: null,
@@ -514,6 +773,8 @@ const defaultConfig: AppConfig = {
 export const useAppStore = create<AppState>((set) => ({
   pipelineState: 'idle',
   setPipelineState: (pipelineState) => set({ pipelineState }),
+  activeVoiceMode: null,
+  setActiveVoiceMode: (activeVoiceMode) => set({ activeVoiceMode }),
 
   audioVolume: 0,
   setAudioVolume: (audioVolume) => set({ audioVolume }),
@@ -530,6 +791,8 @@ export const useAppStore = create<AppState>((set) => ({
   setTargetApp: (targetApp) => set({ targetApp }),
   lastInsertResult: null,
   setLastInsertResult: (lastInsertResult) => set({ lastInsertResult }),
+  lastContext: null,
+  setLastContext: (lastContext) => set({ lastContext }),
 
   config: defaultConfig,
   setConfig: (config) => set((s) => ({ config: syncHotkeyConfig(s.config, config) })),
@@ -585,6 +848,8 @@ export const useAppStore = create<AppState>((set) => ({
   setContextMenuOpen: (contextMenuOpen) => set({ contextMenuOpen }),
   contextMenuReady: false,
   setContextMenuReady: (contextMenuReady) => set({ contextMenuReady }),
+  translationTargetMenuOpen: false,
+  setTranslationTargetMenuOpen: (translationTargetMenuOpen) => set({ translationTargetMenuOpen }),
 
   resetRecording: () =>
     set({

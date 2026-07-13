@@ -5,6 +5,11 @@ import type {
   DictionaryEntry,
   CorrectionRule,
   PlatformCapabilities,
+  TranslationConfig,
+  ContextFamily,
+  FamilySceneAssignment,
+  BrowserAccessStatus,
+  BrowserTarget,
 } from '../stores/appStore'
 
 // Pipeline commands
@@ -20,6 +25,90 @@ export async function abortRecording(): Promise<void> {
   return invoke('abort_recording')
 }
 
+export async function setActiveTranslationTarget(code: string): Promise<TranslationConfig> {
+  return invoke('set_active_translation_target', { code })
+}
+
+export type AppMatcherType = 'native_bundle_id' | 'native_executable' | 'exact_web_host'
+
+export interface MappingCandidateView {
+  generation: number
+  matcherType: AppMatcherType
+  displayValue: string
+  suggestedLabel: string
+  currentFamily: ContextFamily
+  iconKey: string
+}
+
+export interface CustomAppMappingView {
+  id: string
+  label: string
+  matcherType: AppMatcherType
+  displayValue: string
+  family: ContextFamily
+  sceneId: string | null
+  enabled: boolean
+  iconKey: string
+}
+
+export interface SaveCustomAppMappingInput {
+  candidateGeneration: number
+  label: string
+  family: ContextFamily
+  sceneId: string | null
+}
+
+export interface UpdateCustomAppMappingInput {
+  id: string
+  label: string
+  family: ContextFamily
+  sceneId: string | null
+  enabled: boolean
+}
+
+export async function getLatestMappingCandidate(): Promise<MappingCandidateView | null> {
+  return invoke('get_latest_mapping_candidate')
+}
+
+export async function listCustomAppMappings(): Promise<CustomAppMappingView[]> {
+  return invoke('list_custom_app_mappings')
+}
+
+export async function saveCustomAppMapping(
+  input: SaveCustomAppMappingInput,
+): Promise<CustomAppMappingView> {
+  return invoke('save_custom_app_mapping', { input })
+}
+
+export async function updateCustomAppMapping(
+  input: UpdateCustomAppMappingInput,
+): Promise<CustomAppMappingView> {
+  return invoke('update_custom_app_mapping', { input })
+}
+
+export async function setCustomAppMappingEnabled(id: string, enabled: boolean): Promise<void> {
+  return invoke('set_custom_app_mapping_enabled', { id, enabled })
+}
+
+export async function deleteCustomAppMapping(id: string): Promise<void> {
+  return invoke('delete_custom_app_mapping', { id })
+}
+
+export async function resetCustomAppMappings(): Promise<void> {
+  return invoke('reset_custom_app_mappings')
+}
+
+export async function setFamilySceneAssignment(
+  family: ContextFamily,
+  sceneId: string | null,
+): Promise<FamilySceneAssignment[]> {
+  return invoke('set_family_scene_assignment', { input: { family, sceneId } })
+}
+
+export async function requestBrowserAccess(target: BrowserTarget): Promise<BrowserAccessStatus> {
+  return invoke('request_browser_access', { target })
+}
+
 // Config commands
 export async function getConfig(): Promise<AppConfig> {
   return invoke('get_config')
@@ -27,6 +116,16 @@ export async function getConfig(): Promise<AppConfig> {
 
 export async function updateConfig(config: AppConfig): Promise<void> {
   return invoke('update_config', { config })
+}
+
+export type LlmModelCapability = 'certified' | 'best_effort' | 'unknown'
+
+export async function getLlmModelCapability(
+  provider: string,
+  baseUrl: string,
+  model: string,
+): Promise<LlmModelCapability> {
+  return invoke('get_llm_model_capability', { provider, baseUrl, model })
 }
 
 export interface CredentialStatus {
@@ -101,6 +200,11 @@ export interface HotkeyStatusError {
 
 export interface HotkeyRoleStatus {
   role: HotkeyRole | string
+  index: number
+  display: string
+  backend: HotkeyAdapter
+  valid: boolean
+  conflictWith: { role: HotkeyRole | string; index: number } | null
   adapter: HotkeyAdapter
   state: HotkeyInstallState
   message: string | null
@@ -233,8 +337,12 @@ export async function benchLlmConnection(
 }
 
 // LLM models
-export async function fetchLlmModels(apiKey: string, baseUrl: string): Promise<string[]> {
-  return invoke('fetch_llm_models', { apiKey, baseUrl })
+export async function fetchLlmModels(
+  apiKey: string,
+  provider: string,
+  baseUrl: string,
+): Promise<string[]> {
+  return invoke('fetch_llm_models', { apiKey, provider, baseUrl })
 }
 
 // Hotkey
@@ -267,15 +375,43 @@ export async function startAskFlow(): Promise<void> {
   return invoke('start_ask_flow')
 }
 
+export type VoiceIntentKind =
+  | 'dictate_insert'
+  | 'draft_insert'
+  | 'rewrite_selection'
+  | 'translate_insert'
+  | 'translate_selection'
+  | 'ask_selection'
+  | 'open_question'
+  | 'search'
+
+export type VoiceOutputPlacement =
+  | 'insert_at_cursor'
+  | 'replace_selection'
+  | 'popup_answer'
+  | 'open_url'
+
+export type VoiceExecutionFallbackReason =
+  | 'feature_disabled'
+  | 'empty_output'
+  | 'target_changed'
+  | 'selection_lost'
+  | 'focus_restore_failed'
+  | 'output_failed'
+
+export type AskResultOutput = 'popupAnswer' | 'openedSearch' | 'insertedText' | 'copiedFallback'
+
 export interface AskDictationResult {
   question: string
   answer: string
-  intent: string
-  output: 'popupAnswer' | 'openedSearch'
+  intent: VoiceIntentKind
+  output: AskResultOutput
   usedSelectedText: boolean
   selectedTextTruncated: boolean
   searchProvider: string | null
-  searchUrl: string | null
+  requestedPlacement: VoiceOutputPlacement
+  actualPlacement: VoiceOutputPlacement | null
+  fallbackReason: VoiceExecutionFallbackReason | null
 }
 
 export interface AskDictationStartResult {
@@ -317,6 +453,19 @@ export async function clearHistory(): Promise<void> {
   return invoke('clear_history')
 }
 
+export interface RestoreBackupResult {
+  history: HistoryEntry[]
+  dictionary: DictionaryEntry[]
+  correctionRules: CorrectionRule[]
+}
+
+export async function restoreBackupData(
+  history: unknown | null,
+  dictionary: unknown | null,
+): Promise<RestoreBackupResult> {
+  return invoke('restore_backup_data', { history, dictionary })
+}
+
 // Dictionary
 export async function getDictionary(): Promise<DictionaryEntry[]> {
   return invoke('get_dictionary')
@@ -333,6 +482,14 @@ export async function removeDictionaryEntry(id: number): Promise<void> {
   return invoke('remove_dictionary_entry', { id })
 }
 
+export async function updateDictionaryEntry(
+  id: number,
+  word: string,
+  pronunciation: string | null,
+): Promise<void> {
+  return invoke('update_dictionary_entry', { id, word, pronunciation })
+}
+
 export async function getCorrectionRules(): Promise<CorrectionRule[]> {
   return invoke('get_correction_rules')
 }
@@ -347,6 +504,51 @@ export async function removeCorrectionRule(id: number): Promise<void> {
 
 export async function setCorrectionRuleEnabled(id: number, enabled: boolean): Promise<void> {
   return invoke('set_correction_rule_enabled', { id, enabled })
+}
+
+export async function updateCorrectionRule(
+  id: number,
+  pattern: string,
+  replacement: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke('update_correction_rule', { id, pattern, replacement, enabled })
+}
+
+export type DictionaryImportFormat = 'txt' | 'csv' | 'json'
+
+export interface DictionaryImportRowError {
+  row: number
+  code: string
+}
+
+export interface DictionaryImportReport {
+  accepted: number
+  skippedDuplicates: number
+  skippedInvalid: number
+  errors: DictionaryImportRowError[]
+}
+
+export async function previewDictionaryImport(
+  bytes: number[],
+  format: DictionaryImportFormat,
+): Promise<DictionaryImportReport> {
+  return invoke('preview_dictionary_import', { bytes, format })
+}
+
+export async function commitDictionaryImport(
+  bytes: number[],
+  format: DictionaryImportFormat,
+): Promise<DictionaryImportReport> {
+  return invoke('commit_dictionary_import', { bytes, format })
+}
+
+export async function exportDictionaryJson(): Promise<string> {
+  return invoke('export_dictionary_json')
+}
+
+export async function exportDictionaryCsv(): Promise<string> {
+  return invoke('export_dictionary_csv')
 }
 
 // Auto-start

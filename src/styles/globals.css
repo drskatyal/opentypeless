@@ -600,6 +600,21 @@ body,
   }
 }
 
+.context-app-count--compact {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .context-app--compact-duplicate,
+  .context-app-count--full {
+    display: none;
+  }
+
+  .context-app-count--compact {
+    display: inline;
+  }
+}
+
 /* ─── Reduced Motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -2,231 +2,19 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, MessageCircle } from 'lucide-react'
 import { isMacPlatform, useAppStore } from '../../stores/appStore'
-import type { AppConfig, HotkeyMode, OutputMode } from '../../stores/appStore'
+import type { HotkeyMode, OutputMode, ShortcutBinding } from '../../stores/appStore'
 import {
-  pauseHotkey,
-  resumeHotkey,
-  checkAccessibilityPermission,
-  requestAccessibilityPermission,
-  waitForAccessibilityPermission,
   getPlatformCapabilities,
   getHotkeyStatus,
+  resumeHotkey,
   startAskFlow,
 } from '../../lib/tauri'
 import type { HotkeyStatus } from '../../lib/tauri'
 import { SegmentedControl } from './shared/SegmentedControl'
 import { Toggle } from './shared/Toggle'
+import { ShortcutBindingList } from './ShortcutBindingList'
 
-// Keys that can be used as hotkeys without a modifier
-const STANDALONE_KEYS = new Set([
-  'Space',
-  'Tab',
-  'Enter',
-  'Backspace',
-  'Escape',
-  'Delete',
-  'Insert',
-  'Home',
-  'End',
-  'PageUp',
-  'PageDown',
-  'Up',
-  'Down',
-  'Left',
-  'Right',
-  'F1',
-  'F2',
-  'F3',
-  'F4',
-  'F5',
-  'F6',
-  'F7',
-  'F8',
-  'F9',
-  'F10',
-  'F11',
-  'F12',
-])
-
-function isFnDictationHotkey(config: AppConfig) {
-  return (
-    config.hotkey.trim().toLowerCase() === 'fn' ||
-    (config.hotkeys.dictation.primary.trim().toLowerCase() === 'fn' &&
-      config.hotkeys.dictation.modifiers.length === 0)
-  )
-}
-
-function needsMacAccessibility(config: AppConfig) {
-  return config.output_mode === 'keyboard' || isFnDictationHotkey(config)
-}
-
-interface HotkeyRecorderProps {
-  value: string
-  onSaved: (hotkey: string) => void
-  validateHotkey?: (hotkey: string) => string | null
-  specialOptions?: Array<{ value: string; label: string }>
-}
-
-function HotkeyRecorder({ value, onSaved, validateHotkey, specialOptions }: HotkeyRecorderProps) {
-  const { t } = useTranslation()
-  const isMac = isMacPlatform()
-  const [recording, setRecording] = useState(false)
-  const [pending, setPending] = useState<string | null>(null)
-  const [modifierHint, setModifierHint] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const autoConfirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const confirmHotkey = useCallback(
-    (hotkey: string) => {
-      if (autoConfirmTimer.current) {
-        clearTimeout(autoConfirmTimer.current)
-        autoConfirmTimer.current = null
-      }
-      setRecording(false)
-      setModifierHint(null)
-      setPending(null)
-      const validationError = validateHotkey?.(hotkey)
-      if (validationError) {
-        setError(validationError)
-        resumeHotkey().catch((e) => setError(String(e)))
-        return
-      }
-      setError(null)
-      onSaved(hotkey)
-      resumeHotkey().catch((e) => setError(String(e)))
-    },
-    [onSaved, validateHotkey],
-  )
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-
-      // Build modifier prefix
-      const parts: string[] = []
-      if (isMac && e.metaKey) parts.push('Command')
-      if (e.ctrlKey) parts.push('Ctrl')
-      if (e.altKey) parts.push(isMac ? 'Option' : 'Alt')
-      if (e.shiftKey) parts.push('Shift')
-      if (!isMac && e.metaKey) parts.push('Meta')
-
-      // If only modifier keys are pressed, show hint like "Alt+..."
-      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
-        setModifierHint(parts.length > 0 ? parts.join('+') + '+...' : null)
-        return
-      }
-
-      setModifierHint(null)
-
-      const keyMap: Record<string, string> = {
-        ' ': 'Space',
-        Tab: 'Tab',
-        Enter: 'Enter',
-        Backspace: 'Backspace',
-        Escape: 'Escape',
-        Delete: 'Delete',
-        Insert: 'Insert',
-        Home: 'Home',
-        End: 'End',
-        PageUp: 'PageUp',
-        PageDown: 'PageDown',
-        ArrowUp: 'Up',
-        ArrowDown: 'Down',
-        ArrowLeft: 'Left',
-        ArrowRight: 'Right',
-        '。': '.',
-        '?': '/',
-      }
-
-      let keyName = keyMap[e.key] || e.key
-      if (keyName.length === 1) keyName = keyName.toUpperCase()
-
-      // Letters and digits require at least one modifier to avoid interfering with typing
-      if (parts.length === 0 && !STANDALONE_KEYS.has(keyName)) return
-
-      parts.push(keyName)
-      const combo = parts.join('+')
-      setPending(combo)
-
-      // Auto-confirm after 1.5 seconds
-      if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current)
-      autoConfirmTimer.current = setTimeout(() => {
-        confirmHotkey(combo)
-      }, 1500)
-    },
-    [confirmHotkey, isMac],
-  )
-
-  const handleKeyUp = useCallback(() => {
-    setModifierHint(null)
-  }, [])
-
-  useEffect(() => {
-    if (!recording) return
-    window.addEventListener('keydown', handleKeyDown, true)
-    window.addEventListener('keyup', handleKeyUp, true)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown, true)
-      window.removeEventListener('keyup', handleKeyUp, true)
-      if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current)
-    }
-  }, [recording, handleKeyDown, handleKeyUp])
-
-  const handleClick = () => {
-    if (recording && pending) {
-      // Confirm immediately on click
-      if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current)
-      confirmHotkey(pending)
-    } else if (recording) {
-      // Cancel recording — re-register the old hotkey
-      setRecording(false)
-      setPending(null)
-      setModifierHint(null)
-      if (autoConfirmTimer.current) clearTimeout(autoConfirmTimer.current)
-      resumeHotkey().catch(() => {})
-    } else {
-      // Start recording — unregister global shortcut so webview can capture keys
-      pauseHotkey().catch(() => {})
-      setRecording(true)
-      setPending(null)
-      setError(null)
-    }
-  }
-
-  return (
-    <div>
-      <button
-        onClick={handleClick}
-        className={`w-full px-3 py-2.5 rounded-[10px] text-[13px] font-mono text-left border transition-colors cursor-pointer ${
-          recording
-            ? 'bg-bg-tertiary border-text-secondary text-text-primary ring-2 ring-text-secondary/20'
-            : 'bg-bg-secondary border-transparent text-text-primary hover:border-border'
-        }`}
-      >
-        {recording ? pending || modifierHint || t('settings.pressKeyCombination') : value}
-      </button>
-      {recording && pending && (
-        <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.clickToConfirm')}</p>
-      )}
-      {recording && specialOptions && specialOptions.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {specialOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => confirmHotkey(option.value)}
-              className="rounded-full border border-border bg-bg-secondary px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:border-border-focus hover:text-text-primary"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {error && <p className="text-[11px] text-error mt-1.5">{error}</p>}
-    </div>
-  )
-}
+const MAC_ACCESSIBILITY_HOTKEY_ERROR = 'Accessibility permission may be denied'
 
 export function GeneralPane() {
   const config = useAppStore((s) => s.config)
@@ -234,12 +22,13 @@ export function GeneralPane() {
   const platformCapabilities = useAppStore((s) => s.platformCapabilities)
   const setPlatformCapabilities = useAppStore((s) => s.setPlatformCapabilities)
   const hotkeyRegistrationError = useAppStore((s) => s.hotkeyRegistrationError)
+  const setHotkeyRegistrationError = useAppStore((s) => s.setHotkeyRegistrationError)
+  const accessibilityTrusted = useAppStore((s) => s.accessibilityTrusted)
   const { t } = useTranslation()
   const isMac = isMacPlatform()
-  const macAccessibilityNeeded = isMac && needsMacAccessibility(config)
-  const [a11yTrusted, setA11yTrusted] = useState<boolean | null>(null)
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const accessibilityRecoveryAttemptedRef = useRef(false)
 
   useEffect(() => {
     if (platformCapabilities) return
@@ -251,19 +40,13 @@ export function GeneralPane() {
   }, [platformCapabilities, setPlatformCapabilities])
 
   useEffect(() => {
-    if (macAccessibilityNeeded) {
-      checkAccessibilityPermission().then(setA11yTrusted)
-      const onFocus = () => checkAccessibilityPermission().then(setA11yTrusted)
-      window.addEventListener('focus', onFocus)
-      return () => window.removeEventListener('focus', onFocus)
-    }
-  }, [macAccessibilityNeeded])
-
-  useEffect(() => {
     let cancelled = false
     getHotkeyStatus()
       .then((status) => {
-        if (!cancelled) setHotkeyStatus(status)
+        if (!cancelled) {
+          setHotkeyStatus(status)
+          setHotkeyRegistrationError(status.registration_error)
+        }
       })
       .catch((err) => {
         console.error('Failed to load hotkey status:', err)
@@ -271,13 +54,31 @@ export function GeneralPane() {
     return () => {
       cancelled = true
     }
-  }, [config.hotkey, config.ask_hotkey, hotkeyRegistrationError])
+  }, [config.hotkeys, hotkeyRegistrationError, setHotkeyRegistrationError])
 
-  const handleGrantPermission = useCallback(async () => {
-    await requestAccessibilityPermission()
-    const trusted = await waitForAccessibilityPermission()
-    setA11yTrusted(trusted)
-  }, [])
+  useEffect(() => {
+    if (
+      !isMac ||
+      !accessibilityTrusted ||
+      !hotkeyRegistrationError?.includes(MAC_ACCESSIBILITY_HOTKEY_ERROR)
+    ) {
+      if (!hotkeyRegistrationError) {
+        accessibilityRecoveryAttemptedRef.current = false
+      }
+      return
+    }
+    if (accessibilityRecoveryAttemptedRef.current) return
+    accessibilityRecoveryAttemptedRef.current = true
+
+    resumeHotkey()
+      .then(() => {
+        setHotkeyRegistrationError(null)
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err)
+        setHotkeyRegistrationError(message)
+      })
+  }, [accessibilityTrusted, hotkeyRegistrationError, isMac, setHotkeyRegistrationError])
 
   const handleOpenAsk = useCallback(() => {
     startAskFlow().catch((err) => {
@@ -290,69 +91,99 @@ export function GeneralPane() {
     : hotkeyStatus && (!hotkeyStatus.dictation.valid || !hotkeyStatus.ask.valid)
       ? t('settings.hotkeyInvalid')
       : null
-  const dictationSpecialOptions = isMac
-    ? [{ value: 'Fn', label: 'Fn' }]
-    : platformCapabilities?.os === 'windows'
-      ? [{ value: 'RightAlt', label: 'Right Alt' }]
-      : []
-  const askSpecialOptions = isMac
-    ? [{ value: 'Fn+Space', label: 'Fn + Space' }]
-    : platformCapabilities?.os === 'windows'
-      ? [{ value: 'RightAlt+Space', label: 'Right Alt + Space' }]
-      : []
+  const registrationErrorCoveredByAccessibilityBanner = Boolean(
+    isMac &&
+    !accessibilityTrusted &&
+    hotkeyRegistrationError?.includes('Accessibility permission may be denied'),
+  )
+  const dictationSpecialOptions = isMac ? [{ value: 'Fn', label: 'Fn' }] : []
+  const askSpecialOptions = isMac ? [{ value: 'Fn+Space', label: 'Fn + Space' }] : []
+  const translateSpecialOptions = isMac ? [{ value: 'Fn+LeftShift', label: 'Fn + Left Shift' }] : []
+  const dictationBindings = config.hotkeys.dictationBindings?.length
+    ? config.hotkeys.dictationBindings
+    : [config.hotkeys.dictation]
+  const askBindings = config.hotkeys.askBindings ?? (config.hotkeys.ask ? [config.hotkeys.ask] : [])
+  const translateBindings =
+    config.hotkeys.translateBindings ?? (config.hotkeys.translate ? [config.hotkeys.translate] : [])
+  const secondaryBindings = [
+    config.hotkeys.editSelection,
+    config.hotkeys.switchScene,
+    config.hotkeys.openApp,
+  ].filter((binding): binding is ShortcutBinding => Boolean(binding))
+  const otherBindingsFor = (role: 'dictation' | 'ask' | 'translate') => [
+    ...(role === 'dictation' ? [] : dictationBindings),
+    ...(role === 'ask' ? [] : askBindings),
+    ...(role === 'translate' ? [] : translateBindings),
+    ...secondaryBindings,
+  ]
+  const updateCoreBindings = (
+    role: 'dictation' | 'ask' | 'translate',
+    bindings: ShortcutBinding[],
+  ) => {
+    const nextHotkeys = { ...config.hotkeys }
+    if (role === 'dictation') {
+      if (bindings.length === 0) return
+      nextHotkeys.dictationBindings = bindings
+      nextHotkeys.dictation = bindings[0]
+    } else if (role === 'ask') {
+      nextHotkeys.askBindings = bindings
+      nextHotkeys.ask = bindings[0] ?? null
+    } else {
+      nextHotkeys.translateBindings = bindings
+      nextHotkeys.translate = bindings[0] ?? null
+    }
+    updateConfig({ hotkeys: nextHotkeys })
+  }
 
   return (
     <div className="space-y-6">
       <Section title={t('settings.hotkey')}>
         <div className="space-y-3">
-          <div>
-            <p className="mb-1.5 text-[12px] font-medium text-text-secondary">
-              {t('settings.dictationHotkey')}
-            </p>
-            <HotkeyRecorder
-              value={config.hotkey}
-              onSaved={(hotkey) => updateConfig({ hotkey })}
-              specialOptions={dictationSpecialOptions}
-              validateHotkey={(hotkey) =>
-                config.ask_hotkey && hotkey === config.ask_hotkey
-                  ? t('settings.hotkeyConflict')
-                  : null
-              }
-            />
-          </div>
-          <div>
-            <p className="mb-1.5 text-[12px] font-medium text-text-secondary">
-              {t('settings.askHotkey')}
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <HotkeyRecorder
-                  value={config.ask_hotkey || '—'}
-                  onSaved={(ask_hotkey) => updateConfig({ ask_hotkey })}
-                  specialOptions={askSpecialOptions}
-                  validateHotkey={(ask_hotkey) =>
-                    ask_hotkey === config.hotkey ? t('settings.hotkeyConflict') : null
-                  }
-                />
-              </div>
+          <ShortcutBindingList
+            role="dictation"
+            label={t('settings.dictationHotkey')}
+            bindings={dictationBindings}
+            otherBindings={otherBindingsFor('dictation')}
+            required
+            specialOptions={dictationSpecialOptions}
+            onChange={(bindings) => updateCoreBindings('dictation', bindings)}
+          />
+          <ShortcutBindingList
+            role="ask"
+            label={t('settings.askHotkey')}
+            bindings={askBindings}
+            otherBindings={otherBindingsFor('ask')}
+            required={false}
+            specialOptions={askSpecialOptions}
+            onChange={(bindings) => updateCoreBindings('ask', bindings)}
+            trailingAction={
               <button
                 type="button"
                 aria-label={t('settings.tryAsk')}
                 title={t('settings.tryAsk')}
                 onClick={handleOpenAsk}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-transparent bg-bg-secondary text-text-tertiary transition-colors hover:border-border hover:text-text-primary"
+                className="grid h-7 w-7 place-items-center rounded-[6px] border border-transparent bg-bg-secondary text-text-tertiary hover:border-border hover:text-text-primary"
               >
-                <MessageCircle size={14} />
+                <MessageCircle size={13} />
               </button>
-            </div>
-          </div>
+            }
+          />
+          <ShortcutBindingList
+            role="translate"
+            label={t('settings.translateHotkey')}
+            bindings={translateBindings}
+            otherBindings={otherBindingsFor('translate')}
+            required={false}
+            specialOptions={translateSpecialOptions}
+            onChange={(bindings) => updateCoreBindings('translate', bindings)}
+          />
         </div>
-        {!platformCapabilities?.globalHotkeyReliable && (
+        {platformCapabilities && !platformCapabilities.globalHotkeyReliable && (
           <p className="mt-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
             {t('settings.waylandHotkeyLimited')}
           </p>
         )}
-        {hotkeyRegistrationError && (
+        {hotkeyRegistrationError && !registrationErrorCoveredByAccessibilityBanner && (
           <p className="mt-2 rounded-[8px] border border-error/30 bg-error/10 px-3 py-2 text-[12px] leading-relaxed text-error">
             {t('settings.hotkeyRegistrationFailed')}
           </p>
@@ -362,16 +193,17 @@ export function GeneralPane() {
             {hotkeyStatusMessage}
           </p>
         )}
-        <div className="mt-3">
-          <SegmentedControl
-            options={[
-              { value: 'hold', label: t('settings.holdToTalk') },
-              { value: 'toggle', label: t('settings.toggleOnOff') },
-            ]}
-            value={config.hotkey_mode}
-            onChange={(v) => updateConfig({ hotkey_mode: v as HotkeyMode })}
-          />
-        </div>
+      </Section>
+
+      <Section title={t('settings.dictationMode')}>
+        <SegmentedControl
+          options={[
+            { value: 'hold', label: t('settings.holdToTalk') },
+            { value: 'toggle', label: t('settings.toggleOnOff') },
+          ]}
+          value={config.hotkey_mode}
+          onChange={(v) => updateConfig({ hotkey_mode: v as HotkeyMode })}
+        />
       </Section>
 
       <Section title={t('settings.outputMode')}>
@@ -397,26 +229,6 @@ export function GeneralPane() {
             </p>
           )}
       </Section>
-
-      {macAccessibilityNeeded && a11yTrusted === false && (
-        <Section title={t('settings.accessibilityPermission')}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              <span className="text-[13px] text-text-primary">
-                {t('settings.accessibilityRequired')}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleGrantPermission}
-              className="rounded-full border-none bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover"
-            >
-              {t('settings.grantPermission')}
-            </button>
-          </div>
-        </Section>
-      )}
 
       <div>
         <button

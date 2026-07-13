@@ -1,14 +1,21 @@
+use crate::app_detector::types::RecordingContext;
 use crate::audio::{AudioCaptureHandle, AudioConfig};
 use crate::credentials::{
     resolve_llm_config_secret, resolve_stt_config_secret, SystemCredentialVault,
 };
+use crate::error::{emit_cloud_session_invalid, managed_cloud_error, AppError};
 use crate::pipeline::PipelineState;
 use crate::storage;
 use crate::stt::{self, SttConfig, TranscriptEvent};
+use crate::voice_intent::{
+    SearchProvider, SpeechLanguageMode, VoiceIntent, VoiceIntentKind, VoiceIntentRouter, VoiceMode,
+    VoiceRouteRequest, VoiceRoutingFlags,
+};
 use crate::{api_base_url, with_desktop_client_version, SessionTokenStore};
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
+use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Notify;
 
 pub const ASK_MAX_QUESTION_CHARS: usize = 500;
@@ -16,67 +23,13 @@ pub const ASK_MAX_SELECTED_TEXT_CHARS: usize = 4_000;
 pub const ASK_OUTPUT_TOKEN_LIMIT: u32 = 80;
 const ASK_STT_FINALIZE_TIMEOUT_SECS: u64 = 12;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AskCommandIntent {
-    OpenQuestion,
-    AskSelection,
-    SummarizeSelection,
-    TranslateSelection,
-    EditSelection,
-}
-
-impl AskCommandIntent {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::OpenQuestion => "open_question",
-            Self::AskSelection => "ask_selection",
-            Self::SummarizeSelection => "summarize_selection",
-            Self::TranslateSelection => "translate_selection",
-            Self::EditSelection => "edit_selection",
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AskResultOutput {
     PopupAnswer,
     OpenedSearch,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AskSearchProvider {
-    Google,
-    Youtube,
-    Amazon,
-    Github,
-}
-
-impl AskSearchProvider {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Google => "Google",
-            Self::Youtube => "YouTube",
-            Self::Amazon => "Amazon",
-            Self::Github => "GitHub",
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct AskSearchCommand {
-    provider: AskSearchProvider,
-    query: String,
-}
-
-impl AskSearchCommand {
-    fn opened_message(&self) -> String {
-        format!(
-            "Opened {} search for \"{}\".",
-            self.provider.as_str(),
-            self.query
-        )
-    }
+    InsertedText,
+    CopiedFallback,
 }
 
 #[derive(Default)]
@@ -186,6 +139,7 @@ impl AskDictationState {
 pub struct AskDictationSession {
     handle: AudioCaptureHandle,
     operation_id: String,
+    recording_context: RecordingContext,
     selected_text: Option<String>,
     transcript: Arc<Mutex<String>>,
     error: Arc<Mutex<Option<String>>>,
@@ -220,12 +174,14 @@ impl AskDictationStartResult {
 pub struct AskDictationResult {
     question: String,
     answer: String,
-    intent: String,
+    intent: VoiceIntentKind,
     output: AskResultOutput,
     used_selected_text: bool,
     selected_text_truncated: bool,
     search_provider: Option<String>,
-    search_url: Option<String>,
+    requested_placement: crate::voice_intent::VoiceOutputPlacement,
+    actual_placement: Option<crate::voice_intent::VoiceOutputPlacement>,
+    fallback_reason: Option<crate::voice_intent::executor::VoiceExecutionFallbackReason>,
 }
 
 #[derive(Clone, Debug)]
@@ -234,7 +190,9 @@ pub(crate) struct AskDictationResultMetadata {
     used_selected_text: bool,
     selected_text_truncated: bool,
     search_provider: Option<String>,
-    search_url: Option<String>,
+    requested_placement: crate::voice_intent::VoiceOutputPlacement,
+    actual_placement: Option<crate::voice_intent::VoiceOutputPlacement>,
+    fallback_reason: Option<crate::voice_intent::executor::VoiceExecutionFallbackReason>,
 }
 
 impl AskDictationResultMetadata {
@@ -244,17 +202,44 @@ impl AskDictationResultMetadata {
             used_selected_text,
             selected_text_truncated,
             search_provider: None,
-            search_url: None,
+            requested_placement: crate::voice_intent::VoiceOutputPlacement::PopupAnswer,
+            actual_placement: Some(crate::voice_intent::VoiceOutputPlacement::PopupAnswer),
+            fallback_reason: None,
         }
     }
 
-    fn opened_search(provider: AskSearchProvider, url: String) -> Self {
+    fn opened_search(provider: SearchProvider) -> Self {
         Self {
             output: AskResultOutput::OpenedSearch,
             used_selected_text: false,
             selected_text_truncated: false,
-            search_provider: Some(provider.as_str().to_string()),
-            search_url: Some(url),
+            search_provider: Some(provider.display_name().to_string()),
+            requested_placement: crate::voice_intent::VoiceOutputPlacement::OpenUrl,
+            actual_placement: Some(crate::voice_intent::VoiceOutputPlacement::OpenUrl),
+            fallback_reason: None,
+        }
+    }
+
+    fn from_draft_execution(
+        execution: &crate::voice_intent::executor::VoiceExecutionResult,
+    ) -> Self {
+        let output = if execution.status
+            == crate::voice_intent::executor::VoiceExecutionStatus::Completed
+            && execution.actual_placement
+                == Some(crate::voice_intent::VoiceOutputPlacement::InsertAtCursor)
+        {
+            AskResultOutput::InsertedText
+        } else {
+            AskResultOutput::CopiedFallback
+        };
+        Self {
+            output,
+            used_selected_text: false,
+            selected_text_truncated: false,
+            search_provider: None,
+            requested_placement: execution.requested_placement,
+            actual_placement: execution.actual_placement,
+            fallback_reason: execution.fallback_reason,
         }
     }
 }
@@ -263,19 +248,25 @@ impl AskDictationResult {
     pub(crate) fn new(
         question: String,
         answer: String,
-        intent: AskCommandIntent,
+        intent: VoiceIntentKind,
         metadata: AskDictationResultMetadata,
     ) -> Self {
         Self {
             question,
             answer,
-            intent: intent.as_str().to_string(),
+            intent,
             output: metadata.output,
             used_selected_text: metadata.used_selected_text,
             selected_text_truncated: metadata.selected_text_truncated,
             search_provider: metadata.search_provider,
-            search_url: metadata.search_url,
+            requested_placement: metadata.requested_placement,
+            actual_placement: metadata.actual_placement,
+            fallback_reason: metadata.fallback_reason,
         }
+    }
+
+    pub(crate) fn should_show_window(&self) -> bool {
+        self.output != AskResultOutput::InsertedText
     }
 }
 
@@ -308,7 +299,7 @@ pub(crate) fn show_answer_window_with_metadata(
     app: &tauri::AppHandle,
     question: String,
     answer: String,
-    intent: AskCommandIntent,
+    intent: VoiceIntentKind,
     used_selected_text: bool,
     selected_text_truncated: bool,
 ) -> Result<(), String> {
@@ -423,25 +414,23 @@ fn sanitize_selected_text_for_ask(selected_text: &str) -> Option<SanitizedSelect
     })
 }
 
-pub fn route_ask_intent(question: &str, has_selected_text: bool) -> AskCommandIntent {
-    if !has_selected_text {
-        return AskCommandIntent::OpenQuestion;
-    }
-
-    match crate::selection::route_selected_text_command(question, Some("selected text")).intent {
-        crate::selection::SelectedTextCommandIntent::Translate => {
-            AskCommandIntent::TranslateSelection
-        }
-        crate::selection::SelectedTextCommandIntent::Summarize => {
-            AskCommandIntent::SummarizeSelection
-        }
-        crate::selection::SelectedTextCommandIntent::Rewrite
-        | crate::selection::SelectedTextCommandIntent::FixGrammar
-        | crate::selection::SelectedTextCommandIntent::Shorten
-        | crate::selection::SelectedTextCommandIntent::Expand => AskCommandIntent::EditSelection,
-        crate::selection::SelectedTextCommandIntent::Ask
-        | crate::selection::SelectedTextCommandIntent::Explain => AskCommandIntent::AskSelection,
-    }
+pub fn route_ask_intent(
+    question: &str,
+    has_selected_text: bool,
+    speech_language: &str,
+    flags: VoiceRoutingFlags,
+) -> VoiceIntent {
+    VoiceIntentRouter::route(VoiceRouteRequest {
+        mode: VoiceMode::Ask,
+        utterance: question,
+        has_selected_text,
+        speech_language: if speech_language == "multi" {
+            SpeechLanguageMode::Automatic
+        } else {
+            SpeechLanguageMode::Explicit(speech_language)
+        },
+        flags,
+    })
 }
 
 fn validate_ask_answer(answer: &str) -> Result<String, String> {
@@ -452,93 +441,48 @@ fn validate_ask_answer(answer: &str) -> Result<String, String> {
     Ok(trimmed)
 }
 
-fn provider_pattern(provider: AskSearchProvider) -> &'static str {
-    match provider {
-        AskSearchProvider::Google => "google",
-        AskSearchProvider::Youtube => "youtube",
-        AskSearchProvider::Amazon => "amazon",
-        AskSearchProvider::Github => "github",
-    }
+struct AskSearchExecutionBackend<'a> {
+    app: &'a tauri::AppHandle,
 }
 
-fn parse_ask_search_command(question: &str) -> Option<AskSearchCommand> {
-    let trimmed = question.trim();
-    if trimmed.is_empty() {
-        return None;
+#[async_trait::async_trait]
+impl crate::voice_intent::executor::VoiceExecutionBackend for AskSearchExecutionBackend<'_> {
+    fn target_matches(&mut self, _guard: &crate::app_detector::types::TargetAppGuard) -> bool {
+        false
     }
 
-    let normalized = trimmed.to_ascii_lowercase();
-    if let Some(rest) = normalized.strip_prefix("search ") {
-        for provider in [
-            AskSearchProvider::Google,
-            AskSearchProvider::Youtube,
-            AskSearchProvider::Amazon,
-            AskSearchProvider::Github,
-        ] {
-            let marker = format!(" on {}", provider_pattern(provider));
-            if let Some(index) = rest.rfind(&marker) {
-                let query = trimmed[7..7 + index].trim();
-                if !query.is_empty() {
-                    return Some(AskSearchCommand {
-                        provider,
-                        query: query.to_string(),
-                    });
-                }
-            }
-        }
+    async fn restore_target(
+        &mut self,
+        _guard: &crate::app_detector::types::TargetAppGuard,
+    ) -> Result<bool, String> {
+        Err("search never restores an application target".to_string())
     }
 
-    for provider in [
-        AskSearchProvider::Google,
-        AskSearchProvider::Youtube,
-        AskSearchProvider::Amazon,
-        AskSearchProvider::Github,
-    ] {
-        let marker = format!("在 {} 搜索", provider.as_str());
-        if trimmed.starts_with(&marker) {
-            let query = trimmed[marker.len()..].trim();
-            if !query.is_empty() {
-                return Some(AskSearchCommand {
-                    provider,
-                    query: query.to_string(),
-                });
-            }
-        }
+    async fn insert_at_cursor(&mut self, _text: &str) -> Result<(), String> {
+        Err("search never inserts text".to_string())
     }
 
-    None
-}
-
-fn build_search_url(command: &AskSearchCommand) -> String {
-    let encoded: String = url::form_urlencoded::byte_serialize(command.query.as_bytes()).collect();
-    match command.provider {
-        AskSearchProvider::Google => format!("https://www.google.com/search?q={encoded}"),
-        AskSearchProvider::Youtube => {
-            format!("https://www.youtube.com/results?search_query={encoded}")
-        }
-        AskSearchProvider::Amazon => format!("https://www.amazon.com/s?k={encoded}"),
-        AskSearchProvider::Github => format!("https://github.com/search?q={encoded}"),
+    async fn replace_selection(&mut self, _text: &str) -> Result<(), String> {
+        Err("search never replaces text".to_string())
     }
-}
 
-fn open_search_url(url: &str) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    let status = std::process::Command::new("/usr/bin/open")
-        .arg(url)
-        .status();
+    async fn popup_answer(&mut self, _text: &str) -> Result<(), String> {
+        Err("search never opens an answer popup".to_string())
+    }
 
-    #[cfg(target_os = "windows")]
-    let status = std::process::Command::new("rundll32")
-        .args(["url.dll,FileProtocolHandler", url])
-        .status();
+    async fn copy_to_clipboard(&mut self, _text: &str) -> Result<(), String> {
+        Err("search never copies generated text".to_string())
+    }
 
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let status = std::process::Command::new("xdg-open").arg(url).status();
-
-    match status {
-        Ok(status) if status.success() => Ok(()),
-        Ok(status) => Err(format!("Failed to open search URL: exit status {status}")),
-        Err(error) => Err(format!("Failed to open search URL: {error}")),
+    async fn open_search(
+        &mut self,
+        url: &crate::voice_intent::search::SearchUrl,
+    ) -> Result<(), String> {
+        url.validate().map_err(|error| error.to_string())?;
+        self.app
+            .opener()
+            .open_url(url.as_str(), None::<&str>)
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -636,20 +580,21 @@ fn build_cloud_ask_body(
     question: &str,
     selected_text: Option<&str>,
     operation_id: &str,
+    voice_intent: &VoiceIntent,
 ) -> Result<serde_json::Value, String> {
     let question = validate_ask_question(question)?;
     let selected_text = selected_text.and_then(sanitize_selected_text_for_ask);
     let stage_key = format!("{operation_id}:ask");
     let routed_question = build_ask_user_content_from_sanitized(&question, selected_text.as_ref());
-    let intent = route_ask_intent(&question, selected_text.is_some()).as_str();
 
     Ok(json!({
         "question": routed_question,
+        "voiceIntentMetadata": crate::voice_intent::VoiceIntentMetadata::from(voice_intent),
         "context": {
             "operationId": operation_id,
             "stageKey": stage_key,
             "requestType": "ask_anything",
-            "askIntent": intent,
+            "askIntent": voice_intent.kind.as_str(),
             "hasSelectedText": selected_text.is_some(),
             "selectedTextTruncated": selected_text.as_ref().is_some_and(|value| value.truncated),
             "clientVersion": crate::desktop_client_version()
@@ -664,7 +609,7 @@ fn should_use_byok(config: &storage::AppConfig, llm_api_key: &str) -> bool {
     if config.llm_base_url.trim().is_empty() || config.llm_model.trim().is_empty() {
         return false;
     }
-    !llm_api_key.trim().is_empty() || config.llm_provider == "ollama"
+    crate::llm::has_usable_provider_credentials(&config.llm_provider, llm_api_key)
 }
 
 fn should_use_cloud(config: &storage::AppConfig) -> bool {
@@ -752,22 +697,36 @@ async fn answer_question(
     question: &str,
     selected_text: Option<&str>,
     operation_id: Option<&str>,
-) -> Result<String, String> {
+    voice_intent: &VoiceIntent,
+) -> Result<String, AppError> {
     let llm_api_key = if config.llm_provider == "cloud" {
         String::new()
     } else {
-        resolve_llm_config_secret(config, &SystemCredentialVault).map_err(|e| e.to_string())?
+        resolve_llm_config_secret(config, &SystemCredentialVault)
+            .map_err(|e| AppError::Config(e.to_string()))?
     };
 
     if should_use_byok(config, &llm_api_key) {
-        return ask_via_byok(client, config, &llm_api_key, question, selected_text).await;
+        return ask_via_byok(client, config, &llm_api_key, question, selected_text)
+            .await
+            .map_err(AppError::Config);
     }
 
     if should_use_cloud(config) {
-        return ask_via_cloud(client, token_store, question, selected_text, operation_id).await;
+        return ask_via_cloud(
+            client,
+            token_store,
+            question,
+            selected_text,
+            operation_id,
+            voice_intent,
+        )
+        .await;
     }
 
-    Err("Configure a BYOK LLM provider or choose Cloud LLM to use Ask.".to_string())
+    Err(AppError::Config(
+        "Configure a BYOK LLM provider or choose Cloud LLM to use Ask.".to_string(),
+    ))
 }
 
 fn response_error(status: reqwest::StatusCode, text: String) -> String {
@@ -775,7 +734,10 @@ fn response_error(status: reqwest::StatusCode, text: String) -> String {
     format!("Ask request failed ({}): {}", status.as_u16(), sanitized)
 }
 
-fn cloud_response_error(status: reqwest::StatusCode, text: String) -> String {
+fn cloud_response_error(status: reqwest::StatusCode, text: String) -> AppError {
+    if let Some(error) = managed_cloud_error(status.as_u16(), &text) {
+        return error;
+    }
     let parsed = serde_json::from_str::<serde_json::Value>(&text).ok();
     let message = parsed
         .as_ref()
@@ -786,7 +748,7 @@ fn cloud_response_error(status: reqwest::StatusCode, text: String) -> String {
         });
 
     if status.as_u16() == 401 {
-        return cloud_auth_required_message();
+        return AppError::Auth(cloud_auth_required_message());
     }
 
     if status.as_u16() == 403 {
@@ -794,11 +756,13 @@ fn cloud_response_error(status: reqwest::StatusCode, text: String) -> String {
             .as_deref()
             .filter(|value| contains_quota_marker(value))
             .map(ToString::to_string);
-        return quota_message.unwrap_or_else(cloud_auth_required_message);
+        return quota_message
+            .map(AppError::LlmQuota)
+            .unwrap_or_else(|| AppError::Auth(cloud_auth_required_message()));
     }
 
     if status.as_u16() >= 500 {
-        return "Ask service error. Please try again.".to_string();
+        return AppError::Config("Ask service error. Please try again.".to_string());
     }
 
     let sanitized: String = message
@@ -806,7 +770,22 @@ fn cloud_response_error(status: reqwest::StatusCode, text: String) -> String {
         .chars()
         .take(160)
         .collect();
-    format!("Ask request failed ({}): {}", status.as_u16(), sanitized)
+    AppError::Config(format!(
+        "Ask request failed ({}): {}",
+        status.as_u16(),
+        sanitized
+    ))
+}
+
+fn ask_app_error_message(error: AppError) -> String {
+    match error {
+        AppError::Auth(message)
+        | AppError::Quota(message)
+        | AppError::LlmQuota(message)
+        | AppError::Config(message) => message,
+        AppError::CloudSessionInvalid => cloud_auth_required_message(),
+        other => other.to_string(),
+    }
 }
 
 fn contains_quota_marker(value: &str) -> bool {
@@ -893,20 +872,22 @@ async fn ask_via_cloud(
     question: &str,
     selected_text: Option<&str>,
     operation_id: Option<&str>,
-) -> Result<String, String> {
+    voice_intent: &VoiceIntent,
+) -> Result<String, AppError> {
     let token = token_store
         .0
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
     if token.trim().is_empty() {
-        return Err(cloud_auth_required_message());
+        return Err(AppError::Auth(cloud_auth_required_message()));
     }
 
     let operation_id = operation_id
         .map(str::to_string)
         .unwrap_or_else(synthetic_operation_id);
-    let body = build_cloud_ask_body(question, selected_text, &operation_id)?;
+    let body = build_cloud_ask_body(question, selected_text, &operation_id, voice_intent)
+        .map_err(AppError::Config)?;
 
     let resp =
         with_desktop_client_version(client.post(format!("{}/api/proxy/ask", api_base_url())))
@@ -916,7 +897,7 @@ async fn ask_via_cloud(
             .timeout(std::time::Duration::from_secs(45))
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
 
     let status = resp.status();
     if !status.is_success() {
@@ -924,12 +905,13 @@ async fn ask_via_cloud(
         return Err(cloud_response_error(status, text));
     }
 
-    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    validate_ask_answer(body["answer"].as_str().unwrap_or(""))
+    let body: serde_json::Value = resp.json().await.map_err(AppError::from)?;
+    validate_ask_answer(body["answer"].as_str().unwrap_or("")).map_err(AppError::Config)
 }
 
 #[tauri::command]
 pub async fn ask_anything(
+    app: tauri::AppHandle,
     question: String,
     config_state: tauri::State<'_, storage::ConfigManager>,
     token_store: tauri::State<'_, SessionTokenStore>,
@@ -937,8 +919,30 @@ pub async fn ask_anything(
 ) -> Result<String, String> {
     let question = validate_ask_question(&question)?;
     let config = config_state.load().await.map_err(|e| e.to_string())?;
+    let voice_intent = route_ask_intent(
+        &question,
+        false,
+        &config.stt_language,
+        config.voice_routing_flags,
+    );
 
-    answer_question(&config, &client, &token_store, &question, None, None).await
+    match answer_question(
+        &config,
+        &client,
+        &token_store,
+        &question,
+        None,
+        None,
+        &voice_intent,
+    )
+    .await
+    {
+        Ok(answer) => Ok(answer),
+        Err(error) => {
+            emit_cloud_session_invalid(&app, &error);
+            Err(ask_app_error_message(error))
+        }
+    }
 }
 
 #[tauri::command]
@@ -988,6 +992,9 @@ pub(crate) async fn start_reserved_ask_dictation(
 ) -> Result<AskDictationStartResult, String> {
     let result = async {
         let config = config_state.load().await.map_err(|e| e.to_string())?;
+        let recording_context = app
+            .state::<crate::app_detector::ContextDetectorHandle>()
+            .snapshot_for_recording_enabled(config.context_adaptation_enabled);
         let selected_text = if include_selected_text && config.selected_text_enabled {
             tokio::task::block_in_place(crate::selection::capture_selected_text)
         } else {
@@ -1049,6 +1056,7 @@ pub(crate) async fn start_reserved_ask_dictation(
                 guard.session = Some(AskDictationSession {
                     handle: handle.take().expect("Ask audio handle was already consumed"),
                     operation_id,
+                    recording_context,
                     selected_text,
                     transcript: transcript.clone(),
                     error: error.clone(),
@@ -1076,6 +1084,7 @@ pub(crate) async fn start_reserved_ask_dictation(
                         match chunk {
                             Some(data) => {
                                 if let Err(e) = provider.send_audio(&data).await {
+                                    emit_cloud_session_invalid(&app, &e);
                                     let message = e.to_string();
                                     *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
                                     surface_async_recording_error(
@@ -1095,6 +1104,7 @@ pub(crate) async fn start_reserved_ask_dictation(
                                     }
                                     Ok(None) => {}
                                     Err(e) => {
+                                        emit_cloud_session_invalid(&app, &e);
                                         let message = e.to_string();
                                         *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
                                         surface_async_recording_error(
@@ -1129,6 +1139,7 @@ pub(crate) async fn start_reserved_ask_dictation(
                                 break;
                             }
                             Err(e) => {
+                                emit_cloud_session_invalid(&app, &e);
                                 let message = e.to_string();
                                 *error.lock().unwrap_or_else(|err| err.into_inner()) = Some(message.clone());
                                 surface_async_recording_error(
@@ -1238,21 +1249,63 @@ pub async fn stop_ask_dictation(
             .as_ref()
             .is_some_and(|selected_text| selected_text.truncated);
 
-        if !used_selected_text {
-            if let Some(search) = parse_ask_search_command(&question) {
-                let url = build_search_url(&search);
-                open_search_url(&url)?;
-                return Ok(AskDictationResult::new(
-                    question,
-                    search.opened_message(),
-                    AskCommandIntent::OpenQuestion,
-                    AskDictationResultMetadata::opened_search(search.provider, url),
-                ));
+        let config = config_state.load().await.map_err(|e| e.to_string())?;
+        let voice_intent = route_ask_intent(
+            &question,
+            used_selected_text,
+            &config.stt_language,
+            config.voice_routing_flags,
+        );
+        if voice_intent.kind == VoiceIntentKind::Search {
+            let provider = voice_intent
+                .search_provider
+                .ok_or_else(|| "Search route is missing a provider".to_string())?;
+            let target_guard = crate::app_detector::types::TargetAppGuard::default();
+            let mut backend = AskSearchExecutionBackend { app: &app };
+            let execution = crate::voice_intent::executor::execute_voice_intent(
+                crate::voice_intent::executor::VoiceExecutionRequest {
+                    intent: &voice_intent,
+                    generated_output: "",
+                    target_guard: &target_guard,
+                    selected_text_available: false,
+                    restore_target_before_insert: false,
+                    flags: config.voice_routing_flags,
+                },
+                &mut backend,
+            )
+            .await;
+            if execution.status
+                != crate::voice_intent::executor::VoiceExecutionStatus::Completed
+            {
+                return Err("Search could not be opened safely".to_string());
             }
+            return Ok(AskDictationResult::new(
+                question,
+                format!("Opened {} search.", provider.display_name()),
+                voice_intent.kind,
+                AskDictationResultMetadata::opened_search(provider),
+            ));
         }
 
-        let config = config_state.load().await.map_err(|e| e.to_string())?;
-        let intent = route_ask_intent(&question, used_selected_text);
+        if voice_intent.kind == VoiceIntentKind::DraftInsert {
+            let draft = app
+                .state::<crate::pipeline::PipelineHandle>()
+                .run_ask_draft(
+                    &config,
+                    &session.recording_context,
+                    &question,
+                    &session.operation_id,
+                    voice_intent.clone(),
+                )
+                .await?;
+            return Ok(AskDictationResult::new(
+                question,
+                draft.text,
+                voice_intent.kind,
+                AskDictationResultMetadata::from_draft_execution(&draft.execution),
+            ));
+        }
+
         let answer = answer_question(
             &config,
             &client,
@@ -1260,13 +1313,18 @@ pub async fn stop_ask_dictation(
             &question,
             session.selected_text.as_deref(),
             Some(&session.operation_id),
+            &voice_intent,
         )
-        .await?;
+        .await
+        .map_err(|error| {
+            emit_cloud_session_invalid(&app, &error);
+            ask_app_error_message(error)
+        })?;
 
         Ok(AskDictationResult::new(
             question,
             answer,
-            intent,
+            voice_intent.kind,
             AskDictationResultMetadata::popup(used_selected_text, selected_text_truncated),
         ))
     }
@@ -1291,7 +1349,8 @@ pub async fn stop_ask_flow(
     }
 
     match stop_ask_dictation(app.clone(), state, config_state, token_store, client).await {
-        Ok(result) => show_answer_window(&app, result),
+        Ok(result) if result.should_show_window() => show_answer_window(&app, result),
+        Ok(_) => Ok(()),
         Err(message) => show_error_window(&app, message),
     }
 }
@@ -1380,32 +1439,69 @@ mod tests {
 
     #[test]
     fn cloud_ask_body_reports_selected_text_truncation() {
+        let voice_intent =
+            route_ask_intent("Summarize this", true, "en", VoiceRoutingFlags::default());
         let body = build_cloud_ask_body(
             "Summarize this",
             Some(&"a".repeat(ASK_MAX_SELECTED_TEXT_CHARS + 1)),
             "operation-1",
+            &voice_intent,
         )
         .unwrap();
 
         assert_eq!(body["context"]["hasSelectedText"], true);
         assert_eq!(body["context"]["selectedTextTruncated"], true);
-        assert_eq!(body["context"]["askIntent"], "summarize_selection");
+        assert_eq!(body["context"]["askIntent"], "ask_selection");
+        assert_eq!(
+            body["voiceIntentMetadata"],
+            serde_json::json!({
+                "kind": "ask_selection",
+                "placement": "popup_answer",
+                "grammarLocale": "en",
+                "confidenceBand": "exact"
+            })
+        );
+        let serialized_metadata = body["voiceIntentMetadata"].to_string();
+        for forbidden in ["payload", "utterance", "selectedText", "query", "searchUrl"] {
+            assert!(!serialized_metadata.contains(forbidden));
+        }
     }
 
     #[test]
     fn selected_text_router_defaults_to_nondestructive_ask() {
+        let flags = VoiceRoutingFlags::default();
         assert_eq!(
-            route_ask_intent("What does this mean?", true),
-            AskCommandIntent::AskSelection
+            route_ask_intent("What does this mean?", true, "en", flags).kind,
+            VoiceIntentKind::AskSelection
         );
         assert_eq!(
-            route_ask_intent("Make this shorter", true),
-            AskCommandIntent::EditSelection
+            route_ask_intent("Make this shorter", true, "en", flags).kind,
+            VoiceIntentKind::AskSelection
         );
         assert_eq!(
-            route_ask_intent("What is OpenTypeless?", false),
-            AskCommandIntent::OpenQuestion
+            route_ask_intent("What is OpenTypeless?", false, "en", flags).kind,
+            VoiceIntentKind::OpenQuestion
         );
+    }
+
+    #[test]
+    fn shared_voice_router_ask_never_replaces_selected_text() {
+        let flags = crate::voice_intent::VoiceRoutingFlags::default();
+        for question in [
+            "rewrite this",
+            "translate this to French",
+            "do not rewrite this",
+        ] {
+            let route = route_ask_intent(question, true, "en", flags);
+            assert_eq!(
+                route.kind,
+                crate::voice_intent::VoiceIntentKind::AskSelection
+            );
+            assert_eq!(
+                route.placement,
+                crate::voice_intent::VoiceOutputPlacement::PopupAnswer
+            );
+        }
     }
 
     #[test]
@@ -1413,7 +1509,7 @@ mod tests {
         let result = AskDictationResult::new(
             "Summarize this".to_string(),
             "Short answer.".to_string(),
-            AskCommandIntent::SummarizeSelection,
+            VoiceIntentKind::AskSelection,
             AskDictationResultMetadata::popup(true, false),
         );
 
@@ -1421,33 +1517,107 @@ mod tests {
 
         assert_eq!(value["question"], "Summarize this");
         assert_eq!(value["answer"], "Short answer.");
-        assert_eq!(value["intent"], "summarize_selection");
+        assert_eq!(value["intent"], "ask_selection");
         assert_eq!(value["output"], "popupAnswer");
         assert_eq!(value["usedSelectedText"], true);
         assert_eq!(value["selectedTextTruncated"], false);
         assert!(value["searchProvider"].is_null());
-        assert!(value["searchUrl"].is_null());
+        assert_eq!(value["requestedPlacement"], "popup_answer");
+        assert_eq!(value["actualPlacement"], "popup_answer");
+        assert!(value["fallbackReason"].is_null());
+        assert!(value.get("searchUrl").is_none());
+    }
+
+    #[test]
+    fn ask_draft_result_stays_silent_on_insert_and_surfaces_only_fallbacks() {
+        let inserted = crate::voice_intent::executor::VoiceExecutionResult {
+            intent_kind: VoiceIntentKind::DraftInsert,
+            requested_placement: crate::voice_intent::VoiceOutputPlacement::InsertAtCursor,
+            actual_placement: Some(crate::voice_intent::VoiceOutputPlacement::InsertAtCursor),
+            status: crate::voice_intent::executor::VoiceExecutionStatus::Completed,
+            fallback_reason: None,
+        };
+        let inserted_result = AskDictationResult::new(
+            "draft a launch note".to_string(),
+            "Launch note".to_string(),
+            VoiceIntentKind::DraftInsert,
+            AskDictationResultMetadata::from_draft_execution(&inserted),
+        );
+        assert!(!inserted_result.should_show_window());
+        assert_eq!(
+            serde_json::to_value(&inserted_result).unwrap()["output"],
+            "insertedText"
+        );
+
+        let copied = crate::voice_intent::executor::VoiceExecutionResult {
+            status: crate::voice_intent::executor::VoiceExecutionStatus::CopiedFallback,
+            actual_placement: None,
+            fallback_reason: Some(
+                crate::voice_intent::executor::VoiceExecutionFallbackReason::FocusRestoreFailed,
+            ),
+            ..inserted
+        };
+        let copied_result = AskDictationResult::new(
+            "draft a launch note".to_string(),
+            "Launch note".to_string(),
+            VoiceIntentKind::DraftInsert,
+            AskDictationResultMetadata::from_draft_execution(&copied),
+        );
+        assert!(copied_result.should_show_window());
+        assert_eq!(
+            serde_json::to_value(&copied_result).unwrap()["output"],
+            "copiedFallback"
+        );
     }
 
     #[test]
     fn parses_explicit_search_commands() {
-        let google = parse_ask_search_command("search rust tauri hotkeys on Google").unwrap();
-        assert_eq!(google.provider, AskSearchProvider::Google);
-        assert_eq!(google.query, "rust tauri hotkeys");
+        let google = route_ask_intent(
+            "search rust tauri hotkeys on Google",
+            false,
+            "en",
+            VoiceRoutingFlags::default(),
+        );
+        assert_eq!(google.search_provider, Some(SearchProvider::Google));
+        assert_eq!(google.payload.as_deref(), Some("rust tauri hotkeys"));
         assert_eq!(
-            build_search_url(&google),
+            crate::voice_intent::search::SearchUrl::new(
+                SearchProvider::Google,
+                google.payload.as_deref().unwrap()
+            )
+            .unwrap()
+            .as_str(),
             "https://www.google.com/search?q=rust+tauri+hotkeys"
         );
 
-        let youtube = parse_ask_search_command("search React tutorial on YouTube").unwrap();
-        assert_eq!(youtube.provider, AskSearchProvider::Youtube);
-        assert_eq!(youtube.query, "React tutorial");
+        let youtube = route_ask_intent(
+            "search React tutorial on YouTube",
+            false,
+            "en",
+            VoiceRoutingFlags::default(),
+        );
+        assert_eq!(youtube.search_provider, Some(SearchProvider::YouTube));
+        assert_eq!(youtube.payload.as_deref(), Some("React tutorial"));
 
-        let github = parse_ask_search_command("在 GitHub 搜索 tauri global shortcut").unwrap();
-        assert_eq!(github.provider, AskSearchProvider::Github);
-        assert_eq!(github.query, "tauri global shortcut");
+        let github = route_ask_intent(
+            "在 GitHub 搜索 tauri global shortcut",
+            false,
+            "zh-Hans",
+            VoiceRoutingFlags::default(),
+        );
+        assert_eq!(github.search_provider, Some(SearchProvider::GitHub));
+        assert_eq!(github.payload.as_deref(), Some("tauri global shortcut"));
 
-        assert!(parse_ask_search_command("what is a good opener for this email").is_none());
+        assert_eq!(
+            route_ask_intent(
+                "what is a good opener for this email",
+                false,
+                "en",
+                VoiceRoutingFlags::default(),
+            )
+            .kind,
+            VoiceIntentKind::OpenQuestion
+        );
     }
 
     #[test]
@@ -1525,18 +1695,34 @@ mod tests {
             r#"{"code":"cloud_quota_exceeded","error":"Cloud words used up. Please switch to BYOK mode or wait until reset."}"#.to_string(),
         );
         assert_eq!(
-            quota,
+            ask_app_error_message(quota),
             "Cloud words used up. Please switch to BYOK mode or wait until reset."
         );
 
         let auth = cloud_response_error(reqwest::StatusCode::UNAUTHORIZED, String::new());
-        assert_eq!(auth, "Sign in to use Cloud Ask, or switch to BYOK.");
+        assert_eq!(
+            ask_app_error_message(auth),
+            "Sign in to use Cloud Ask, or switch to BYOK."
+        );
 
         let service = cloud_response_error(
             reqwest::StatusCode::INTERNAL_SERVER_ERROR,
             "upstream failed".to_string(),
         );
-        assert_eq!(service, "Ask service error. Please try again.");
+        assert_eq!(
+            ask_app_error_message(service),
+            "Ask service error. Please try again."
+        );
+    }
+
+    #[test]
+    fn cloud_session_invalid_response_uses_typed_error() {
+        let error = cloud_response_error(
+            reqwest::StatusCode::UNAUTHORIZED,
+            r#"{"error":{"code":"AUTH_SESSION_INVALID","message":"Session expired"}}"#.to_string(),
+        );
+
+        assert!(matches!(error, crate::error::AppError::CloudSessionInvalid));
     }
 
     #[test]
@@ -1563,7 +1749,7 @@ mod tests {
         state.set_pending_result(AskDictationResult::new(
             "What is OpenTypeless?".to_string(),
             "A voice app.".to_string(),
-            AskCommandIntent::OpenQuestion,
+            VoiceIntentKind::OpenQuestion,
             AskDictationResultMetadata::popup(false, false),
         ));
 

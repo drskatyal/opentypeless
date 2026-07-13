@@ -79,16 +79,20 @@ async function flushAsyncEffects() {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-function askResult(overrides: Partial<Awaited<ReturnType<typeof stopAskDictation>>> = {}) {
+function askResult(
+  overrides: Partial<Awaited<ReturnType<typeof stopAskDictation>>> = {},
+): AskDictationResult {
   return {
     question: 'What is OpenTypeless?',
     answer: 'It turns speech into useful text.',
-    intent: 'open_question',
+    intent: 'open_question' as const,
     output: 'popupAnswer' as const,
     usedSelectedText: false,
     selectedTextTruncated: false,
     searchProvider: null,
-    searchUrl: null,
+    requestedPlacement: 'popup_answer' as const,
+    actualPlacement: 'popup_answer' as const,
+    fallbackReason: null,
     ...overrides,
   }
 }
@@ -151,6 +155,78 @@ describe('AskPanel', () => {
     expect(screen.getByRole('button', { name: 'Copy answer' })).toBeDefined()
     expect(screen.queryByText('Answer')).toBeNull()
     expect(startAskDictation).not.toHaveBeenCalled()
+  })
+
+  it('uses the existing compact context line for draft clipboard fallback', async () => {
+    render(<AskPanel />)
+
+    await waitFor(() => {
+      expect(tauriEventMock.listen).toHaveBeenCalledWith('ask:result', expect.any(Function))
+    })
+    tauriEventMock.emit(
+      'ask:result',
+      askResult({
+        question: 'draft a launch note',
+        answer: 'Launch note',
+        intent: 'draft_insert',
+        output: 'copiedFallback',
+        requestedPlacement: 'insert_at_cursor',
+        actualPlacement: null,
+        fallbackReason: 'target_changed',
+      }),
+    )
+
+    expect(await screen.findByText('Target changed; result copied')).toBeDefined()
+    expect(screen.getByText('Launch note')).toBeDefined()
+    expect(screen.queryByText(/confidence/i)).toBeNull()
+    expect(screen.queryByText(/grammar/i)).toBeNull()
+  })
+
+  it('shows provider-only search status and never renders query URL or debug metadata', async () => {
+    render(<AskPanel />)
+
+    await waitFor(() => {
+      expect(tauriEventMock.listen).toHaveBeenCalledWith('ask:result', expect.any(Function))
+    })
+    tauriEventMock.emit('ask:result', {
+      ...askResult({
+        question: 'search private launch plan on Google',
+        answer: 'Opened Google search.',
+        intent: 'search',
+        output: 'openedSearch',
+        requestedPlacement: 'open_url',
+        actualPlacement: 'open_url',
+        fallbackReason: null,
+        searchProvider: 'Google',
+      }),
+      query: 'private launch plan',
+      searchUrl: 'https://www.google.com/search?q=private+launch+plan',
+      confidence: 1,
+      grammarLocale: 'en',
+    })
+
+    expect(await screen.findByText('Opened Google search')).toBeDefined()
+    expect(screen.queryByText(/private launch plan/i)).toBeNull()
+    expect(screen.queryByText(/google\.com/i)).toBeNull()
+    expect(screen.queryByText(/^en$/i)).toBeNull()
+  })
+
+  it('uses restrained fallback copy for a disabled route', async () => {
+    render(<AskPanel />)
+
+    await waitFor(() => {
+      expect(tauriEventMock.listen).toHaveBeenCalledWith('ask:result', expect.any(Function))
+    })
+    tauriEventMock.emit(
+      'ask:result',
+      askResult({
+        fallbackReason: 'feature_disabled',
+        requestedPlacement: 'popup_answer',
+        actualPlacement: 'popup_answer',
+      }),
+    )
+
+    expect(await screen.findByText('This route is disabled')).toBeDefined()
   })
 
   it('hides the standalone floating note from its close button', async () => {
@@ -347,7 +423,9 @@ describe('AskPanel', () => {
       usedSelectedText: false,
       selectedTextTruncated: false,
       searchProvider: null,
-      searchUrl: null,
+      requestedPlacement: 'popup_answer',
+      actualPlacement: 'popup_answer',
+      fallbackReason: null,
     })
   })
 

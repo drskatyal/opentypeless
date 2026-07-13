@@ -1,6 +1,14 @@
 import { create } from 'zustand'
-import { invoke } from '@tauri-apps/api/core'
-import { authClient } from '../lib/auth-client'
+import {
+  authClient,
+  requestOpenTypelessPasswordReset,
+  setOpenTypelessPassword,
+} from '../lib/auth-client'
+import {
+  markCloudSessionAuthenticated,
+  persistSessionToken,
+  registerCloudSessionInvalidation,
+} from '../lib/cloud-session'
 import {
   getSubscriptionStatus,
   type LicenseStatus,
@@ -9,7 +17,7 @@ import {
   type SubscriptionSource,
 } from '../lib/api'
 import { isActiveCloudPlan } from '../lib/constants'
-import { toast } from '../components/Toast'
+import { toast } from '../components/toast-service'
 import i18n from '../i18n'
 
 let sttWarningShown = false
@@ -20,7 +28,10 @@ export interface AuthUser {
   id: string
   email: string
   name: string | null
+  emailVerified: boolean
 }
+
+export type CredentialCapability = 'unknown' | 'present' | 'none'
 
 interface AuthState {
   // User
@@ -32,6 +43,7 @@ interface AuthState {
   subscriptionStatus: string | null
   licenseStatus: LicenseStatus | null
   quotaModel: QuotaModel
+  credentialCapability: CredentialCapability
 
   // Quotas
   displayWordsUsedEstimate: number
@@ -69,6 +81,10 @@ interface AuthState {
     options?: { verificationCallbackURL?: string },
   ) => Promise<void>
   resendVerification: (options?: { verificationCallbackURL?: string }) => Promise<void>
+  requestPasswordReset: (email: string, locale: string) => Promise<void>
+  refreshCredentialCapability: () => Promise<void>
+  changePassword: (currentPassword: string | null, newPassword: string) => Promise<void>
+  invalidateCloudSession: () => Promise<void>
   signOut: () => Promise<void>
   refreshSubscription: () => Promise<void>
   handleDeepLinkToken: (token: string) => Promise<void>
@@ -90,6 +106,41 @@ export function hasManagedCloudAccess(
   return isActiveCloudPlan(state.plan)
 }
 
+function credentialCapabilityFromAccounts(
+  accounts: Array<{ providerId: string }>,
+): CredentialCapability {
+  return accounts.some((account) => account.providerId === 'credential') ? 'present' : 'none'
+}
+
+function signedOutCloudState() {
+  return {
+    user: null,
+    plan: 'free' as const,
+    source: 'free' as const,
+    displayName: 'Free',
+    subscriptionEnd: null,
+    subscriptionStatus: null,
+    licenseStatus: null,
+    quotaModel: 'legacy_dual_meter' as const,
+    credentialCapability: 'unknown' as const,
+    displayWordsUsedEstimate: 0,
+    displayWordsLimit: 0,
+    displayWordsResetAt: null,
+    sttSecondsUsed: 0,
+    sttSecondsLimit: 0,
+    llmTokensUsed: 0,
+    llmTokensLimit: 0,
+    cloudWordsUsed: 0,
+    cloudWordsLimit: 0,
+    cloudWordsResetAt: null,
+    byokUnlimited: true,
+    error: null,
+    emailVerificationPending: false,
+    pendingEmail: null,
+    checkoutPending: false,
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   plan: 'free',
@@ -99,6 +150,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   subscriptionStatus: null,
   licenseStatus: null,
   quotaModel: 'legacy_dual_meter',
+  credentialCapability: 'unknown',
   displayWordsUsedEstimate: 0,
   displayWordsLimit: 0,
   displayWordsResetAt: null,
@@ -126,15 +178,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             id: session.user.id,
             email: session.user.email,
             name: session.user.name ?? null,
+            emailVerified: session.user.emailVerified === true,
           },
         })
-        // Push saved session token to Rust for cloud providers
         const savedToken = localStorage.getItem('session_token')
         if (savedToken) {
-          await invoke('set_session_token', { token: savedToken }).catch((e) => {
-            console.error('Failed to sync session token to backend:', e)
-          })
+          await persistSessionToken(savedToken)
+          markCloudSessionAuthenticated()
         }
+        await get().refreshCredentialCapability()
         await get().refreshSubscription()
       }
     } catch {
@@ -153,10 +205,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           onSuccess: async (ctx) => {
             const token = ctx.response.headers.get('set-auth-token')
             if (token) {
-              localStorage.setItem('session_token', token)
-              await invoke('set_session_token', { token }).catch((e: unknown) => {
-                console.error('Failed to sync session token to backend:', e)
-              })
+              await persistSessionToken(token)
+              markCloudSessionAuthenticated()
             }
           },
         },
@@ -183,8 +233,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             id: data.user.id,
             email: data.user.email,
             name: data.user.name ?? null,
+            emailVerified: data.user.emailVerified === true,
           },
         })
+        await get().refreshCredentialCapability()
         await get().refreshSubscription()
       }
     } catch (e) {
@@ -212,10 +264,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           onSuccess: async (ctx) => {
             const token = ctx.response.headers.get('set-auth-token')
             if (token) {
-              localStorage.setItem('session_token', token)
-              await invoke('set_session_token', { token }).catch((e: unknown) => {
-                console.error('Failed to sync session token to backend:', e)
-              })
+              await persistSessionToken(token)
+              markCloudSessionAuthenticated()
             }
           },
         },
@@ -252,40 +302,110 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  requestPasswordReset: async (email, locale) => {
+    set({ loading: true, error: null })
+    try {
+      await requestOpenTypelessPasswordReset(email, locale)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to request password reset'
+      set({ error: message })
+      throw e
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  refreshCredentialCapability: async () => {
+    const result = await authClient.listAccounts()
+    if (result.error) {
+      set({ credentialCapability: 'unknown' })
+      throw new Error(result.error.message ?? 'Failed to load account security')
+    }
+    set({ credentialCapability: credentialCapabilityFromAccounts(result.data ?? []) })
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const state = get()
+    if (!state.user) throw new Error('Authentication required')
+
+    let capability = state.credentialCapability
+    if (capability === 'unknown') {
+      await state.refreshCredentialCapability()
+      capability = get().credentialCapability
+    }
+    if (capability === 'unknown') throw new Error('Failed to load account security')
+
+    set({ loading: true, error: null })
+    try {
+      if (capability === 'none') {
+        if (!state.user.emailVerified) {
+          const verification = await authClient.sendVerificationEmail({ email: state.user.email })
+          if (verification.error) {
+            throw new Error(verification.error.message ?? 'Failed to send verification email')
+          }
+          set({ emailVerificationPending: true, pendingEmail: state.user.email })
+          throw new Error('Verify your email before setting a password')
+        }
+
+        await setOpenTypelessPassword(newPassword)
+        await get().refreshCredentialCapability()
+      } else {
+        if (!currentPassword) throw new Error('Current password is required')
+
+        let responseToken: string | null = null
+        const result = await authClient.changePassword(
+          {
+            currentPassword,
+            newPassword,
+            revokeOtherSessions: true,
+          },
+          {
+            onSuccess: (ctx) => {
+              responseToken = ctx.response.headers.get('set-auth-token')
+            },
+          },
+        )
+        if (result.error) throw new Error(result.error.message ?? 'Failed to change password')
+
+        const rotatedToken = result.data?.token ?? responseToken
+        if (!rotatedToken) throw new Error('Password changed but the new session token was missing')
+        await persistSessionToken(rotatedToken)
+        markCloudSessionAuthenticated()
+        await get().refreshSubscription()
+      }
+      toast(i18n.t('account.passwordChanged', 'Password updated'), 'success')
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to change password'
+      set({ error: message })
+      throw e
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  invalidateCloudSession: async () => {
+    try {
+      await persistSessionToken(null)
+    } catch (e) {
+      localStorage.removeItem('session_token')
+      console.error('Failed to clear session token in backend:', e)
+    }
+    set(signedOutCloudState())
+    sttWarningShown = false
+    llmWarningShown = false
+    cloudWordsWarningShown = false
+    toast(i18n.t('account.sessionExpired', 'Your cloud session expired. Sign in again.'), 'error')
+  },
+
   signOut: async () => {
     try {
       await authClient.signOut()
     } finally {
-      // Clear session token in localStorage and Rust
-      localStorage.removeItem('session_token')
-      await invoke('set_session_token', { token: '' }).catch((e: unknown) => {
+      await persistSessionToken(null).catch((e: unknown) => {
+        localStorage.removeItem('session_token')
         console.error('Failed to clear session token in backend:', e)
       })
-      set({
-        user: null,
-        plan: 'free',
-        source: 'free',
-        displayName: 'Free',
-        subscriptionEnd: null,
-        subscriptionStatus: null,
-        licenseStatus: null,
-        quotaModel: 'legacy_dual_meter',
-        displayWordsUsedEstimate: 0,
-        displayWordsLimit: 0,
-        displayWordsResetAt: null,
-        sttSecondsUsed: 0,
-        sttSecondsLimit: 0,
-        llmTokensUsed: 0,
-        llmTokensLimit: 0,
-        cloudWordsUsed: 0,
-        cloudWordsLimit: 0,
-        cloudWordsResetAt: null,
-        byokUnlimited: true,
-        error: null,
-        emailVerificationPending: false,
-        pendingEmail: null,
-        checkoutPending: false,
-      })
+      set(signedOutCloudState())
       sttWarningShown = false
       llmWarningShown = false
       cloudWordsWarningShown = false
@@ -361,10 +481,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   handleDeepLinkToken: async (token: string) => {
     try {
       set({ loading: true, error: null })
-      localStorage.setItem('session_token', token)
-      await invoke('set_session_token', { token }).catch((e: unknown) => {
-        console.error('Failed to sync session token to backend:', e)
-      })
+      await persistSessionToken(token)
+      markCloudSessionAuthenticated()
       const { data: session } = await authClient.getSession({
         fetchOptions: {
           headers: { Authorization: `Bearer ${token}` },
@@ -376,8 +494,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             id: session.user.id,
             email: session.user.email,
             name: session.user.name ?? null,
+            emailVerified: session.user.emailVerified === true,
           },
         })
+        await get().refreshCredentialCapability()
         await get().refreshSubscription()
       }
     } catch {
@@ -387,3 +507,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }))
+
+registerCloudSessionInvalidation(() => useAuthStore.getState().invalidateCloudSession())

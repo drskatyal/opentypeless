@@ -1,22 +1,128 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Check, Plus, Trash2, Pencil, X, Download, Upload } from 'lucide-react'
+import { Check, ChevronDown, Copy, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import {
   useAppStore,
-  type ActiveScene,
   type AppConfig,
+  type ContextFamily,
   type CustomScene,
+  type FamilySceneAssignment,
+  type SystemSceneOverride,
 } from '../../stores/appStore'
-import { updateConfig as persistConfig } from '../../lib/tauri'
-import { BUILTIN_SCENES, type BuiltInScene } from '../../lib/scenes/builtinScenes'
+import { setFamilySceneAssignment, updateConfig as persistConfig } from '../../lib/tauri'
 import { importCustomScenesJson, serializeCustomScenes } from '../../lib/scenes/sceneImportExport'
+import { AppLogo } from '../AppLogo'
 
 interface EditorState {
-  mode: 'create' | 'edit'
+  mode: 'create' | 'edit' | 'system'
   id: string | null
   name: string
   description: string
   promptTemplate: string
+}
+
+const APP_WRITING_MODES: Array<{
+  family: Exclude<ContextFamily, 'general'>
+  systemSceneId: string
+  icons: Array<{ label: string; iconKey: string }>
+}> = [
+  {
+    family: 'email',
+    systemSceneId: 'system_email',
+    icons: [
+      { label: 'Gmail', iconKey: 'gmail' },
+      { label: 'Apple Mail', iconKey: 'apple-mail' },
+    ],
+  },
+  {
+    family: 'work_chat',
+    systemSceneId: 'system_work_chat',
+    icons: [
+      { label: 'Slack', iconKey: 'slack' },
+      { label: 'Lark', iconKey: 'lark' },
+    ],
+  },
+  {
+    family: 'personal_chat',
+    systemSceneId: 'system_personal_chat',
+    icons: [
+      { label: 'WeChat', iconKey: 'wechat' },
+      { label: 'WhatsApp', iconKey: 'whatsapp' },
+    ],
+  },
+  {
+    family: 'document',
+    systemSceneId: 'system_document',
+    icons: [
+      { label: 'Google Docs', iconKey: 'google-docs' },
+      { label: 'Notion', iconKey: 'notion' },
+    ],
+  },
+  {
+    family: 'project_management',
+    systemSceneId: 'system_project_management',
+    icons: [
+      { label: 'Linear', iconKey: 'linear' },
+      { label: 'Jira', iconKey: 'jira' },
+    ],
+  },
+  {
+    family: 'developer_collaboration',
+    systemSceneId: 'system_developer_collaboration',
+    icons: [
+      { label: 'GitHub', iconKey: 'github' },
+      { label: 'GitLab', iconKey: 'gitlab' },
+    ],
+  },
+  {
+    family: 'prompt_or_code',
+    systemSceneId: 'system_prompt_or_code',
+    icons: [
+      { label: 'Cursor', iconKey: 'cursor' },
+      { label: 'VS Code', iconKey: 'vscode' },
+    ],
+  },
+  {
+    family: 'support',
+    systemSceneId: 'system_support',
+    icons: [
+      { label: 'Zendesk', iconKey: 'zendesk' },
+      { label: 'Intercom', iconKey: 'intercom' },
+    ],
+  },
+  {
+    family: 'social',
+    systemSceneId: 'system_social',
+    icons: [
+      { label: 'X', iconKey: 'x' },
+      { label: 'LinkedIn', iconKey: 'linkedin' },
+    ],
+  },
+]
+
+const SYSTEM_SCENE_PROMPTS: Record<string, string> = {
+  system_email:
+    'Email system mode: produce an email body when there is enough content. Use a greeting when the recipient is spoken, concise body paragraphs, and a light closing when appropriate. Do not generate a subject unless explicitly requested.',
+  system_work_chat:
+    'Work chat system mode: keep it casual and concise. Use short sentences or simple line breaks when helpful. No greeting or sign-off.',
+  system_personal_chat:
+    "Personal chat system mode: keep the user's casual voice and short-message rhythm; do not turn it into business writing.",
+  system_document:
+    'Document system mode: use coherent paragraphs. Use short headings or bullet points when the spoken structure has sections, takeaways, or multiple items.',
+  system_project_management:
+    'Project update system mode: format as a compact update with bullets for progress, blockers, and next steps when spoken. Do not invent owners, deadlines, or ticket fields.',
+  system_developer_collaboration:
+    'Engineering note system mode: format as a concise review or engineering note. Use bullets for issue, impact, and suggestion when helpful. Preserve technical identifiers exactly.',
+  system_prompt_or_code:
+    'Prompt/code system mode: make the spoken request explicit and usable. Use compact bullets for goal, constraints, and output shape when implied, but never invent code or unstated requirements.',
+  system_support:
+    'Support reply system mode: write a clear, empathetic reply. Use short paragraphs or numbered steps when next actions are spoken. Do not invent policy, refund, or resolution claims.',
+  system_social:
+    "Social post system mode: keep the user's voice and make it readable as a short post. No hashtags, emoji, or calls to action unless spoken.",
+}
+
+function systemFamilyForId(id: string): Exclude<ContextFamily, 'general'> {
+  return APP_WRITING_MODES.find((mode) => mode.systemSceneId === id)?.family ?? 'email'
 }
 
 const emptyEditor = (): EditorState => ({
@@ -51,54 +157,58 @@ function readFileText(file: File): Promise<string> {
   })
 }
 
-function customSceneToActive(scene: CustomScene): ActiveScene {
-  return {
-    id: scene.id,
-    source: 'custom',
-    name: scene.name,
-    prompt_template: scene.prompt_template,
-  }
-}
-
-function builtInSceneToActive(scene: BuiltInScene, name: string): ActiveScene {
-  return {
-    id: scene.id,
-    source: 'builtin',
-    name,
-    prompt_template: scene.promptTemplate,
-  }
-}
-
 export function ScenesPane() {
   const { t } = useTranslation()
   const config = useAppStore((s) => s.config)
   const setConfig = useAppStore((s) => s.setConfig)
   const setSavedConfig = useAppStore((s) => s.setSavedConfig)
+  const applyPersistedConfigPatch = useAppStore((s) => s.applyPersistedConfigPatch)
 
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [mergeMsg, setMergeMsg] = useState<string | null>(null)
   const [mergeOk, setMergeOk] = useState(false)
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null)
   const importInputRef = useRef<HTMLInputElement | null>(null)
 
-  const saveNextConfig = async (nextConfig: AppConfig) => {
+  const saveConfigPatch = async (patch: Partial<AppConfig>): Promise<boolean> => {
     const previousConfig = useAppStore.getState().config
     const previousSavedConfig = useAppStore.getState().savedConfig
+    const nextConfig = { ...previousConfig, ...patch }
+    const nextPersistedConfig = { ...(previousSavedConfig ?? previousConfig), ...patch }
     setConfig(nextConfig)
     setSaveError(null)
     try {
-      await persistConfig(nextConfig)
-      setSavedConfig(nextConfig)
+      await persistConfig(nextPersistedConfig)
+      if (previousSavedConfig) applyPersistedConfigPatch(patch)
+      else setSavedConfig(nextPersistedConfig)
+      return true
     } catch {
       setConfig(previousConfig)
-      if (previousSavedConfig) setSavedConfig(previousSavedConfig)
+      setSaveError(t('scenes.failedToSave'))
+      return false
+    }
+  }
+
+  const sceneOptions = config.custom_scenes.map((scene) => ({ id: scene.id, name: scene.name }))
+
+  const handleFamilySceneChange = async (family: ContextFamily, sceneId: string) => {
+    setSaveError(null)
+    try {
+      const assignments = await setFamilySceneAssignment(family, sceneId || null)
+      applyPersistedConfigPatch({ family_scene_assignments: assignments })
+    } catch {
       setSaveError(t('scenes.failedToSave'))
     }
   }
 
   const handleStartCreate = () => {
     setEditor(emptyEditor())
+  }
+
+  const handleClearActiveScene = async () => {
+    await saveConfigPatch({ active_scene: null })
   }
 
   const handleStartEdit = (scene: CustomScene) => {
@@ -111,7 +221,20 @@ export function ScenesPane() {
     })
   }
 
-  const handleSaveEditor = async (activate: boolean) => {
+  const systemOverrideFor = (id: string) =>
+    config.system_scene_overrides.find((scene) => scene.id === id)
+
+  const handleStartEditSystem = (id: string) => {
+    setEditor({
+      mode: 'system',
+      id,
+      name: t(`scenes.systemModes.${systemFamilyForId(id)}`),
+      description: t('scenes.systemSceneDescription'),
+      promptTemplate: systemOverrideFor(id)?.prompt_template ?? SYSTEM_SCENE_PROMPTS[id] ?? '',
+    })
+  }
+
+  const handleSaveEditor = async () => {
     if (!editor) return
     const name = editor.name.trim()
     const description = editor.description.trim()
@@ -119,6 +242,21 @@ export function ScenesPane() {
     if (!name || !promptTemplate) return
 
     const timestamp = nowIso()
+    if (editor.mode === 'system' && editor.id) {
+      const nextOverride: SystemSceneOverride = {
+        id: editor.id,
+        prompt_template: promptTemplate,
+      }
+      const nextOverrides = [
+        ...config.system_scene_overrides.filter((scene) => scene.id !== editor.id),
+        nextOverride,
+      ]
+      if (await saveConfigPatch({ system_scene_overrides: nextOverrides })) {
+        setEditor(null)
+      }
+      return
+    }
+
     let nextScenes: CustomScene[]
     let savedScene: CustomScene
 
@@ -147,43 +285,7 @@ export function ScenesPane() {
       nextScenes = [...config.custom_scenes, savedScene]
     }
 
-    const wasActive =
-      config.active_scene?.source === 'custom' && config.active_scene.id === savedScene.id
-    const nextConfig = {
-      ...config,
-      custom_scenes: nextScenes,
-      active_scene: activate || wasActive ? customSceneToActive(savedScene) : config.active_scene,
-    }
-
-    await saveNextConfig(nextConfig)
-    setEditor(null)
-  }
-
-  const handleActivateCustom = async (scene: CustomScene) => {
-    await saveNextConfig({ ...config, active_scene: customSceneToActive(scene) })
-  }
-
-  const handleActivateBuiltIn = async (scene: BuiltInScene) => {
-    await saveNextConfig({
-      ...config,
-      active_scene: builtInSceneToActive(scene, t(scene.nameKey)),
-    })
-  }
-
-  const handleDuplicateBuiltIn = async (scene: BuiltInScene) => {
-    const timestamp = nowIso()
-    const customScene: CustomScene = {
-      id: createSceneId(),
-      name: t(scene.nameKey),
-      description: t(scene.descriptionKey),
-      prompt_template: scene.promptTemplate,
-      created_at: timestamp,
-      updated_at: timestamp,
-    }
-    await saveNextConfig({
-      ...config,
-      custom_scenes: [...config.custom_scenes, customScene],
-    })
+    if (await saveConfigPatch({ custom_scenes: nextScenes })) setEditor(null)
   }
 
   const handleDuplicateCustom = async (scene: CustomScene) => {
@@ -195,26 +297,27 @@ export function ScenesPane() {
       created_at: timestamp,
       updated_at: timestamp,
     }
-    await saveNextConfig({
-      ...config,
-      custom_scenes: [...config.custom_scenes, copy],
-    })
+    await saveConfigPatch({ custom_scenes: [...config.custom_scenes, copy] })
   }
 
   const handleDeleteCustom = async (scene: CustomScene) => {
-    if (!window.confirm(t('scenes.deleteConfirm'))) return
-    await saveNextConfig({
-      ...config,
+    const saved = await saveConfigPatch({
       custom_scenes: config.custom_scenes.filter((item) => item.id !== scene.id),
+      family_scene_assignments: config.family_scene_assignments.filter(
+        (assignment) => assignment.scene_id !== scene.id,
+      ),
       active_scene:
         config.active_scene?.source === 'custom' && config.active_scene.id === scene.id
           ? null
           : config.active_scene,
     })
+    if (saved) setDeleteCandidateId(null)
   }
 
-  const handleClearActive = async () => {
-    await saveNextConfig({ ...config, active_scene: null })
+  const handleResetSystemScene = async (id: string) => {
+    await saveConfigPatch({
+      system_scene_overrides: config.system_scene_overrides.filter((scene) => scene.id !== id),
+    })
   }
 
   const handleExportCustomScenes = () => {
@@ -247,10 +350,10 @@ export function ScenesPane() {
         return
       }
 
-      await saveNextConfig({
-        ...config,
+      const saved = await saveConfigPatch({
         custom_scenes: [...config.custom_scenes, ...result.scenes],
       })
+      if (!saved) return
       const importNotes = [
         result.report.skippedInvalid > 0
           ? t('scenes.importSkippedInvalid', { count: result.report.skippedInvalid })
@@ -293,9 +396,37 @@ export function ScenesPane() {
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-[13px] font-semibold text-text-primary">
+            {t('scenes.appWritingModes')}
+          </h3>
+          <p className="mt-1 text-[12px] text-text-tertiary">{t('scenes.appWritingModesDesc')}</p>
+        </div>
+        <AppWritingModes
+          assignments={config.family_scene_assignments}
+          sceneOptions={sceneOptions}
+          onChange={handleFamilySceneChange}
+        />
+        {config.active_scene && (
+          <div className="flex items-center justify-between gap-3 rounded-[8px] border border-border px-3 py-2.5">
+            <p className="min-w-0 truncate text-[12px] text-text-secondary">
+              {t('scenes.activeScene', { name: config.active_scene.name })}
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleClearActiveScene()}
+              className="flex-none border-none bg-transparent text-[12px] text-accent hover:opacity-80"
+            >
+              {t('scenes.clearActive')}
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-[13px] font-semibold text-text-primary">{t('scenes.myScenes')}</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExportCustomScenes}
               disabled={config.custom_scenes.length === 0}
@@ -333,30 +464,36 @@ export function ScenesPane() {
           </div>
         </div>
 
-        {config.active_scene && (
-          <div className="flex items-center justify-between gap-3 rounded-[8px] border border-border bg-bg-secondary px-3 py-2">
-            <span className="text-[12px] text-text-secondary">
-              {t('scenes.activeScene', { name: config.active_scene.name })}
-            </span>
-            <button
-              onClick={handleClearActive}
-              className="flex items-center gap-1 text-[12px] text-text-tertiary bg-transparent border-none cursor-pointer hover:text-text-primary transition-colors"
-            >
-              <X size={12} />
-              {t('scenes.clearActive')}
-            </button>
-          </div>
-        )}
-
         {editor && (
           <SceneEditor
             editor={editor}
             onChange={setEditor}
             onCancel={() => setEditor(null)}
-            onSave={() => handleSaveEditor(false)}
-            onSaveAndActivate={() => handleSaveEditor(true)}
+            onSave={handleSaveEditor}
           />
         )}
+
+        <div className="space-y-2">
+          {APP_WRITING_MODES.map((mode) => {
+            const override = systemOverrideFor(mode.systemSceneId)
+            const promptTemplate =
+              override?.prompt_template ?? SYSTEM_SCENE_PROMPTS[mode.systemSceneId] ?? ''
+            return (
+              <LocalSceneCard
+                key={mode.systemSceneId}
+                id={mode.systemSceneId}
+                name={t(`scenes.systemModes.${mode.family}`)}
+                description={t('scenes.systemSceneDescription')}
+                promptTemplate={promptTemplate}
+                active={false}
+                copied={copiedId === mode.systemSceneId}
+                onCopy={() => handleCopyPrompt(mode.systemSceneId, promptTemplate)}
+                onEdit={() => handleStartEditSystem(mode.systemSceneId)}
+                onReset={override ? () => handleResetSystemScene(mode.systemSceneId) : undefined}
+              />
+            )
+          })}
+        </div>
 
         {config.custom_scenes.length === 0 ? (
           <div className="rounded-[8px] border border-dashed border-border px-4 py-6 text-center">
@@ -378,37 +515,17 @@ export function ScenesPane() {
                   config.active_scene?.source === 'custom' && config.active_scene.id === scene.id
                 }
                 copied={copiedId === scene.id}
-                onActivate={() => handleActivateCustom(scene)}
                 onCopy={() => handleCopyPrompt(scene.id, scene.prompt_template)}
                 onEdit={() => handleStartEdit(scene)}
                 onDuplicate={() => handleDuplicateCustom(scene)}
-                onDelete={() => handleDeleteCustom(scene)}
+                onDelete={() => setDeleteCandidateId(scene.id)}
+                confirmingDelete={deleteCandidateId === scene.id}
+                onCancelDelete={() => setDeleteCandidateId(null)}
+                onConfirmDelete={() => handleDeleteCustom(scene)}
               />
             ))}
           </div>
         )}
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="text-[13px] font-semibold text-text-primary">{t('scenes.builtInScenes')}</h3>
-        <div className="space-y-2">
-          {BUILTIN_SCENES.map((scene) => (
-            <LocalSceneCard
-              key={scene.id}
-              id={scene.id}
-              name={t(scene.nameKey)}
-              description={t(scene.descriptionKey)}
-              promptTemplate={scene.promptTemplate}
-              active={
-                config.active_scene?.source === 'builtin' && config.active_scene.id === scene.id
-              }
-              copied={copiedId === scene.id}
-              onActivate={() => handleActivateBuiltIn(scene)}
-              onCopy={() => handleCopyPrompt(scene.id, scene.promptTemplate)}
-              onDuplicate={() => handleDuplicateBuiltIn(scene)}
-            />
-          ))}
-        </div>
       </section>
 
       {mergeMsg && (
@@ -419,42 +536,115 @@ export function ScenesPane() {
   )
 }
 
+function AppWritingModes({
+  assignments,
+  sceneOptions,
+  onChange,
+}: {
+  assignments: FamilySceneAssignment[]
+  sceneOptions: Array<{ id: string; name: string }>
+  onChange: (family: ContextFamily, sceneId: string) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="space-y-2">
+      {APP_WRITING_MODES.map((mode) => {
+        const selectedSceneId =
+          assignments.find((assignment) => assignment.family === mode.family)?.scene_id ?? ''
+        const label = t(`contextFamilies.${mode.family}`)
+        const selectLabel = `${label} ${t('scenes.appWritingScene')}`
+
+        return (
+          <div
+            key={mode.family}
+            className="grid grid-cols-1 gap-2.5 rounded-[8px] border border-border px-3 py-2.5 min-[840px]:grid-cols-[minmax(0,1fr)_minmax(140px,180px)] min-[840px]:items-center"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex flex-none items-center gap-1.5">
+                {mode.icons.map((icon) => (
+                  <span
+                    key={icon.iconKey}
+                    role="img"
+                    aria-label={icon.label}
+                    title={icon.label}
+                    className="grid h-6 w-6 place-items-center rounded-[6px] bg-bg-secondary"
+                  >
+                    <AppLogo iconKey={icon.iconKey} family={mode.family} />
+                  </span>
+                ))}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-medium text-text-primary">{label}</p>
+                <p className="truncate text-[11px] text-text-tertiary">
+                  {t(`scenes.appModeDescriptions.${mode.family}`)}
+                </p>
+              </div>
+            </div>
+
+            <label className="block min-w-0 text-[11px] text-text-secondary">
+              <span className="sr-only">{selectLabel}</span>
+              <select
+                aria-label={selectLabel}
+                value={selectedSceneId}
+                onChange={(event) => onChange(mode.family, event.target.value)}
+                className="w-full rounded-[8px] border border-border bg-bg-secondary px-3 py-2 text-[12px] text-text-primary outline-none focus:border-border-focus"
+              >
+                <option value="">{t(`scenes.systemModes.${mode.family}`)}</option>
+                {sceneOptions.map((scene) => (
+                  <option key={scene.id} value={scene.id}>
+                    {scene.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function SceneEditor({
   editor,
   onChange,
   onCancel,
   onSave,
-  onSaveAndActivate,
 }: {
   editor: EditorState
   onChange: (editor: EditorState) => void
   onCancel: () => void
   onSave: () => void
-  onSaveAndActivate: () => void
 }) {
   const { t } = useTranslation()
   const canSave = editor.name.trim().length > 0 && editor.promptTemplate.trim().length > 0
 
   return (
     <div className="space-y-3 rounded-[8px] border border-border bg-bg-secondary px-3 py-3">
-      <label className="block text-[12px] text-text-secondary">
-        <span className="block mb-1">{t('scenes.sceneName')}</span>
-        <input
-          value={editor.name}
-          onChange={(e) => onChange({ ...editor, name: e.target.value })}
-          maxLength={80}
-          className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-primary text-[13px] text-text-primary outline-none focus:border-border-focus"
-        />
-      </label>
-      <label className="block text-[12px] text-text-secondary">
-        <span className="block mb-1">{t('scenes.sceneDescription')}</span>
-        <input
-          value={editor.description}
-          onChange={(e) => onChange({ ...editor, description: e.target.value })}
-          maxLength={240}
-          className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-primary text-[13px] text-text-primary outline-none focus:border-border-focus"
-        />
-      </label>
+      {editor.mode === 'system' ? (
+        <p className="text-[13px] font-medium text-text-primary">{editor.name}</p>
+      ) : (
+        <>
+          <label className="block text-[12px] text-text-secondary">
+            <span className="block mb-1">{t('scenes.sceneName')}</span>
+            <input
+              value={editor.name}
+              onChange={(e) => onChange({ ...editor, name: e.target.value })}
+              maxLength={80}
+              className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-primary text-[13px] text-text-primary outline-none focus:border-border-focus"
+            />
+          </label>
+          <label className="block text-[12px] text-text-secondary">
+            <span className="block mb-1">{t('scenes.sceneDescription')}</span>
+            <input
+              value={editor.description}
+              onChange={(e) => onChange({ ...editor, description: e.target.value })}
+              maxLength={240}
+              className="w-full px-3 py-2 rounded-[8px] border border-border bg-bg-primary text-[13px] text-text-primary outline-none focus:border-border-focus"
+            />
+          </label>
+        </>
+      )}
       <label className="block text-[12px] text-text-secondary">
         <span className="block mb-1">{t('scenes.promptTemplate')}</span>
         <textarea
@@ -479,13 +669,6 @@ function SceneEditor({
         >
           {t('common.save')}
         </button>
-        <button
-          onClick={onSaveAndActivate}
-          disabled={!canSave}
-          className="px-3 py-1.5 rounded-[8px] border border-accent bg-accent text-white text-[12px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {t('scenes.saveAndActivate')}
-        </button>
       </div>
     </div>
   )
@@ -498,11 +681,14 @@ function LocalSceneCard({
   promptTemplate,
   active,
   copied,
-  onActivate,
   onCopy,
   onEdit,
   onDuplicate,
   onDelete,
+  confirmingDelete = false,
+  onCancelDelete,
+  onConfirmDelete,
+  onReset,
 }: {
   id: string
   name: string
@@ -510,11 +696,14 @@ function LocalSceneCard({
   promptTemplate: string
   active: boolean
   copied: boolean
-  onActivate: () => void
   onCopy: () => void
   onEdit?: () => void
-  onDuplicate: () => void
+  onDuplicate?: () => void
   onDelete?: () => void
+  confirmingDelete?: boolean
+  onCancelDelete?: () => void
+  onConfirmDelete?: () => void
+  onReset?: () => void
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -522,6 +711,8 @@ function LocalSceneCard({
   return (
     <div className="border border-border rounded-[8px] overflow-hidden">
       <button
+        type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
         className="w-full flex items-center justify-between gap-3 px-3 py-2.5 bg-transparent border-none text-left cursor-pointer hover:bg-bg-secondary/50 transition-colors"
       >
@@ -540,7 +731,10 @@ function LocalSceneCard({
             </span>
           )}
         </span>
-        <span className="text-[11px] text-text-tertiary">{expanded ? '−' : '+'}</span>
+        <ChevronDown
+          size={14}
+          className={`flex-none text-text-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
       </button>
       {expanded && (
         <div className="border-t border-border px-3 py-3 space-y-3">
@@ -548,14 +742,6 @@ function LocalSceneCard({
             {promptTemplate}
           </pre>
           <div className="flex items-center gap-3 flex-wrap">
-            {!active && (
-              <button
-                onClick={onActivate}
-                className="text-[12px] text-accent bg-transparent border-none cursor-pointer hover:opacity-80"
-              >
-                {t('scenes.activate')}
-              </button>
-            )}
             <button
               onClick={onCopy}
               aria-label={`Copy prompt for ${name}`}
@@ -564,12 +750,14 @@ function LocalSceneCard({
               {copied ? <Check size={12} /> : <Copy size={12} />}
               {copied ? t('scenes.copied') : t('scenes.copyPrompt')}
             </button>
-            <button
-              onClick={onDuplicate}
-              className="text-[12px] text-accent bg-transparent border-none cursor-pointer hover:opacity-80"
-            >
-              {t('scenes.duplicate')}
-            </button>
+            {onDuplicate && (
+              <button
+                onClick={onDuplicate}
+                className="text-[12px] text-accent bg-transparent border-none cursor-pointer hover:opacity-80"
+              >
+                {t('scenes.duplicate')}
+              </button>
+            )}
             {onEdit && (
               <button
                 onClick={onEdit}
@@ -579,7 +767,15 @@ function LocalSceneCard({
                 {t('scenes.edit')}
               </button>
             )}
-            {onDelete && (
+            {onReset && (
+              <button
+                onClick={onReset}
+                className="text-[12px] text-text-tertiary bg-transparent border-none cursor-pointer hover:text-text-primary"
+              >
+                {t('scenes.resetSystemScene')}
+              </button>
+            )}
+            {onDelete && !confirmingDelete && (
               <button
                 onClick={onDelete}
                 className="flex items-center gap-1 text-[12px] text-red-500 bg-transparent border-none cursor-pointer hover:opacity-80"
@@ -589,6 +785,29 @@ function LocalSceneCard({
               </button>
             )}
           </div>
+          {confirmingDelete && onCancelDelete && onConfirmDelete && (
+            <div className="rounded-[8px] border border-error/20 bg-error/10 px-3 py-2">
+              <p className="text-[12px] leading-relaxed text-text-secondary">
+                {t('scenes.deleteConfirm')}
+              </p>
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onCancelDelete}
+                  className="rounded-[7px] border border-border bg-transparent px-2.5 py-1 text-[11px] text-text-secondary hover:text-text-primary"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirmDelete}
+                  className="rounded-[7px] border border-error/30 bg-error/15 px-2.5 py-1 text-[11px] font-medium text-error hover:bg-error/20"
+                >
+                  {t('scenes.delete')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       <span className="sr-only">{id}</span>
