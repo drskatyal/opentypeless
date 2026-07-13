@@ -42,7 +42,12 @@ The general `Release` workflow refuses to build or publish Windows artifacts
 when the PFX signing secrets are absent. Use that workflow for Windows only when
 a trusted PFX certificate is configured. Otherwise, publish Windows through the
 dedicated `Release Windows SignPath` workflow below. Unsigned and test-signed
-installers must never be attached to a public release.
+installers are blocked from public releases by default.
+
+For a deliberate temporary exception, a manual workflow dispatch may set
+`allow_unsigned_windows` to `true`. This opt-in is disabled by default and is
+the only path that permits the general workflow to publish unsigned Windows
+installers. Tag-triggered and ordinary manual releases still fail closed.
 
 Windows SignPath:
 

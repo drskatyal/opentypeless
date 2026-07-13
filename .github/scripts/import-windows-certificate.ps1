@@ -2,8 +2,13 @@ $ErrorActionPreference = "Stop"
 
 $hasCertificate = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE)
 $hasPassword = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)
+$allowUnsigned = $env:ALLOW_UNSIGNED_WINDOWS -eq 'true'
 
 if (-not $hasCertificate -and -not $hasPassword) {
+  if ($allowUnsigned) {
+    Write-Warning "Unsigned Windows release explicitly allowed for this manual dispatch."
+    exit 0
+  }
   Write-Error "Windows signing certificate is required. Configure WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD, or publish Windows through the Release Windows SignPath workflow."
 }
 

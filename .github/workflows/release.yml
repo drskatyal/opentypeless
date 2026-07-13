@@ -27,6 +27,14 @@ on:
         options:
           - 'false'
           - 'true'
+      allow_unsigned_windows:
+        description: 'Windows only: explicitly allow publishing unsigned installers'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: write
@@ -162,6 +170,7 @@ jobs:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
+          ALLOW_UNSIGNED_WINDOWS: ${{ github.event.inputs.allow_unsigned_windows }}
         run: ./.github/scripts/import-windows-certificate.ps1
 
       - uses: tauri-apps/tauri-action@v0
@@ -184,7 +193,7 @@ jobs:
         with:
           owner: tover0314-w
           repo: opentypeless
-          releaseCommitish: ${{ github.sha }}
+          releaseCommitish: main
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: 'OpenTypeless ${{ github.event.inputs.tag || github.ref_name }}'
           releaseBody: 'See the assets below to download and install.'
