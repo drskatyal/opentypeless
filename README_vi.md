@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Nhập liệu bằng giọng nói OpenTypeless thích ứng với Gmail, Slack, Google Docs, Cursor, Zendesk và LinkedIn" />
 </p>
+
+## Điểm mới trong v1.1.49
+
+- **Viết theo ngữ cảnh ứng dụng** nhận diện ứng dụng đang hoạt động ngay trên máy và điều chỉnh cấu trúc, giọng điệu cho email, trò chuyện, tài liệu, công cụ theo dõi vấn đề, công cụ lập trình và nhiều môi trường khác.
+- **Định tuyến ý định giọng nói** phân biệt đọc chính tả, chỉnh sửa văn bản đã chọn, dịch thuật, Ask Anything và các thao tác giọng nói được hỗ trợ bằng tiếng Anh, tiếng Trung giản thể và phồn thể.
+- **Nhiều phím tắt cho mỗi quy trình** cho phép thêm và sắp xếp nhiều tổ hợp cho Đọc chính tả, Ask Anything và Dịch thuật.
+- **Đích dịch có thể chuyển đổi** giúp đổi nhanh giữa các ngôn ngữ thường dùng thay vì cố định một ngôn ngữ đầu ra.
+- **Từ điển cục bộ mạnh hơn** bổ sung quy tắc sửa lỗi cùng khả năng nhập và xuất từ điển.
+- **Ánh xạ phong cách theo ứng dụng** cho phép ghi đè danh mục tích hợp khi một ứng dụng cần phong cách viết khác.
+
+Việc nhận diện ứng dụng, ánh xạ, mục từ điển và quy tắc sửa lỗi đều được lưu cục bộ. Tính năng trau chuốt theo ứng dụng chỉ gửi danh mục ứng dụng nội bộ và siêu dữ liệu phong cách đã được phê duyệt tới LLM đã cấu hình; tiêu đề cửa sổ thô và nội dung tài liệu không được gửi làm ngữ cảnh ứng dụng hoặc lưu vào lịch sử.
+
+| Trau chuốt AI theo ứng dụng | Từ điển cục bộ và sửa lỗi |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Trau chuốt AI theo ứng dụng trong OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Từ điển cục bộ và sửa lỗi trong OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Xem thêm ảnh chụp màn hình</summary>

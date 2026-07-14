@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Input suara OpenTypeless yang menyesuaikan Gmail, Slack, Google Docs, Cursor, Zendesk, dan LinkedIn" />
 </p>
+
+## Yang baru di v1.1.49
+
+- **Penulisan berbasis aplikasi** mendeteksi aplikasi aktif secara lokal dan menyesuaikan struktur serta nada untuk email, obrolan, dokumen, pelacak isu, alat pengembangan, dan lingkungan lainnya.
+- **Perutean maksud suara** membedakan dikte, penyuntingan teks terpilih, terjemahan, Ask Anything, dan tindakan suara yang didukung dalam bahasa Inggris, Mandarin Sederhana, dan Mandarin Tradisional.
+- **Beberapa pintasan untuk setiap alur kerja** memungkinkan lebih dari satu kombinasi ditambahkan dan diurutkan untuk Dikte, Ask Anything, dan Terjemahan.
+- **Target terjemahan yang dapat dialihkan** memudahkan perpindahan antara bahasa yang sering digunakan tanpa menetapkan satu bahasa keluaran.
+- **Kamus lokal yang lebih kuat** menambahkan aturan koreksi serta impor dan ekspor kamus.
+- **Pemetaan gaya per aplikasi** memungkinkan kategori bawaan diganti ketika suatu aplikasi memerlukan gaya penulisan lain.
+
+Deteksi aplikasi, pemetaan, entri kamus, dan aturan koreksi disimpan secara lokal. Pemolesan berbasis aplikasi hanya mengirim kategori aplikasi internal dan metadata gaya yang disetujui ke jalur LLM yang dikonfigurasi; judul jendela mentah dan isi dokumen tidak dikirim sebagai konteks aplikasi atau disimpan dalam riwayat.
+
+| Pemolesan AI berbasis aplikasi | Kamus lokal dan koreksi |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Pemolesan AI berbasis aplikasi di OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Kamus lokal dan koreksi di OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Lihat lebih banyak tangkapan layar</summary>
