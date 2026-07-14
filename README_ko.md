@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless 데모" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Gmail, Slack, Google Docs, Cursor, Zendesk, LinkedIn에서 동작하는 OpenTypeless 앱 인식 음성 입력" />
 </p>
+
+## v1.1.49의 새로운 기능
+
+- **앱 인식 글쓰기**는 현재 앱을 로컬에서 감지하고 이메일, 채팅, 문서, 이슈 트래커, 개발 도구 등에 맞게 구조와 어조를 조정합니다.
+- **음성 의도 라우팅**은 일반 받아쓰기, 선택 텍스트 편집, 번역, Ask Anything, 지원되는 음성 작업을 영어, 중국어 간체 및 번체에서 구분합니다.
+- **워크플로별 여러 단축키**를 사용해 받아쓰기, Ask Anything, 번역에 둘 이상의 키 조합을 추가하고 순서를 바꿀 수 있습니다.
+- **전환 가능한 번역 대상**으로 출력 언어를 하나로 고정하지 않고 자주 쓰는 언어 사이를 빠르게 바꿀 수 있습니다.
+- **강화된 로컬 사전**은 수정 규칙과 사전 가져오기/내보내기를 지원합니다.
+- **앱별 스타일 매핑**으로 기본 앱 분류를 재정의하고 특정 앱에 다른 글쓰기 스타일을 지정할 수 있습니다.
+
+앱 감지, 매핑, 사전 항목 및 수정 규칙은 모두 로컬에 저장됩니다. 앱 인식 다듬기는 내부 앱 분류와 승인된 스타일 메타데이터만 설정한 LLM 경로로 전송합니다. 원본 창 제목과 문서 내용은 앱 컨텍스트로 전송되거나 기록에 저장되지 않습니다.
+
+| 앱 인식 AI 다듬기 | 로컬 사전 및 수정 규칙 |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="OpenTypeless v1.1.49 앱 인식 AI 다듬기" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="OpenTypeless v1.1.49 로컬 사전 및 수정 규칙" /> |
 
 <details>
 <summary>더 많은 스크린샷</summary>

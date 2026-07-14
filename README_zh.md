@@ -35,8 +35,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless 演示" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="OpenTypeless 在 Gmail、Slack、Google Docs、Cursor、Zendesk 和 LinkedIn 中的应用感知语音输入" />
 </p>
+
+## v1.1.49 新功能
+
+- **应用感知写作**会在本地识别当前应用，并针对邮件、聊天、文档、Issue 跟踪、开发工具等场景调整结构和语气。
+- **语音意图路由**可区分普通听写、选中文本编辑、翻译、Ask Anything 和受支持的语音操作，并支持简体中文、繁体中文和英文。
+- **每个工作流支持多个快捷键**，可为听写、Ask Anything 和翻译分别添加和排序多个按键组合。
+- **可切换翻译目标语言**，无需始终固定为同一种输出语言。
+- **更完整的本地词典**支持纠错规则以及词典导入导出。
+- **按应用设置写作风格**，可覆盖内置应用分类，为特定应用指定其他写作场景。
+
+应用识别、映射、词典和纠错规则都保存在本地。应用感知润色只会向配置的 LLM 发送内部应用分类和经过审核的风格元数据；原始窗口标题和文档内容不会作为应用上下文发送，也不会写入历史记录。
+
+| 应用感知 AI 润色 | 本地词典与纠错规则 |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="OpenTypeless v1.1.49 应用感知 AI 润色" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="OpenTypeless v1.1.49 本地词典与纠错规则" /> |
 
 <details>
 <summary>更多截图</summary>
