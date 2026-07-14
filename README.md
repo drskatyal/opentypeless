@@ -44,6 +44,19 @@
   <strong>Dictate anywhere</strong> · <strong>Rewrite selected text</strong> · <strong>Ask one-shot voice questions</strong> · <strong>Bring your own keys or use managed cloud words</strong>
 </p>
 
+## What's New in v1.1.49
+
+OpenTypeless now understands more of the workflow around your voice, not only the words you said:
+
+- **App-aware writing** detects the active application locally and adapts structure and tone for email, chat, documents, issue trackers, coding tools, and more.
+- **Voice intent routing** distinguishes dictation, selected-text editing, translation, Ask Anything, and supported voice actions in English, Simplified Chinese, and Traditional Chinese.
+- **Multiple shortcuts per workflow** let you assign and reorder more than one binding for Dictation, Ask Anything, and Translation.
+- **Switchable translation targets** make it faster to move between the languages you use instead of keeping one fixed output language.
+- **A stronger local dictionary** adds correction rules plus dictionary import/export, so recurring names, terminology, and transcription mistakes stay under your control.
+- **Per-app style mappings** let you override the built-in app category when a detected app needs a different writing style.
+
+All application detection, mappings, dictionary entries, and correction rules are stored locally. App-aware polish sends only the internal app category and approved style metadata to the configured LLM path; raw window titles and document contents are not sent to the LLM or stored in history.
+
 ## Ask Anything
 
 Ask Anything is a shortcut-first voice Q&A flow, not a chat tab. Press the Ask Anything hotkey, speak a question, stop recording, and OpenTypeless transcribes it, sends a one-shot request to the LLM, then shows only the final answer in a small floating note.
@@ -63,32 +76,38 @@ Linux keeps conservative Ctrl-based defaults because global Right Alt handling i
 ## Visual Tour
 
 <p align="center">
-  <img src="docs/images/website-how-it-works.png" width="820" alt="OpenTypeless how it works" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="OpenTypeless app-aware voice typing across Gmail, Slack, Google Docs, Cursor, Zendesk, and LinkedIn" />
 </p>
 
 <p align="center">
   <img src="docs/images/voice-flow-demo.gif" width="760" alt="OpenTypeless voice workflow demo" />
 </p>
 
-| Onboarding                                                                             | Settings                                                                           |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| <img src="docs/images/onboarding-stt.png" width="360" alt="OpenTypeless onboarding" /> | <img src="docs/images/app-settings.png" width="360" alt="OpenTypeless settings" /> |
+| App-aware AI polish                                                                                                  | Local dictionary and corrections                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="OpenTypeless v1.1.49 app-aware AI polish" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="OpenTypeless v1.1.49 dictionary and corrections" /> |
 
-| Voice workspace                                                                                                      | Local history                                                                           |
-| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| <img src="docs/images/app-main-light.png" width="360" alt="OpenTypeless home dashboard with recording stats" />      | <img src="docs/images/app-history.png" width="360" alt="OpenTypeless history search" /> |
+<details>
+<summary>Onboarding and voice workspace</summary>
+
+| Onboarding                                                                             | Voice workspace                                                                                                 |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/images/onboarding-stt.png" width="360" alt="OpenTypeless onboarding" /> | <img src="docs/images/app-main-light.png" width="360" alt="OpenTypeless home dashboard with recording stats" /> |
+
+</details>
 
 ---
 
 ## What OpenTypeless Does
 
-OpenTypeless gives you three voice-first desktop workflows:
+OpenTypeless gives you four voice-first desktop workflows:
 
 | Workflow              | What happens                                                                                                           |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Dictation             | Hold a hotkey, speak, transcribe, optionally polish with an LLM, then type or copy the result into the active app      |
 | Ask Anything          | Start a one-shot voice question, transcribe it, send it to the LLM, and show only the final answer in a small panel    |
 | Selected-text editing | Select text in another app, speak an instruction, and let the LLM rewrite, summarize, translate, or fix that selection |
+| Translation           | Use a dedicated shortcut, speak or select text, and send the result to one of your configured target languages         |
 
 Use it for emails, chat replies, meeting notes, issue comments, prompts, documentation drafts, quick answers, multilingual translation, and any workflow where speaking is faster than typing.
 
@@ -98,7 +117,8 @@ flowchart LR
   Capture --> Mode{"Voice mode"}
   Mode -->|"Dictation"| STT["Speech-to-text"]
   STT --> Polish{"AI polish?"}
-  Polish -->|"Yes"| LLM["LLM rewrite"]
+  Polish -->|"Yes"| Context["Local app category + style mapping"]
+  Context --> LLM["Context-aware LLM rewrite"]
   Polish -->|"No"| Output["Keyboard / clipboard output"]
   LLM --> Output
   Mode -->|"Ask Anything"| AskSTT["Transcribe question"]
@@ -121,6 +141,8 @@ Most desktop dictation tools stop at transcription. OpenTypeless adds the AI rew
 | Works in any app       | ✅                                                                   | ✅              | ✅                   | ❌ Copy-paste   |
 | Translation mode       | ✅                                                                   | ❌              | ❌                   | ❌              |
 | Selected-text rewrite  | ✅                                                                   | ❌              | ❌                   | ❌              |
+| App-aware writing      | ✅ Local detection and mappings                                      | ❌              | ❌                   | ❌              |
+| Multiple shortcuts     | ✅ Per voice workflow                                                 | ❌              | ❌                   | ❌              |
 | Open source            | ✅ MIT                                                               | ❌              | ❌                   | ✅              |
 | Cross-platform         | ✅ Win/Mac/Linux                                                     | ❌ Mac only     | ❌ Windows only      | ✅              |
 | Custom dictionary      | ✅                                                                   | ❌              | ❌                   | ❌              |
@@ -130,16 +152,17 @@ Most desktop dictation tools stop at transcription. OpenTypeless adds the AI rew
 
 | Area              | Highlights                                                                                                                                  |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Voice capture     | Native Fn / Right Alt hotkeys on macOS/Windows, Linux Ctrl defaults, hold or toggle mode, floating capsule states, idle auto-hide, separate Ask Anything shortcut |
-| AI rewriting      | Polish styles, streaming polish, selected-text context, custom instructions, per-app formatting, translation mode                           |
+| Voice capture     | Native Fn / Right Alt hotkeys on macOS/Windows, Linux Ctrl defaults, multiple bindings per workflow, hold or toggle mode, floating capsule states, idle auto-hide |
+| AI rewriting      | App-aware writing, local per-app style mappings, polish styles, streaming polish, selected-text context, and custom instructions             |
 | Ask Anything      | One-shot voice question flow: record in the capsule, think, then show a small answer note with copy support                                 |
+| Voice actions     | Deterministic English, Simplified Chinese, and Traditional Chinese routing for editing, translation, Ask, and supported actions              |
 | STT providers     | Cloud STT, Apple Speech on macOS, Deepgram, AssemblyAI, GLM-ASR, OpenAI Whisper, Groq Whisper, SiliconFlow, Volcengine Doubao, custom endpoints |
 | LLM providers     | Cloud LLM or OpenAI-compatible APIs including OpenAI, DeepSeek, Claude via OpenRouter, Gemini, Groq, Qwen, Moonshot, Ollama, and more       |
 | Output            | Keyboard simulation, clipboard paste/copy-only, Windows SendInput, clipboard restore, and output-failure diagnostics                       |
-| Language          | Auto-detect speech, translate into 20+ target languages, customize domain vocabulary                                                        |
-| Dictionary        | Custom terms plus local correction rules for recurring transcription mistakes                                                               |
+| Language          | Auto-detect speech, dedicated translation shortcut, switchable target languages, and 20+ translation targets                                |
+| Dictionary        | Custom terms, import/export, and local correction rules for recurring transcription mistakes                                                 |
 | Scenes            | Built-in scenes, local custom scenes, active scene metadata, import/export for reusable writing styles                                      |
-| Privacy           | Provider keys stored in the OS credential vault where available, with BYOK and local/self-hosted paths preserved                            |
+| Privacy           | Local app detection and mappings, provider keys in the OS credential vault where available, plus BYOK and local/self-hosted paths            |
 | Account and quota | Optional Pro and Lifetime Starter plans with shared cloud words for voice and AI                                                            |
 | Desktop polish    | Dark/light/system theme, onboarding, local history search, auto-start, auto-update, cross-platform Tauri app                                |
 
@@ -156,9 +179,10 @@ sequenceDiagram
   participant App as Active App
 
   User->>Desktop: Hold dictation hotkey and speak
+  Desktop->>Desktop: Detect local app category and style
   Desktop->>STT: Send audio via BYOK or Cloud
   STT-->>Desktop: Raw transcript
-  Desktop->>LLM: Optional polish / translate / rewrite
+  Desktop->>LLM: Optional context-aware polish / translate / rewrite
   LLM-->>Desktop: Final text
   Desktop->>App: Type or copy result
 ```
@@ -178,7 +202,7 @@ sequenceDiagram
 1. Download the latest build for your platform from [Releases](https://github.com/tover0314-w/opentypeless/releases).
 2. Choose **BYOK** for full provider control or **Cloud** if you want managed quota without API keys.
 3. Pick speech recognition and AI polish providers in Settings.
-4. Set your dictation and Ask Anything hotkeys.
+4. Set one or more shortcuts for Dictation, Ask Anything, and Translation.
 5. Open any desktop app, press the hotkey, speak, and let OpenTypeless type the polished result.
 
 ## Download
@@ -269,9 +293,9 @@ The built application will be in `src-tauri/target/release/bundle/`.
 All settings are accessible from the in-app Settings panel:
 
 - **Speech Recognition** — choose STT provider and enter your API key
-- **AI Polish** — choose LLM provider, model, API key, polish style, custom instructions, translation, and selected-text context
-- **General** — dictation hotkey, Ask Anything hotkey, output mode, auto-start, and idle capsule visibility
-- **Dictionary** — add custom terms and correction rules for recurring transcription mistakes
+- **AI Polish** — choose an LLM provider and model, enable app-aware writing, manage per-app style mappings, and configure selected-text context
+- **General** — manage multiple Dictation, Ask Anything, and Translation shortcuts, output mode, auto-start, and idle capsule visibility
+- **Dictionary** — add or import custom terms, export your dictionary, and create local correction rules for recurring transcription mistakes
 - **Scenes** — built-in and local prompt templates with import/export for reusable writing styles
 - **Account / Upgrade** — sign in, check cloud words, manage Pro or Lifetime Starter access
 
