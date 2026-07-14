@@ -37,6 +37,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/images/website-hero.png" width="860" alt="OpenTypeless website hero" />
+</p>
+
+<p align="center">
   <strong>Dictate anywhere</strong> · <strong>Rewrite selected text</strong> · <strong>Ask one-shot voice questions</strong> · <strong>Bring your own keys or use managed cloud words</strong>
 </p>
 
@@ -73,6 +77,10 @@ Linux keeps conservative Ctrl-based defaults because global Right Alt handling i
 
 <p align="center">
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="OpenTypeless app-aware voice typing across Gmail, Slack, Google Docs, Cursor, Zendesk, and LinkedIn" />
+</p>
+
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="760" alt="OpenTypeless voice workflow demo" />
 </p>
 
 | App-aware AI polish                                                                                                  | Local dictionary and corrections                                                                                     |

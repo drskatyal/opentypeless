@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Контекстный голосовой ввод OpenTypeless в Gmail, Slack, Google Docs, Cursor, Zendesk и LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Демо OpenTypeless" />
+</p>
+
 ## Новое в v1.1.49
 
 - **Контекстное письмо с учётом приложения** локально определяет активную программу и адаптирует структуру и тон для почты, чатов, документов, трекеров задач, инструментов разработки и других сценариев.

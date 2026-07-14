@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Gmail, Slack, Google Docs, Cursor, Zendesk और LinkedIn के अनुरूप OpenTypeless ऐप-जागरूक वॉइस टाइपिंग" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless डेमो" />
+</p>
+
 ## v1.1.49 में नया
 
 - **ऐप-जागरूक लेखन** सक्रिय ऐप को स्थानीय रूप से पहचानता है और ईमेल, चैट, दस्तावेज़, इश्यू ट्रैकर, डेवलपमेंट टूल तथा अन्य कार्यों के लिए संरचना और शैली बदलता है।

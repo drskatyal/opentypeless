@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="إدخال OpenTypeless الصوتي المتكيف مع Gmail وSlack وGoogle Docs وCursor وZendesk وLinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="عرض OpenTypeless" />
+</p>
+
 ## الجديد في v1.1.49
 
 - **الكتابة الواعية بالتطبيق** تكتشف التطبيق النشط محلياً وتكيّف البنية والأسلوب للبريد والدردشة والمستندات وأدوات تتبع المشكلات وأدوات التطوير وغيرها.

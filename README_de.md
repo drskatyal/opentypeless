@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="App-spezifische Spracheingabe mit OpenTypeless in Gmail, Slack, Google Docs, Cursor, Zendesk und LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+</p>
+
 ## Neu in v1.1.49
 
 - **App-spezifisches Schreiben** erkennt die aktive Anwendung lokal und passt Struktur und Ton für E-Mail, Chat, Dokumente, Issue-Tracker, Entwicklungswerkzeuge und weitere Arbeitsbereiche an.

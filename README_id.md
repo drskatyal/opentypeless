@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Input suara OpenTypeless yang menyesuaikan Gmail, Slack, Google Docs, Cursor, Zendesk, dan LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+</p>
+
 ## Yang baru di v1.1.49
 
 - **Penulisan berbasis aplikasi** mendeteksi aplikasi aktif secara lokal dan menyesuaikan struktur serta nada untuk email, obrolan, dokumen, pelacak isu, alat pengembangan, dan lingkungan lainnya.

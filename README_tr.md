@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Gmail, Slack, Google Docs, Cursor, Zendesk ve LinkedIn'e uyarlanan OpenTypeless sesli girişi" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+</p>
+
 ## v1.1.49'daki yenilikler
 
 - **Uygulamaya duyarlı yazma** etkin uygulamayı yerel olarak algılar ve e-posta, sohbet, belge, sorun takip sistemi, geliştirme aracı ve diğer ortamlara göre yapı ile tonu uyarlar.

@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Entrada por voz do OpenTypeless adaptada ao Gmail, Slack, Google Docs, Cursor, Zendesk e LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+</p>
+
 ## Novidades da v1.1.49
 
 - **Escrita sensível ao aplicativo** detecta localmente o aplicativo ativo e adapta a estrutura e o tom para e-mail, chat, documentos, rastreadores de tarefas, ferramentas de desenvolvimento e muito mais.

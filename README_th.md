@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="การพิมพ์ด้วยเสียง OpenTypeless ที่ปรับให้เข้ากับ Gmail, Slack, Google Docs, Cursor, Zendesk และ LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="สาธิต OpenTypeless" />
+</p>
+
 ## มีอะไรใหม่ใน v1.1.49
 
 - **การเขียนที่รับรู้แอป** ตรวจจับแอปที่กำลังใช้งานภายในเครื่อง แล้วปรับโครงสร้างและน้ำเสียงให้เหมาะกับอีเมล แชต เอกสาร ระบบติดตามปัญหา เครื่องมือพัฒนา และอื่น ๆ

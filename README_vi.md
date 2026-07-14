@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Nhập liệu bằng giọng nói OpenTypeless thích ứng với Gmail, Slack, Google Docs, Cursor, Zendesk và LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+</p>
+
 ## Điểm mới trong v1.1.49
 
 - **Viết theo ngữ cảnh ứng dụng** nhận diện ứng dụng đang hoạt động ngay trên máy và điều chỉnh cấu trúc, giọng điệu cho email, trò chuyện, tài liệu, công cụ theo dõi vấn đề, công cụ lập trình và nhiều môi trường khác.

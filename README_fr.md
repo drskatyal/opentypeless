@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Saisie vocale OpenTypeless adaptée à Gmail, Slack, Google Docs, Cursor, Zendesk et LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Démo OpenTypeless" />
+</p>
+
 ## Nouveautés de la v1.1.49
 
 - **L’écriture adaptée à l’application** détecte localement l’application active et ajuste la structure et le ton pour les e-mails, les discussions, les documents, les outils de suivi et de développement, entre autres.

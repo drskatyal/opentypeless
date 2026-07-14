@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Gmail、Slack、Google Docs、Cursor、Zendesk、LinkedIn に対応する OpenTypeless のアプリ認識音声入力" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless デモ" />
+</p>
+
 ## v1.1.49 の新機能
 
 - **アプリ認識ライティング**は現在のアプリをローカルで検出し、メール、チャット、文書、Issue 管理、開発ツールなどに合わせて構成とトーンを調整します。

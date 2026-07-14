@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Wprowadzanie głosowe OpenTypeless dopasowane do Gmaila, Slacka, Google Docs, Cursora, Zendeska i LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+</p>
+
 ## Nowości w v1.1.49
 
 - **Pisanie z uwzględnieniem aplikacji** lokalnie wykrywa aktywną aplikację i dopasowuje strukturę oraz ton do poczty, czatu, dokumentów, narzędzi do śledzenia zgłoszeń, środowisk programistycznych i innych zastosowań.

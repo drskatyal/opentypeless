@@ -30,6 +30,10 @@
   <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="App-bewuste spraakinvoer met OpenTypeless in Gmail, Slack, Google Docs, Cursor, Zendesk en LinkedIn" />
 </p>
 
+<p align="center">
+  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+</p>
+
 ## Nieuw in v1.1.49
 
 - **App-bewust schrijven** herkent de actieve toepassing lokaal en past structuur en toon aan voor e-mail, chat, documenten, issuetrackers, ontwikkeltools en meer.
