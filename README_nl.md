@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="App-bewuste spraakinvoer met OpenTypeless in Gmail, Slack, Google Docs, Cursor, Zendesk en LinkedIn" />
 </p>
+
+## Nieuw in v1.1.49
+
+- **App-bewust schrijven** herkent de actieve toepassing lokaal en past structuur en toon aan voor e-mail, chat, documenten, issuetrackers, ontwikkeltools en meer.
+- **Routering van spraakintenties** onderscheidt dicteren, geselecteerde tekst bewerken, vertalen, Ask Anything en ondersteunde spraakacties in het Engels, vereenvoudigd Chinees en traditioneel Chinees.
+- **Meerdere sneltoetsen per workflow** laten je meer dan één combinatie toevoegen en rangschikken voor Dicteren, Ask Anything en Vertalen.
+- **Wisselbare vertaaldoelen** maken het eenvoudig om tussen je gebruikelijke talen te schakelen zonder één vaste uitvoertaal.
+- **Een uitgebreider lokaal woordenboek** ondersteunt correctieregels en het importeren en exporteren van het woordenboek.
+- **Stijltoewijzingen per app** laten je de ingebouwde categorie overschrijven wanneer een toepassing een andere schrijfstijl nodig heeft.
+
+App-detectie, toewijzingen, woordenboekitems en correctieregels worden lokaal opgeslagen. App-bewuste tekstverbetering stuurt alleen de interne appcategorie en goedgekeurde stijlmetadata naar het ingestelde LLM-pad; ruwe venstertitels en documentinhoud worden niet als appcontext verzonden of in de geschiedenis opgeslagen.
+
+| App-bewuste AI-tekstverbetering | Lokaal woordenboek en correcties |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="App-bewuste AI-tekstverbetering in OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Lokaal woordenboek en correcties in OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Meer schermafbeeldingen</summary>

@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Démo OpenTypeless" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Saisie vocale OpenTypeless adaptée à Gmail, Slack, Google Docs, Cursor, Zendesk et LinkedIn" />
 </p>
+
+## Nouveautés de la v1.1.49
+
+- **L’écriture adaptée à l’application** détecte localement l’application active et ajuste la structure et le ton pour les e-mails, les discussions, les documents, les outils de suivi et de développement, entre autres.
+- **Le routage des intentions vocales** distingue la dictée, la modification du texte sélectionné, la traduction, Ask Anything et les actions vocales prises en charge en anglais, chinois simplifié et chinois traditionnel.
+- **Plusieurs raccourcis par flux de travail** permettent d’ajouter et de réorganiser plusieurs combinaisons pour la Dictée, Ask Anything et la Traduction.
+- **Des langues de traduction interchangeables** facilitent le passage entre vos langues habituelles sans imposer une seule langue de sortie.
+- **Un dictionnaire local renforcé** ajoute les règles de correction ainsi que l’importation et l’exportation du dictionnaire.
+- **Les associations de style par application** permettent de remplacer la catégorie intégrée lorsqu’une application nécessite un autre style d’écriture.
+
+La détection des applications, les associations, le dictionnaire et les règles de correction sont stockés localement. La reformulation adaptée à l’application n’envoie au LLM configuré que la catégorie interne de l’application et des métadonnées de style approuvées ; les titres bruts des fenêtres et le contenu des documents ne sont ni envoyés comme contexte ni enregistrés dans l’historique.
+
+| Reformulation IA adaptée à l’application | Dictionnaire local et corrections |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Reformulation IA adaptée à l’application dans OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Dictionnaire local et corrections dans OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Plus de captures d'écran</summary>

@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Gmail, Slack, Google Docs, Cursor, Zendesk ve LinkedIn'e uyarlanan OpenTypeless sesli girişi" />
 </p>
+
+## v1.1.49'daki yenilikler
+
+- **Uygulamaya duyarlı yazma** etkin uygulamayı yerel olarak algılar ve e-posta, sohbet, belge, sorun takip sistemi, geliştirme aracı ve diğer ortamlara göre yapı ile tonu uyarlar.
+- **Sesli niyet yönlendirme** dikte, seçili metni düzenleme, çeviri, Ask Anything ve desteklenen sesli işlemleri İngilizce, Basitleştirilmiş Çince ve Geleneksel Çince dillerinde ayırt eder.
+- **Her iş akışı için birden fazla kısayol** Dikte, Ask Anything ve Çeviri için birden çok tuş birleşimi eklemenizi ve sıralamanızı sağlar.
+- **Değiştirilebilir çeviri hedefleri** tek bir çıktı diline bağlı kalmadan sık kullandığınız diller arasında hızla geçiş yapmanızı sağlar.
+- **Geliştirilmiş yerel sözlük** düzeltme kuralları ile sözlük içe ve dışa aktarma desteği ekler.
+- **Uygulama başına stil eşlemeleri** bir uygulama farklı bir yazım tarzı gerektirdiğinde yerleşik kategoriyi geçersiz kılmanıza imkân verir.
+
+Uygulama algılama, eşlemeler, sözlük ve düzeltme kuralları yerel olarak saklanır. Uygulamaya duyarlı düzenleme, yapılandırılmış LLM yoluna yalnızca dahili uygulama kategorisini ve onaylanmış stil meta verilerini gönderir; ham pencere başlıkları ve belge içerikleri bağlam olarak gönderilmez veya geçmişe kaydedilmez.
+
+| Uygulamaya duyarlı AI düzenleme | Yerel sözlük ve düzeltmeler |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="OpenTypeless v1.1.49 uygulamaya duyarlı AI düzenleme" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="OpenTypeless v1.1.49 yerel sözlük ve düzeltmeler" /> |
 
 <details>
 <summary>Daha fazla ekran görüntüsü</summary>

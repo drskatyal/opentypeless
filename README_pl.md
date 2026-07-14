@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Wprowadzanie głosowe OpenTypeless dopasowane do Gmaila, Slacka, Google Docs, Cursora, Zendeska i LinkedIn" />
 </p>
+
+## Nowości w v1.1.49
+
+- **Pisanie z uwzględnieniem aplikacji** lokalnie wykrywa aktywną aplikację i dopasowuje strukturę oraz ton do poczty, czatu, dokumentów, narzędzi do śledzenia zgłoszeń, środowisk programistycznych i innych zastosowań.
+- **Rozpoznawanie intencji głosowych** odróżnia dyktowanie, edycję zaznaczonego tekstu, tłumaczenie, Ask Anything i obsługiwane akcje głosowe w języku angielskim oraz chińskim uproszczonym i tradycyjnym.
+- **Wiele skrótów dla każdego przepływu pracy** pozwala dodawać i porządkować więcej niż jedną kombinację dla Dyktowania, Ask Anything i Tłumaczenia.
+- **Przełączane języki docelowe tłumaczenia** ułatwiają zmianę między używanymi językami bez ustawiania jednego stałego języka wyjściowego.
+- **Rozbudowany lokalny słownik** obsługuje reguły korekty oraz import i eksport słownika.
+- **Mapowanie stylu według aplikacji** pozwala zastąpić wbudowaną kategorię, gdy dana aplikacja wymaga innego stylu pisania.
+
+Wykrywanie aplikacji, mapowania, słownik i reguły korekty są przechowywane lokalnie. Ulepszanie tekstu z uwzględnieniem aplikacji wysyła do skonfigurowanego LLM tylko wewnętrzną kategorię aplikacji i zatwierdzone metadane stylu; surowe tytuły okien i zawartość dokumentów nie są wysyłane jako kontekst ani zapisywane w historii.
+
+| Ulepszanie AI z uwzględnieniem aplikacji | Lokalny słownik i korekty |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Ulepszanie AI z uwzględnieniem aplikacji w OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Lokalny słownik i korekty w OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Wiecej zrzutow ekranu</summary>

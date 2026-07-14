@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Entrada por voz do OpenTypeless adaptada ao Gmail, Slack, Google Docs, Cursor, Zendesk e LinkedIn" />
 </p>
+
+## Novidades da v1.1.49
+
+- **Escrita sensível ao aplicativo** detecta localmente o aplicativo ativo e adapta a estrutura e o tom para e-mail, chat, documentos, rastreadores de tarefas, ferramentas de desenvolvimento e muito mais.
+- **Roteamento de intenção por voz** distingue ditado, edição de texto selecionado, tradução, Ask Anything e ações de voz compatíveis em inglês, chinês simplificado e chinês tradicional.
+- **Vários atalhos por fluxo de trabalho** permitem adicionar e reordenar mais de uma combinação para Ditado, Ask Anything e Tradução.
+- **Destinos de tradução alternáveis** facilitam a troca entre os idiomas usados no dia a dia sem manter uma única língua de saída.
+- **Um dicionário local mais completo** adiciona regras de correção e importação e exportação do dicionário.
+- **Mapeamentos de estilo por aplicativo** permitem substituir a categoria integrada quando um aplicativo precisa de outro estilo de escrita.
+
+A detecção de aplicativos, os mapeamentos, o dicionário e as regras de correção ficam armazenados localmente. O refinamento sensível ao aplicativo envia ao LLM configurado apenas a categoria interna do aplicativo e metadados de estilo aprovados; títulos brutos de janelas e conteúdo de documentos não são enviados como contexto nem armazenados no histórico.
+
+| Refinamento com IA sensível ao aplicativo | Dicionário local e correções |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Refinamento com IA sensível ao aplicativo no OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Dicionário local e correções no OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Mais capturas de tela</summary>

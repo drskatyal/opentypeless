@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo OpenTypeless" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Input vocale OpenTypeless adattato a Gmail, Slack, Google Docs, Cursor, Zendesk e LinkedIn" />
 </p>
+
+## Novità della v1.1.49
+
+- **Scrittura consapevole dell’app** rileva localmente l’applicazione attiva e adatta struttura e tono per e-mail, chat, documenti, sistemi di gestione delle issue, strumenti di sviluppo e altro ancora.
+- **Instradamento dell’intento vocale** distingue dettatura, modifica del testo selezionato, traduzione, Ask Anything e azioni vocali supportate in inglese, cinese semplificato e cinese tradizionale.
+- **Più scorciatoie per flusso di lavoro** consentono di aggiungere e riordinare più combinazioni per Dettatura, Ask Anything e Traduzione.
+- **Destinazioni di traduzione intercambiabili** permettono di passare rapidamente tra le lingue utilizzate senza fissare un’unica lingua di output.
+- **Un dizionario locale più completo** aggiunge regole di correzione e importazione/esportazione del dizionario.
+- **Associazioni di stile per app** consentono di sostituire la categoria integrata quando un’applicazione richiede uno stile di scrittura diverso.
+
+Il rilevamento delle app, le associazioni, il dizionario e le regole di correzione vengono salvati localmente. La rifinitura consapevole dell’app invia al percorso LLM configurato solo la categoria interna dell’app e metadati di stile approvati; i titoli grezzi delle finestre e il contenuto dei documenti non vengono inviati come contesto né salvati nella cronologia.
+
+| Rifinitura IA consapevole dell’app | Dizionario locale e correzioni |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Rifinitura IA consapevole dell’app in OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Dizionario locale e correzioni in OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Altri screenshot</summary>

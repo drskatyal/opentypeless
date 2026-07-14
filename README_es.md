@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="Demo de OpenTypeless" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="Entrada de voz de OpenTypeless adaptada a Gmail, Slack, Google Docs, Cursor, Zendesk y LinkedIn" />
 </p>
+
+## Novedades de v1.1.49
+
+- **Escritura adaptada a cada aplicación** detecta localmente la aplicación activa y ajusta la estructura y el tono para correo, chat, documentos, gestores de incidencias, herramientas de desarrollo y más.
+- **Enrutamiento de intención por voz** distingue entre dictado, edición del texto seleccionado, traducción, Ask Anything y acciones de voz compatibles en inglés, chino simplificado y chino tradicional.
+- **Varios atajos por flujo de trabajo** permiten añadir y ordenar más de una combinación para Dictado, Ask Anything y Traducción.
+- **Destinos de traducción intercambiables** facilitan cambiar entre los idiomas que utilizas sin fijar una única lengua de salida.
+- **Un diccionario local más completo** incorpora reglas de corrección e importación y exportación del diccionario.
+- **Asignaciones de estilo por aplicación** permiten sustituir la categoría integrada cuando una aplicación necesita otro estilo de escritura.
+
+La detección de aplicaciones, los mapeos, el diccionario y las reglas de corrección se guardan localmente. El pulido consciente de la aplicación solo envía a la ruta LLM configurada la categoría interna de la aplicación y metadatos de estilo aprobados; los títulos de ventana sin procesar y el contenido de los documentos no se envían como contexto ni se guardan en el historial.
+
+| Pulido con IA adaptado a la aplicación | Diccionario local y correcciones |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="Pulido con IA adaptado a la aplicación en OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Diccionario local y correcciones en OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Más capturas de pantalla</summary>

@@ -27,8 +27,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/voice-flow-demo.gif" width="720" alt="OpenTypeless Demo" />
+  <img src="docs/images/v1.1.49-app-context-showcase.jpg" width="820" alt="App-spezifische Spracheingabe mit OpenTypeless in Gmail, Slack, Google Docs, Cursor, Zendesk und LinkedIn" />
 </p>
+
+## Neu in v1.1.49
+
+- **App-spezifisches Schreiben** erkennt die aktive Anwendung lokal und passt Struktur und Ton für E-Mail, Chat, Dokumente, Issue-Tracker, Entwicklungswerkzeuge und weitere Arbeitsbereiche an.
+- **Sprachintent-Erkennung** unterscheidet Diktat, Bearbeitung ausgewählten Textes, Übersetzung, Ask Anything und unterstützte Sprachaktionen auf Englisch sowie vereinfachtem und traditionellem Chinesisch.
+- **Mehrere Tastenkürzel pro Arbeitsablauf** ermöglichen mehrere frei sortierbare Belegungen für Diktat, Ask Anything und Übersetzung.
+- **Wechselbare Übersetzungsziele** erleichtern den schnellen Wechsel zwischen häufig genutzten Sprachen, statt eine Ausgabesprache festzulegen.
+- **Ein erweitertes lokales Wörterbuch** ergänzt Korrekturregeln sowie Import und Export des Wörterbuchs.
+- **App-spezifische Stilzuordnungen** überschreiben bei Bedarf die integrierte Kategorie und weisen einer Anwendung einen anderen Schreibstil zu.
+
+App-Erkennung, Zuordnungen, Wörterbuch und Korrekturregeln werden lokal gespeichert. Die app-spezifische Überarbeitung sendet nur die interne App-Kategorie und freigegebene Stil-Metadaten an den konfigurierten LLM-Pfad; unbearbeitete Fenstertitel und Dokumentinhalte werden weder als App-Kontext gesendet noch im Verlauf gespeichert.
+
+| App-spezifische KI-Überarbeitung | Lokales Wörterbuch und Korrekturen |
+| --- | --- |
+| <img src="docs/images/v1.1.49-app-aware-polish.jpg" width="420" alt="App-spezifische KI-Überarbeitung in OpenTypeless v1.1.49" /> | <img src="docs/images/v1.1.49-dictionary.jpg" width="420" alt="Lokales Wörterbuch und Korrekturen in OpenTypeless v1.1.49" /> |
 
 <details>
 <summary>Weitere Screenshots</summary>
