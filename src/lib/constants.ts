@@ -124,8 +124,8 @@ export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
 // Native Gemini STT models (used when stt_provider === 'gemini').
 // Values are Gemini API model IDs; labels are brand names (not translated).
 export const GEMINI_STT_MODELS = [
-  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
   { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
 ] as const
 
 export const GEMINI_STT_DEFAULT_MODEL = GEMINI_STT_MODELS[0].value
@@ -175,7 +175,7 @@ export const LLM_DEFAULT_CONFIG: Record<string, { baseUrl: string; model: string
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    model: 'gemini-3.5-flash',
+    model: 'gemini-3.1-flash-lite',
   },
   moonshot: { baseUrl: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
   doubao: {

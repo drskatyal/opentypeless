@@ -712,7 +712,7 @@ const defaultConfig: AppConfig = {
   stt_custom_preset: 'speaches',
   stt_custom_base_url: 'http://localhost:8000/v1',
   stt_custom_model: 'Systran/faster-whisper-large-v3',
-  stt_gemini_model: 'gemini-3.5-flash',
+  stt_gemini_model: 'gemini-3.1-flash-lite',
   stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   stt_language: 'multi',
   llm_provider: 'openrouter',

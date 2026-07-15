@@ -10,7 +10,7 @@ use super::{SttConfig, SttProvider, TranscriptEvent};
 const MAX_AUDIO_BYTES: usize = 24 * 1024 * 1024;
 
 /// Default Gemini model used for native transcription when none is selected.
-pub const DEFAULT_MODEL: &str = "gemini-3.5-flash";
+pub const DEFAULT_MODEL: &str = "gemini-3.1-flash-lite";
 
 /// Native Gemini STT provider.
 ///
