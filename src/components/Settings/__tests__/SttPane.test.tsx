@@ -229,10 +229,10 @@ describe('SttPane', () => {
 
     it('exposes the Gemini model selector', () => {
       render(<SttPane />)
-      expect(screen.getByRole('option', { name: 'Gemini 3.1 Flash Lite' })).toHaveValue(
+      expect(screen.getByRole('option', { name: 'FlowRad Fast' })).toHaveValue(
         'gemini-3.1-flash-lite',
       )
-      expect(screen.getByRole('option', { name: 'Gemini 3.5 Flash' })).toHaveValue(
+      expect(screen.getByRole('option', { name: 'FlowRad Precise' })).toHaveValue(
         'gemini-3.5-flash',
       )
     })

@@ -798,7 +798,7 @@
     "stt": {
       "deepgram": "Deepgram Nova-3",
       "assemblyai": "AssemblyAI",
-      "gemini": "Gemini",
+      "gemini": "FlowRad",
       "volcengineDoubao": "火山引擎豆包实时语音识别",
       "glmAsr": "智谱 GLM-ASR",
       "openaiWhisper": "OpenAI Whisper",
@@ -813,7 +813,7 @@
       "deepseek": "DeepSeek",
       "siliconflow": "硅基流动 SiliconFlow",
       "openai": "OpenAI",
-      "gemini": "Google Gemini",
+      "gemini": "FlowRad",
       "moonshot": "Moonshot (Kimi)",
       "doubao": "豆包（火山引擎）",
       "qwen": "通义千问",

@@ -114,9 +114,11 @@ export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
 
 // Native Gemini STT models (used when stt_provider === 'gemini').
 // Values are Gemini API model IDs; labels are brand names (not translated).
+// Public FlowRad tiers. Values are the internal engine model ids (kept for the
+// API call); labels are proprietary FlowRad names — the UI never says "Gemini".
 export const GEMINI_STT_MODELS = [
-  { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
-  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { value: 'gemini-3.1-flash-lite', label: 'FlowRad Fast' },
+  { value: 'gemini-3.5-flash', label: 'FlowRad Precise' },
 ] as const
 
 export const GEMINI_STT_DEFAULT_MODEL = GEMINI_STT_MODELS[0].value

@@ -161,11 +161,15 @@ export function HomePage() {
         <div className="space-y-2 text-[13px]">
           <div className="flex justify-between">
             <span className="text-text-secondary">{t('home.sttProvider')}</span>
-            <span className="text-text-primary font-medium">{config.stt_provider}</span>
+            <span className="text-text-primary font-medium">
+              {config.stt_provider === 'gemini' ? 'FlowRad' : config.stt_provider}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-secondary">{t('home.llmProvider')}</span>
-            <span className="text-text-primary font-medium">{config.llm_provider}</span>
+            <span className="text-text-primary font-medium">
+              {config.llm_provider === 'gemini' ? 'FlowRad' : config.llm_provider}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-secondary">{t('home.aiPolish')}</span>
