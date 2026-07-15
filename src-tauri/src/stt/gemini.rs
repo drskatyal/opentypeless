@@ -72,7 +72,10 @@ impl SttProvider for GeminiSttProvider {
         }
         self.stt_config = Some(config.clone());
         self.audio_buffer.clear();
-        tracing::info!("Gemini STT provider ready (buffering mode), model={}", self.model);
+        tracing::info!(
+            "Gemini STT provider ready (buffering mode), model={}",
+            self.model
+        );
         Ok(())
     }
 
@@ -106,7 +109,10 @@ impl SttProvider for GeminiSttProvider {
         let audio_len_secs = self.audio_buffer.len() as f64 / (config.sample_rate as f64 * 2.0);
         let wav = Self::build_wav(&self.audio_buffer, config.sample_rate);
         self.audio_buffer.clear();
-        tracing::info!("Gemini: sending {:.1}s of audio for transcription", audio_len_secs);
+        tracing::info!(
+            "Gemini: sending {:.1}s of audio for transcription",
+            audio_len_secs
+        );
 
         let url = format!(
             "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
@@ -210,7 +216,10 @@ mod tests {
     #[tokio::test]
     async fn disconnect_without_audio_returns_none() {
         let mut provider = GeminiSttProvider::new(None);
-        provider.connect(&config_with_key("test-key")).await.unwrap();
+        provider
+            .connect(&config_with_key("test-key"))
+            .await
+            .unwrap();
         let result = provider.disconnect().await.unwrap();
         assert!(result.is_none());
     }
@@ -218,7 +227,10 @@ mod tests {
     #[tokio::test]
     async fn send_audio_rejects_oversized_buffer() {
         let mut provider = GeminiSttProvider::new(None);
-        provider.connect(&config_with_key("test-key")).await.unwrap();
+        provider
+            .connect(&config_with_key("test-key"))
+            .await
+            .unwrap();
         let chunk = vec![0u8; MAX_AUDIO_BYTES + 1];
         let result = provider.send_audio(&chunk).await;
         assert!(matches!(result, Err(AppError::Config(_))));
