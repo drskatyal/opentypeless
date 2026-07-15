@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "AI-Spracheingabe"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "Willkommen bei OpenTypeless",
+    "welcome": "Willkommen bei FlowRad Mic",
     "description": "Halten Sie {{hotkey}} gedrückt, um die Sprachaufnahme zu starten. Ihre Sprache wird transkribiert und optional durch KI geglättet.",
     "totalRecordings": "Gesamtaufnahmen",
     "today": "Heute",
@@ -121,11 +121,11 @@
     },
     "steps": {
       "welcome": "Willkommen",
-      "welcomeSub": "Richten Sie OpenTypeless in wenigen Schritten ein",
+      "welcomeSub": "Richten Sie FlowRad Mic in wenigen Schritten ein",
       "signIn": "Anmelden",
       "signInSub": "Verbinden Sie Ihr Konto, um loszulegen",
       "chooseMode": "Modus wählen",
-      "chooseModeSub": "Wählen Sie, wie Sie OpenTypeless verwenden möchten",
+      "chooseModeSub": "Wählen Sie, wie Sie FlowRad Mic verwenden möchten",
       "speechRecognition": "Spracherkennung",
       "speechRecognitionSub": "Konfigurieren Sie Ihren STT-Dienst",
       "aiPolish": "KI-Glättung",
@@ -190,7 +190,7 @@
       "appWritingModesSub": "Bearbeite Standardmodi fuer E-Mail, Chat, Dokumente und weitere Schreibweisen in Szenen."
     },
     "permissions": {
-      "subtitle": "OpenTypeless fragt nur nach Zugriff, wenn eine Funktion ihn braucht.",
+      "subtitle": "FlowRad Mic fragt nur nach Zugriff, wenn eine Funktion ihn braucht.",
       "microphone": "Mikrofon",
       "microphoneDesc": "Ihre Stimme aufnehmen.",
       "textOutput": "Textausgabe",
@@ -351,7 +351,7 @@
     "test": "Testen",
     "connectionSuccess": "Verbindung erfolgreich",
     "connectionFailed": "Verbindung fehlgeschlagen",
-    "storedLocally": "Lokal auf Ihrem Gerät gespeichert. Wird niemals an OpenTypeless-Server gesendet.",
+    "storedLocally": "Lokal auf Ihrem Gerät gespeichert. Wird niemals an FlowRad Mic-Server gesendet.",
     "credentialSaveFailed": "API-Schlüssel konnte nicht im OS-Tresor gespeichert werden. {{details}}",
     "sttLanguage": "Sprache",
     "model": "Modell",
@@ -806,7 +806,7 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -821,7 +821,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Local)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

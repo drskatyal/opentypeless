@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "Input vocale AI"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "Benvenuto in OpenTypeless",
+    "welcome": "Benvenuto in FlowRad Mic",
     "description": "Tieni premuto {{hotkey}} per avviare la registrazione vocale. Il tuo discorso verrà trascritto e, opzionalmente, rifinito dall'IA.",
     "totalRecordings": "Registrazioni totali",
     "today": "Oggi",
@@ -121,11 +121,11 @@
     },
     "steps": {
       "welcome": "Benvenuto",
-      "welcomeSub": "Configura OpenTypeless in pochi passi",
+      "welcomeSub": "Configura FlowRad Mic in pochi passi",
       "signIn": "Accedi",
       "signInSub": "Connetti il tuo account per iniziare",
       "chooseMode": "Scegli modalità",
-      "chooseModeSub": "Seleziona come vuoi usare OpenTypeless",
+      "chooseModeSub": "Seleziona come vuoi usare FlowRad Mic",
       "speechRecognition": "Riconoscimento vocale",
       "speechRecognitionSub": "Configura il tuo servizio STT",
       "aiPolish": "Rifinitura IA",
@@ -190,7 +190,7 @@
       "appWritingModesSub": "Modifica in Scenes i modi predefiniti per email, chat, documenti e altri formati."
     },
     "permissions": {
-      "subtitle": "OpenTypeless chiede accesso solo quando una funzione lo richiede.",
+      "subtitle": "FlowRad Mic chiede accesso solo quando una funzione lo richiede.",
       "microphone": "Microfono",
       "microphoneDesc": "Acquisisci la tua voce.",
       "textOutput": "Output testo",
@@ -351,7 +351,7 @@
     "test": "Test",
     "connectionSuccess": "Connessione riuscita",
     "connectionFailed": "Connessione non riuscita",
-    "storedLocally": "Salvata localmente sul tuo dispositivo. Mai inviata ai server OpenTypeless.",
+    "storedLocally": "Salvata localmente sul tuo dispositivo. Mai inviata ai server FlowRad Mic.",
     "credentialSaveFailed": "Impossibile salvare la chiave API nel vault di sistema. {{details}}",
     "sttLanguage": "Lingua",
     "model": "Modello",
@@ -806,7 +806,7 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -821,7 +821,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Locale)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

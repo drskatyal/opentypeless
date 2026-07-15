@@ -12,7 +12,7 @@ export const UI_LANGUAGES = [
   { value: 'it', label: 'Italiano' },
 ] as const
 
-export const APP_NAME = 'OpenTypeless'
+export const APP_NAME = 'FlowRad Mic'
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? 'v0.1.42'
 export const CLIENT_VERSION_HEADER = 'X-OpenTypeless-Version'
 export const APP_VERSION_HEADER_VALUE = APP_VERSION.replace(/^v/i, '')

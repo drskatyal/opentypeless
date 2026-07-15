@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "Голосовой ввод с ИИ"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "Добро пожаловать в OpenTypeless",
+    "welcome": "Добро пожаловать в FlowRad Mic",
     "description": "Удерживайте {{hotkey}}, чтобы начать запись голоса. Ваша речь будет распознана и при необходимости обработана ИИ.",
     "totalRecordings": "Всего записей",
     "today": "Сегодня",
@@ -121,11 +121,11 @@
     },
     "steps": {
       "welcome": "Добро пожаловать",
-      "welcomeSub": "Настройте OpenTypeless за несколько шагов",
+      "welcomeSub": "Настройте FlowRad Mic за несколько шагов",
       "signIn": "Войти",
       "signInSub": "Подключите аккаунт для начала работы",
       "chooseMode": "Выберите режим",
-      "chooseModeSub": "Выберите, как вы хотите использовать OpenTypeless",
+      "chooseModeSub": "Выберите, как вы хотите использовать FlowRad Mic",
       "speechRecognition": "Распознавание речи",
       "speechRecognitionSub": "Настройте службу STT",
       "aiPolish": "Обработка ИИ",
@@ -190,7 +190,7 @@
       "appWritingModesSub": "В Scenes можно изменить режимы по умолчанию для почты, чатов, документов и других форматов."
     },
     "permissions": {
-      "subtitle": "OpenTypeless запрашивает доступ только когда он нужен функции.",
+      "subtitle": "FlowRad Mic запрашивает доступ только когда он нужен функции.",
       "microphone": "Микрофон",
       "microphoneDesc": "Записывать ваш голос.",
       "textOutput": "Вывод текста",
@@ -351,7 +351,7 @@
     "test": "Проверить",
     "connectionSuccess": "Подключение успешно",
     "connectionFailed": "Не удалось подключиться",
-    "storedLocally": "Хранится локально на вашем устройстве. Никогда не передаётся на серверы OpenTypeless.",
+    "storedLocally": "Хранится локально на вашем устройстве. Никогда не передаётся на серверы FlowRad Mic.",
     "credentialSaveFailed": "Не удалось сохранить API-ключ в системном хранилище. {{details}}",
     "sttLanguage": "Язык",
     "model": "Модель",
@@ -806,7 +806,7 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -821,7 +821,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Локальный)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

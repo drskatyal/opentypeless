@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "Saisie vocale IA"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "Bienvenue dans OpenTypeless",
+    "welcome": "Bienvenue dans FlowRad Mic",
     "description": "Maintenez {{hotkey}} pour démarrer l'enregistrement vocal. Votre parole sera transcrite et éventuellement améliorée par l'IA.",
     "totalRecordings": "Enregistrements totaux",
     "today": "Aujourd'hui",
@@ -121,11 +121,11 @@
     },
     "steps": {
       "welcome": "Bienvenue",
-      "welcomeSub": "Configurez OpenTypeless en quelques étapes",
+      "welcomeSub": "Configurez FlowRad Mic en quelques étapes",
       "signIn": "Connexion",
       "signInSub": "Connectez votre compte pour commencer",
       "chooseMode": "Choisir le mode",
-      "chooseModeSub": "Sélectionnez comment vous souhaitez utiliser OpenTypeless",
+      "chooseModeSub": "Sélectionnez comment vous souhaitez utiliser FlowRad Mic",
       "speechRecognition": "Reconnaissance vocale",
       "speechRecognitionSub": "Configurez votre service STT",
       "aiPolish": "Amélioration IA",
@@ -190,7 +190,7 @@
       "appWritingModesSub": "Modifiez dans Scenes les modes par defaut pour e-mail, chat, documents et autres formats."
     },
     "permissions": {
-      "subtitle": "OpenTypeless demande l’accès seulement quand une fonction en a besoin.",
+      "subtitle": "FlowRad Mic demande l’accès seulement quand une fonction en a besoin.",
       "microphone": "Microphone",
       "microphoneDesc": "Capturer votre voix.",
       "textOutput": "Sortie texte",
@@ -351,7 +351,7 @@
     "test": "Tester",
     "connectionSuccess": "Connexion réussie",
     "connectionFailed": "Échec de la connexion",
-    "storedLocally": "Stockée localement sur votre appareil. Jamais envoyée aux serveurs OpenTypeless.",
+    "storedLocally": "Stockée localement sur votre appareil. Jamais envoyée aux serveurs FlowRad Mic.",
     "credentialSaveFailed": "Impossible d’enregistrer la clé API dans le coffre système. {{details}}",
     "sttLanguage": "Langue",
     "model": "Modèle",
@@ -806,7 +806,7 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -821,7 +821,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Local)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

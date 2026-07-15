@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "AI音声入力"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "OpenTypelessへようこそ",
+    "welcome": "FlowRad Micへようこそ",
     "description": "{{hotkey}}を長押しして音声録音を開始します。音声が文字起こしされ、AIによる整形が行われます。",
     "totalRecordings": "総録音回数",
     "today": "今日",
@@ -121,11 +121,11 @@
     },
     "steps": {
       "welcome": "ようこそ",
-      "welcomeSub": "いくつかのステップでOpenTypelessを設定しましょう",
+      "welcomeSub": "いくつかのステップでFlowRad Micを設定しましょう",
       "signIn": "サインイン",
       "signInSub": "アカウントに接続して始めましょう",
       "chooseMode": "モードを選択",
-      "chooseModeSub": "OpenTypelessの使用方法を選択してください",
+      "chooseModeSub": "FlowRad Micの使用方法を選択してください",
       "speechRecognition": "音声認識",
       "speechRecognitionSub": "STTサービスを設定します",
       "aiPolish": "AI整形",
@@ -190,7 +190,7 @@
       "appWritingModesSub": "Scenesでメール、チャット、ドキュメントなどの既定の書き方を編集できます。"
     },
     "permissions": {
-      "subtitle": "OpenTypelessは機能に必要なときだけアクセスを求めます。",
+      "subtitle": "FlowRad Micは機能に必要なときだけアクセスを求めます。",
       "microphone": "マイク",
       "microphoneDesc": "音声を録音します。",
       "textOutput": "テキスト出力",
@@ -351,7 +351,7 @@
     "test": "テスト",
     "connectionSuccess": "接続に成功しました",
     "connectionFailed": "接続に失敗しました",
-    "storedLocally": "お使いのデバイスにローカル保存されます。OpenTypelessサーバーには送信されません。",
+    "storedLocally": "お使いのデバイスにローカル保存されます。FlowRad Micサーバーには送信されません。",
     "credentialSaveFailed": "APIキーをOSの資格情報ストアに保存できませんでした。{{details}}",
     "sttLanguage": "言語",
     "model": "モデル",
@@ -806,7 +806,7 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -821,7 +821,7 @@
       "claude": "Claude",
       "ollama": "Ollama (ローカル)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

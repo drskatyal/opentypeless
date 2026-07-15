@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "Entrada de Voz com IA"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "Bem-vindo ao OpenTypeless",
+    "welcome": "Bem-vindo ao FlowRad Mic",
     "description": "Segure {{hotkey}} para iniciar a gravação de voz. Sua fala será transcrita e opcionalmente polida pela IA.",
     "totalRecordings": "Total de Gravações",
     "today": "Hoje",
@@ -121,11 +121,11 @@
     },
     "steps": {
       "welcome": "Bem-vindo",
-      "welcomeSub": "Configure o OpenTypeless em alguns passos",
+      "welcomeSub": "Configure o FlowRad Mic em alguns passos",
       "signIn": "Entrar",
       "signInSub": "Conecte sua conta para começar",
       "chooseMode": "Escolher Modo",
-      "chooseModeSub": "Selecione como deseja usar o OpenTypeless",
+      "chooseModeSub": "Selecione como deseja usar o FlowRad Mic",
       "speechRecognition": "Reconhecimento de Fala",
       "speechRecognitionSub": "Configure seu serviço de STT",
       "aiPolish": "Polimento por IA",
@@ -190,7 +190,7 @@
       "appWritingModesSub": "Edite em Scenes os modos padrão para email, chat, documentos e outros formatos."
     },
     "permissions": {
-      "subtitle": "OpenTypeless só pede acesso quando um recurso precisa.",
+      "subtitle": "FlowRad Mic só pede acesso quando um recurso precisa.",
       "microphone": "Microfone",
       "microphoneDesc": "Capture sua voz.",
       "textOutput": "Saída de texto",
@@ -351,7 +351,7 @@
     "test": "Testar",
     "connectionSuccess": "Conexão bem-sucedida",
     "connectionFailed": "Conexão falhou",
-    "storedLocally": "Armazenada localmente no seu dispositivo. Nunca enviada aos servidores do OpenTypeless.",
+    "storedLocally": "Armazenada localmente no seu dispositivo. Nunca enviada aos servidores do FlowRad Mic.",
     "credentialSaveFailed": "Não foi possível salvar a chave de API no cofre do sistema. {{details}}",
     "sttLanguage": "Idioma",
     "model": "Modelo",
@@ -806,7 +806,7 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
@@ -821,7 +821,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Local)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }
