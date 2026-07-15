@@ -110,6 +110,7 @@ export const CUSTOM_STT_PRESETS = [
 export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'deepgram', labelKey: 'providers.stt.deepgram' },
   { value: 'assemblyai', labelKey: 'providers.stt.assemblyai' },
+  { value: 'gemini', labelKey: 'providers.stt.gemini' },
   { value: 'volcengine-doubao', labelKey: 'providers.stt.volcengineDoubao' },
   { value: 'glm-asr', labelKey: 'providers.stt.glmAsr' },
   { value: 'openai-whisper', labelKey: 'providers.stt.openaiWhisper' },

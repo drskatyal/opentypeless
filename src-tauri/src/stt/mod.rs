@@ -3,6 +3,7 @@ pub mod assemblyai;
 pub mod cloud;
 pub mod config;
 pub mod deepgram;
+pub mod gemini;
 pub mod volcengine;
 pub mod whisper_compat;
 
@@ -72,6 +73,10 @@ pub fn create_provider(
             })
         }
         "assemblyai" => Ok(Box::new(assemblyai::AssemblyAiProvider::new())),
+        "gemini" => Ok(match client {
+            Some(ref c) => Box::new(gemini::GeminiSttProvider::with_client(None, c.clone())),
+            None => Box::new(gemini::GeminiSttProvider::new(None)),
+        }),
         "deepgram" => Ok(Box::new(deepgram::DeepgramProvider::new())),
         apple_speech::APPLE_SPEECH_PROVIDER => {
             Ok(Box::new(apple_speech::AppleSpeechProvider::new()))
@@ -133,6 +138,12 @@ mod tests {
     fn creates_apple_speech_builtin_local_provider() {
         let provider = create_provider("apple-speech", None, None).unwrap();
         assert_eq!(provider.name(), "Apple Speech");
+    }
+
+    #[test]
+    fn creates_gemini_provider() {
+        let provider = create_provider("gemini", None, None).unwrap();
+        assert_eq!(provider.name(), "gemini");
     }
 
     #[test]

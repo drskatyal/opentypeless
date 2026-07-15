@@ -795,6 +795,7 @@
     "stt": {
       "deepgram": "Deepgram Nova-3",
       "assemblyai": "AssemblyAI",
+      "gemini": "Gemini",
       "volcengineDoubao": "火山引擎豆包实时语音识别",
       "glmAsr": "智谱 GLM-ASR",
       "openaiWhisper": "OpenAI Whisper",
