@@ -102,7 +102,8 @@
       "testButton": "接続テスト",
       "connectionOk": "接続に成功しました",
       "connectionFail": "接続に失敗しました",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "AI整形サービス",
@@ -115,7 +116,8 @@
       "modelsAvailable": "件のモデルが利用可能",
       "baseUrlLabel": "ベースURL",
       "connectionOk": "接続に成功しました",
-      "connectionFail": "接続に失敗しました"
+      "connectionFail": "接続に失敗しました",
+      "geminiKeyHint": "You can reuse the same Gemini API key."
     },
     "steps": {
       "welcome": "ようこそ",

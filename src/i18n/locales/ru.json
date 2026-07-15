@@ -102,7 +102,8 @@
       "testButton": "Проверить подключение",
       "connectionOk": "Подключение успешно",
       "connectionFail": "Не удалось подключиться",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "Служба обработки ИИ",
@@ -115,7 +116,8 @@
       "modelsAvailable": "моделей доступно",
       "baseUrlLabel": "Базовый URL",
       "connectionOk": "Подключение успешно",
-      "connectionFail": "Не удалось подключиться"
+      "connectionFail": "Не удалось подключиться",
+      "geminiKeyHint": "You can reuse the same Gemini API key."
     },
     "steps": {
       "welcome": "Добро пожаловать",

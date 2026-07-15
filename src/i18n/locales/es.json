@@ -102,7 +102,8 @@
       "testButton": "Probar conexión",
       "connectionOk": "Conexión exitosa",
       "connectionFail": "Error de conexión",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "Servicio de pulido con IA",
@@ -115,7 +116,8 @@
       "modelsAvailable": "modelos disponibles",
       "baseUrlLabel": "URL base",
       "connectionOk": "Conexión exitosa",
-      "connectionFail": "Error de conexión"
+      "connectionFail": "Error de conexión",
+      "geminiKeyHint": "You can reuse the same Gemini API key."
     },
     "steps": {
       "welcome": "Bienvenido",

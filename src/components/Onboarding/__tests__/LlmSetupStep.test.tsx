@@ -5,10 +5,10 @@ import * as tauri from '../../../lib/tauri'
 
 const mockStore = {
   config: {
-    llm_provider: 'ollama',
+    llm_provider: 'gemini',
     llm_api_key: '',
-    llm_base_url: 'http://localhost:11434/v1',
-    llm_model: 'llama3.2',
+    llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    llm_model: 'gemini-3.1-flash-lite',
   },
   updateConfig: vi.fn(),
   llmTestStatus: 'idle',
@@ -19,15 +19,12 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) =>
       ({
-        'onboarding.llm.serviceLabel': 'Service',
-        'onboarding.llm.apiKeyLabel': 'API key',
+        'onboarding.llm.apiKeyLabel': 'Gemini API key',
         'onboarding.llm.apiKeyPlaceholder': 'API key',
         'onboarding.llm.testButton': 'Test',
-        'onboarding.llm.modelLabel': 'Model',
-        'onboarding.llm.modelPlaceholder': 'Model',
-        'onboarding.llm.fetchModelsTitle': 'Fetch models',
-        'onboarding.llm.baseUrlLabel': 'Base URL',
-        'providers.llm.ollama': 'Ollama',
+        'onboarding.llm.connectionOk': 'OK',
+        'onboarding.llm.connectionFail': 'Failed',
+        'onboarding.llm.geminiKeyHint': 'Reuse your key',
       })[key] ?? key,
   }),
 }))
@@ -40,77 +37,54 @@ vi.mock('../../../lib/tauri')
 
 beforeEach(() => {
   mockStore.config = {
-    llm_provider: 'ollama',
+    llm_provider: 'gemini',
     llm_api_key: '',
-    llm_base_url: 'http://localhost:11434/v1',
-    llm_model: 'llama3.2',
+    llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    llm_model: 'gemini-3.1-flash-lite',
   }
   mockStore.updateConfig = vi.fn()
   mockStore.llmTestStatus = 'idle'
   mockStore.setLlmTestStatus = vi.fn()
   vi.clearAllMocks()
   vi.mocked(tauri.testLlmConnection).mockResolvedValue(true)
-  vi.mocked(tauri.fetchLlmModels).mockResolvedValue(['llama3.2'])
 })
 
 afterEach(cleanup)
 
 describe('LlmSetupStep', () => {
-  it('does not offer managed Cloud inside BYOK provider setup', () => {
+  it('collects a Gemini API key without a provider or model selector', () => {
     render(<LlmSetupStep />)
 
-    const providerSelect = screen.getAllByRole('combobox')[0]
-    expect(providerSelect.querySelector('option[value="cloud"]')).toBeNull()
+    // Gemini-only: no provider dropdown, no model/base-url fields.
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.getByPlaceholderText('API key')).toBeInTheDocument()
   })
 
-  it('moves a saved Cloud config to a valid BYOK provider instead of showing a dead selection', async () => {
-    mockStore.config = {
-      llm_provider: 'cloud',
-      llm_api_key: '',
-      llm_base_url: 'https://www.opentypeless.com/api/proxy',
-      llm_model: 'default',
-    }
+  it('forces the Gemini provider and defaults when a stale provider is configured', () => {
+    mockStore.config = { ...mockStore.config, llm_provider: 'ollama' }
 
     render(<LlmSetupStep />)
 
-    expect(screen.getAllByRole('combobox')[0]).toHaveValue('zhipu')
-    await waitFor(() => {
-      expect(mockStore.updateConfig).toHaveBeenCalledWith({
-        llm_provider: 'zhipu',
-        llm_base_url: 'https://open.bigmodel.cn/api/paas/v4',
-        llm_model: 'glm-4-flash',
-      })
+    expect(mockStore.updateConfig).toHaveBeenCalledWith({
+      llm_provider: 'gemini',
+      llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      llm_model: 'gemini-3.1-flash-lite',
     })
   })
 
-  it('allows testing Ollama without an API key', async () => {
-    render(<LlmSetupStep />)
+  it('tests the connection with the entered key against Gemini', async () => {
+    mockStore.config = { ...mockStore.config, llm_api_key: 'gemini-secret' }
 
-    const button = screen.getByRole('button', { name: 'Test' })
-    expect(screen.queryByPlaceholderText('API key')).not.toBeInTheDocument()
-    expect(button).not.toBeDisabled()
-    fireEvent.click(button)
+    render(<LlmSetupStep />)
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
 
     await waitFor(() =>
       expect(tauri.testLlmConnection).toHaveBeenCalledWith(
-        '',
-        'ollama',
-        'http://localhost:11434/v1',
-        'llama3.2',
+        'gemini-secret',
+        'gemini',
+        'https://generativelanguage.googleapis.com/v1beta/openai',
+        'gemini-3.1-flash-lite',
       ),
     )
-  })
-
-  it('waits for a key before fetching models from a keyed provider', () => {
-    mockStore.config = {
-      llm_provider: 'zhipu',
-      llm_api_key: '',
-      llm_base_url: 'https://open.bigmodel.cn/api/paas/v4',
-      llm_model: 'glm-4-flash',
-    }
-
-    render(<LlmSetupStep />)
-
-    expect(screen.getByTitle('Fetch models')).toBeDisabled()
   })
 })

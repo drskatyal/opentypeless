@@ -56,13 +56,14 @@ vi.mock('react-i18next', () => ({
 // Mock stores
 const mockAppStore = {
   config: {
-    stt_provider: 'deepgram' as string,
+    stt_provider: 'gemini' as string,
     stt_api_key: '',
     stt_custom_api_key: '',
     stt_language: 'en',
     stt_custom_preset: 'speaches',
     stt_custom_base_url: 'http://localhost:8000/v1',
     stt_custom_model: 'Systran/faster-whisper-large-v3',
+    stt_gemini_model: 'gemini-3.1-flash-lite',
     stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   },
   updateConfig: vi.fn(),
@@ -117,13 +118,14 @@ describe('SttPane', () => {
   beforeEach(() => {
     // Reset mock store state
     mockAppStore.config = {
-      stt_provider: 'deepgram',
+      stt_provider: 'gemini',
       stt_api_key: '',
       stt_custom_api_key: '',
       stt_language: 'en',
       stt_custom_preset: 'speaches',
       stt_custom_base_url: 'http://localhost:8000/v1',
       stt_custom_model: 'Systran/faster-whisper-large-v3',
+      stt_gemini_model: 'gemini-3.1-flash-lite',
       stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
     }
     mockAppStore.sttTestStatus = 'idle'
@@ -167,34 +169,7 @@ describe('SttPane', () => {
       render(<SttPane />)
       const selects = screen.getAllByRole('combobox')
       const providerSelect = selects[0] // First select is provider
-      expect(providerSelect).toHaveValue('deepgram')
-    })
-
-    it('lists Volcengine Doubao realtime ASR as an STT provider', () => {
-      render(<SttPane />)
-      expect(screen.getByRole('option', { name: 'Volcengine Doubao Realtime ASR' })).toHaveValue(
-        'volcengine-doubao',
-      )
-    })
-
-    it('shows Apple Speech as a built-in local provider on macOS only', () => {
-      render(<SttPane />)
-
-      expect(screen.getByRole('option', { name: 'Apple Speech (Local)' })).toHaveValue(
-        'apple-speech',
-      )
-
-      cleanup()
-      mockAppStore.platformCapabilities = {
-        os: 'windows',
-        sessionType: 'unknown',
-        globalHotkeyReliable: true,
-        keyboardOutputReliable: true,
-        clipboardAutoPasteReliable: true,
-      }
-      render(<SttPane />)
-
-      expect(screen.queryByRole('option', { name: 'Apple Speech (Local)' })).not.toBeInTheDocument()
+      expect(providerSelect).toHaveValue('gemini')
     })
 
     it('does not show API key input for Apple Speech and can test without credentials', async () => {
@@ -252,16 +227,14 @@ describe('SttPane', () => {
       expect(mockAppStore.setSttLatencyMs).toHaveBeenCalledWith(null)
     })
 
-    it('updates config and resets state when provider changes', () => {
+    it('exposes the Gemini model selector', () => {
       render(<SttPane />)
-      const selects = screen.getAllByRole('combobox')
-      const providerSelect = selects[0]
-
-      fireEvent.change(providerSelect, { target: { value: 'assemblyai' } })
-
-      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ stt_provider: 'assemblyai' })
-      expect(mockAppStore.setSttTestStatus).toHaveBeenCalledWith('idle')
-      expect(mockAppStore.setSttLatencyMs).toHaveBeenCalledWith(null)
+      expect(screen.getByRole('option', { name: 'Gemini 3.1 Flash Lite' })).toHaveValue(
+        'gemini-3.1-flash-lite',
+      )
+      expect(screen.getByRole('option', { name: 'Gemini 3.5 Flash' })).toHaveValue(
+        'gemini-3.5-flash',
+      )
     })
   })
 
@@ -322,7 +295,7 @@ describe('SttPane', () => {
       fireEvent.blur(input)
 
       await waitFor(() =>
-        expect(tauri.setCredential).toHaveBeenCalledWith('stt', 'deepgram', 'sk-new-key'),
+        expect(tauri.setCredential).toHaveBeenCalledWith('stt', 'gemini', 'sk-new-key'),
       )
       expect(mockAppStore.updateConfig).not.toHaveBeenCalledWith({ stt_api_key: 'sk-new-key' })
       expect(mockAppStore.setSttTestStatus).toHaveBeenCalledWith('idle')
@@ -531,7 +504,7 @@ describe('SttPane', () => {
       })
 
       await waitFor(() => {
-        expect(mockBenchStt).toHaveBeenCalledWith('sk-test123', 'deepgram')
+        expect(mockBenchStt).toHaveBeenCalledWith('sk-test123', 'gemini')
       })
     })
 
@@ -592,14 +565,16 @@ describe('SttPane', () => {
     it('renders language dropdown with current value', () => {
       render(<SttPane />)
       const selects = screen.getAllByRole('combobox')
-      const languageSelect = selects[1] // Second select is language
+      // [0] provider, [1] Gemini model, [2] language
+      const languageSelect = selects[2]
       expect(languageSelect).toHaveValue('en')
     })
 
     it('updates config when language changes', () => {
       render(<SttPane />)
       const selects = screen.getAllByRole('combobox')
-      const languageSelect = selects[1]
+      // [0] provider, [1] Gemini model, [2] language
+      const languageSelect = selects[2]
 
       fireEvent.change(languageSelect, { target: { value: 'zh' } })
 

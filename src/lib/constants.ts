@@ -107,18 +107,9 @@ export const CUSTOM_STT_PRESETS = [
   },
 ] as const
 
+// Gemini-only build: transcription is handled natively by Gemini.
 export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
-  { value: 'deepgram', labelKey: 'providers.stt.deepgram' },
-  { value: 'assemblyai', labelKey: 'providers.stt.assemblyai' },
   { value: 'gemini', labelKey: 'providers.stt.gemini' },
-  { value: 'volcengine-doubao', labelKey: 'providers.stt.volcengineDoubao' },
-  { value: 'glm-asr', labelKey: 'providers.stt.glmAsr' },
-  { value: 'openai-whisper', labelKey: 'providers.stt.openaiWhisper' },
-  { value: 'groq-whisper', labelKey: 'providers.stt.groqWhisper' },
-  { value: 'siliconflow', labelKey: 'providers.stt.siliconflow' },
-  { value: APPLE_SPEECH_PROVIDER, labelKey: 'providers.stt.appleSpeech' },
-  { value: CUSTOM_WHISPER_PROVIDER, labelKey: 'providers.stt.customWhisper' },
-  { value: 'cloud', labelKey: 'providers.stt.cloud' },
 ] as const
 
 // Native Gemini STT models (used when stt_provider === 'gemini').
@@ -148,20 +139,9 @@ export const ONBOARDING_STT_PROVIDERS = STT_PROVIDERS.filter(
     provider.value !== 'cloud',
 )
 
+// Gemini-only build: the optional cleanup pass uses Gemini too.
 export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
-  { value: 'zhipu', labelKey: 'providers.llm.zhipu' },
-  { value: 'deepseek', labelKey: 'providers.llm.deepseek' },
-  { value: 'siliconflow', labelKey: 'providers.llm.siliconflow' },
-  { value: 'openai', labelKey: 'providers.llm.openai' },
   { value: 'gemini', labelKey: 'providers.llm.gemini' },
-  { value: 'moonshot', labelKey: 'providers.llm.moonshot' },
-  { value: 'doubao', labelKey: 'providers.llm.doubao' },
-  { value: 'qwen', labelKey: 'providers.llm.qwen' },
-  { value: 'groq', labelKey: 'providers.llm.groq' },
-  { value: 'claude', labelKey: 'providers.llm.claude' },
-  { value: 'ollama', labelKey: 'providers.llm.ollama' },
-  { value: 'openrouter', labelKey: 'providers.llm.openrouter' },
-  { value: 'cloud', labelKey: 'providers.llm.cloud' },
 ] as const
 
 export const ONBOARDING_LLM_PROVIDERS = LLM_PROVIDERS.filter(

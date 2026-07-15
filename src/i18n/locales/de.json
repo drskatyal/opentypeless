@@ -102,7 +102,8 @@
       "testButton": "Verbindung testen",
       "connectionOk": "Verbindung erfolgreich",
       "connectionFail": "Verbindung fehlgeschlagen",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "KI-Glättungsdienst",
@@ -115,7 +116,8 @@
       "modelsAvailable": "Modelle verfügbar",
       "baseUrlLabel": "Basis-URL",
       "connectionOk": "Verbindung erfolgreich",
-      "connectionFail": "Verbindung fehlgeschlagen"
+      "connectionFail": "Verbindung fehlgeschlagen",
+      "geminiKeyHint": "You can reuse the same Gemini API key."
     },
     "steps": {
       "welcome": "Willkommen",
