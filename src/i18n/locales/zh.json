@@ -326,6 +326,7 @@
     "customSttBaseUrl": "Base URL",
     "customSttBaseUrlPlaceholder": "http://localhost:8000/v1",
     "customSttModel": "模型",
+    "geminiSttModel": "模型",
     "customSttModelPlaceholder": "Systran/faster-whisper-large-v3",
     "customSttApiKeyOptional": "API Key（可选）",
     "customSttSetupHint": "请先启动本地 OpenAI 兼容 STT 服务，然后在这里测试连接。",

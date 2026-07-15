@@ -10,6 +10,8 @@ import {
   CUSTOM_STT_DEFAULTS,
   CUSTOM_STT_PRESETS,
   VOLCENGINE_STT_RESOURCES,
+  GEMINI_STT_MODELS,
+  GEMINI_STT_DEFAULT_MODEL,
 } from '../../lib/constants'
 import {
   benchSttConnection,
@@ -39,6 +41,8 @@ export function SttPane() {
   const isAppleSpeech = config.stt_provider === APPLE_SPEECH_PROVIDER
   const isCustomWhisper = config.stt_provider === CUSTOM_WHISPER_PROVIDER
   const isVolcengineDoubao = config.stt_provider === 'volcengine-doubao'
+  const isGemini = config.stt_provider === 'gemini'
+  const geminiModel = config.stt_gemini_model || GEMINI_STT_DEFAULT_MODEL
   const credentialProvider = isCustomWhisper ? CUSTOM_WHISPER_PROVIDER : config.stt_provider
   const legacyApiKey = isCustomWhisper ? config.stt_custom_api_key : config.stt_api_key
   const volcengineResourceId =
@@ -369,6 +373,28 @@ export function SttPane() {
                 )}
               </FormField>
             </>
+          )}
+
+          {isGemini && (
+            <FormField label={t('settings.geminiSttModel')}>
+              <select
+                aria-label={t('settings.geminiSttModel')}
+                value={geminiModel}
+                onChange={(e) => {
+                  updateConfig({ stt_gemini_model: e.target.value })
+                  setSttTestStatus('idle')
+                  setSttLatencyMs(null)
+                  setTestErrorMessage(null)
+                }}
+                className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+              >
+                {GEMINI_STT_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </FormField>
           )}
 
           {isVolcengineDoubao && (

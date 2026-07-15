@@ -121,6 +121,15 @@ export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'cloud', labelKey: 'providers.stt.cloud' },
 ] as const
 
+// Native Gemini STT models (used when stt_provider === 'gemini').
+// Values are Gemini API model IDs; labels are brand names (not translated).
+export const GEMINI_STT_MODELS = [
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+] as const
+
+export const GEMINI_STT_DEFAULT_MODEL = GEMINI_STT_MODELS[0].value
+
 export const VOLCENGINE_STT_RESOURCES = [
   {
     value: 'volc.seedasr.sauc.duration',

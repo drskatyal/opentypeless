@@ -9,8 +9,8 @@ use super::{SttConfig, SttProvider, TranscriptEvent};
 /// Gemini inline audio has to be sent in a single request, so keep it bounded.
 const MAX_AUDIO_BYTES: usize = 24 * 1024 * 1024;
 
-/// Default Gemini model used for native transcription. Any Flash model works.
-const DEFAULT_MODEL: &str = "gemini-2.5-flash";
+/// Default Gemini model used for native transcription when none is selected.
+pub const DEFAULT_MODEL: &str = "gemini-3.5-flash";
 
 /// Native Gemini STT provider.
 ///

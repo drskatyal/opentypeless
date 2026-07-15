@@ -16,6 +16,7 @@ export type VoiceMode = 'dictate' | 'ask' | 'translate'
 export type SttProvider =
   | 'deepgram'
   | 'assemblyai'
+  | 'gemini'
   | 'volcengine-doubao'
   | 'glm-asr'
   | 'openai-whisper'
@@ -192,6 +193,7 @@ export interface AppConfig {
   stt_custom_preset: 'speaches' | 'custom'
   stt_custom_base_url: string
   stt_custom_model: string
+  stt_gemini_model: string
   stt_volcengine_resource_id: string
   stt_language: string
   llm_provider: LlmProvider
@@ -710,6 +712,7 @@ const defaultConfig: AppConfig = {
   stt_custom_preset: 'speaches',
   stt_custom_base_url: 'http://localhost:8000/v1',
   stt_custom_model: 'Systran/faster-whisper-large-v3',
+  stt_gemini_model: 'gemini-3.5-flash',
   stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   stt_language: 'multi',
   llm_provider: 'openrouter',

@@ -1250,6 +1250,7 @@ impl PipelineHandle {
             &config_data.stt_provider,
             custom_whisper_config,
             Some(self.shared_client.clone()),
+            Some(config_data.stt_gemini_model.clone()),
         ) {
             Ok(provider) => provider,
             Err(e) => {

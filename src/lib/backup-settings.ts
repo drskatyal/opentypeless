@@ -16,6 +16,7 @@ type SafeScalarKey =
   | 'stt_custom_preset'
   | 'stt_custom_base_url'
   | 'stt_custom_model'
+  | 'stt_gemini_model'
   | 'stt_volcengine_resource_id'
   | 'llm_provider'
   | 'llm_model'
@@ -73,6 +74,7 @@ export function createBackupSettings(config: AppConfig): BackupSettings {
     stt_custom_preset: config.stt_custom_preset,
     stt_custom_base_url: config.stt_custom_base_url,
     stt_custom_model: config.stt_custom_model,
+    stt_gemini_model: config.stt_gemini_model,
     stt_volcengine_resource_id: config.stt_volcengine_resource_id,
     llm_provider: config.llm_provider,
     llm_model: config.llm_model,
@@ -193,6 +195,7 @@ const SAFE_SCALAR_KEYS: readonly SafeScalarKey[] = [
   'stt_custom_preset',
   'stt_custom_base_url',
   'stt_custom_model',
+  'stt_gemini_model',
   'stt_volcengine_resource_id',
   'llm_provider',
   'llm_model',
