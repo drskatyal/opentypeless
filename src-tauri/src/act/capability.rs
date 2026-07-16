@@ -12,7 +12,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use super::action::Action;
+use super::action::{Action, ClipboardOp};
 
 /// An OS capability an action needs. Capabilities are process-enforced; the model
 /// never sees or influences the table below.
@@ -39,6 +39,11 @@ pub enum Capability {
     NetNavigate,
     /// Launch / start processes.
     AppLaunch,
+    /// Execute an arbitrary shell command — the highest-risk surface. Always
+    /// Confirm in v1; a grant can never soften it to Allow.
+    ShellExec,
+    /// Move / focus / arrange application windows.
+    WindowManage,
     /// Shut down / sleep / restart the machine — always dangerous.
     SystemPower,
     /// Capture the screen (opt-in vision fallback).
@@ -53,7 +58,10 @@ impl Capability {
     /// architecture doc pins to "deny" — a grant can at most soften them, never
     /// open them.
     fn is_never_allowable(self) -> bool {
-        matches!(self, Capability::FsDestructive | Capability::SystemPower)
+        matches!(
+            self,
+            Capability::FsDestructive | Capability::SystemPower | Capability::ShellExec
+        )
     }
 }
 
@@ -68,6 +76,19 @@ pub fn required_capability(action: &Action) -> Capability {
         | Action::Invoke { .. }
         | Action::Scroll { .. }
         | Action::SelectMenu { .. } => Capability::A11yInvoke,
+        Action::Launch { .. } => Capability::AppLaunch,
+        Action::Uri { .. } => Capability::NetNavigate,
+        Action::Shell { .. } => Capability::ShellExec,
+        Action::FocusApp { .. } => Capability::WindowManage,
+        Action::Wait { .. } => Capability::AgentSelf,
+        Action::Clipboard {
+            op: ClipboardOp::Get,
+            ..
+        } => Capability::ClipboardRead,
+        Action::Clipboard {
+            op: ClipboardOp::Set,
+            ..
+        } => Capability::ClipboardWrite,
         Action::AskUser { .. } | Action::Stop => Capability::AgentSelf,
     }
 }
@@ -117,10 +138,15 @@ impl CapabilityGate {
         match cap {
             // Session grant — the everyday automation surface.
             InputKeyboard | InputMouse | A11yRead | A11yInvoke => Decision::Allow,
+            // Window management is a low-risk convenience — allowed by default.
+            WindowManage => Decision::Allow,
             // Explicit / limited — confirm each time until granted for the session.
             ClipboardRead | ClipboardWrite | FsUserDocs | NetNavigate | AppLaunch => {
                 Decision::Confirm
             }
+            // Shell is confirm-every-time and never grantable up to Allow (pinned
+            // by `is_never_allowable`).
+            ShellExec => Decision::Confirm,
             // Denied by default; vision is opt-in (a grant softens it to Confirm).
             VisionCapture => Decision::Deny,
             // Never permitted from voice in this build.
@@ -208,31 +234,144 @@ mod tests {
         }
     }
 
-    fn all_action_kinds() -> Vec<Action> {
+    use super::super::action::{ClipboardOp, Origin};
+
+    /// Every action kind paired with the decision the default gate should return.
+    fn all_action_kinds() -> Vec<(Action, Decision)> {
         vec![
-            type_action(),
-            Action::Key {
-                combo: "ctrl+c".into(),
-            },
-            Action::Focus {
-                target: "#/1".into(),
-            },
-            Action::Invoke {
-                target: "#/1".into(),
-            },
-            Action::Scroll {
-                target: None,
-                amount: 1,
-            },
-            Action::SelectMenu {
-                path: vec!["File".into()],
-            },
-            Action::AskUser {
-                question: "?".into(),
-                choices: vec![],
-            },
-            Action::Stop,
+            (type_action(), Decision::Allow),
+            (
+                Action::Key {
+                    combo: "ctrl+c".into(),
+                },
+                Decision::Allow,
+            ),
+            (
+                Action::Focus {
+                    target: "#/1".into(),
+                },
+                Decision::Allow,
+            ),
+            (
+                Action::Invoke {
+                    target: "#/1".into(),
+                },
+                Decision::Allow,
+            ),
+            (
+                Action::Scroll {
+                    target: None,
+                    amount: 1,
+                },
+                Decision::Allow,
+            ),
+            (
+                Action::SelectMenu {
+                    path: vec!["File".into()],
+                },
+                Decision::Allow,
+            ),
+            (
+                Action::AskUser {
+                    question: "?".into(),
+                    choices: vec![],
+                },
+                Decision::Allow,
+            ),
+            (Action::Stop, Decision::Allow),
+            // New script primitives.
+            (
+                Action::Launch {
+                    target: "spotify".into(),
+                    origin: Origin::default(),
+                },
+                Decision::Confirm,
+            ),
+            (
+                Action::Uri {
+                    uri: "https://example.com".into(),
+                    origin: Origin::default(),
+                },
+                Decision::Confirm,
+            ),
+            (
+                Action::Shell {
+                    command: "ipconfig".into(),
+                    shell: "powershell".into(),
+                    origin: Origin::default(),
+                },
+                Decision::Confirm,
+            ),
+            (Action::Wait { ms: 100 }, Decision::Allow),
+            (
+                Action::FocusApp {
+                    name: "Chrome".into(),
+                },
+                Decision::Allow,
+            ),
+            (
+                Action::Clipboard {
+                    op: ClipboardOp::Get,
+                    text: String::new(),
+                },
+                Decision::Confirm,
+            ),
+            (
+                Action::Clipboard {
+                    op: ClipboardOp::Set,
+                    text: "hi".into(),
+                },
+                Decision::Confirm,
+            ),
         ]
+    }
+
+    #[test]
+    fn script_primitives_map_to_expected_capability() {
+        assert_eq!(
+            required_capability(&Action::Launch {
+                target: "x".into(),
+                origin: Origin::default(),
+            }),
+            Capability::AppLaunch
+        );
+        assert_eq!(
+            required_capability(&Action::Uri {
+                uri: "x".into(),
+                origin: Origin::default(),
+            }),
+            Capability::NetNavigate
+        );
+        assert_eq!(
+            required_capability(&Action::Shell {
+                command: "x".into(),
+                shell: "cmd".into(),
+                origin: Origin::default(),
+            }),
+            Capability::ShellExec
+        );
+        assert_eq!(
+            required_capability(&Action::FocusApp { name: "x".into() }),
+            Capability::WindowManage
+        );
+        assert_eq!(
+            required_capability(&Action::Wait { ms: 1 }),
+            Capability::AgentSelf
+        );
+        assert_eq!(
+            required_capability(&Action::Clipboard {
+                op: ClipboardOp::Get,
+                text: String::new(),
+            }),
+            Capability::ClipboardRead
+        );
+        assert_eq!(
+            required_capability(&Action::Clipboard {
+                op: ClipboardOp::Set,
+                text: "x".into(),
+            }),
+            Capability::ClipboardWrite
+        );
     }
 
     #[test]
@@ -281,16 +420,17 @@ mod tests {
     }
 
     #[test]
-    fn default_gate_allows_every_action_kind() {
-        // With safe defaults, input + a11y invoke + agent-self are all granted,
-        // which is exactly the set the action mapping produces.
+    fn default_gate_rules_each_action_kind() {
+        // Input + a11y invoke + agent-self + window-manage are allowed by default;
+        // the explicit/limited surfaces (launch, uri, shell, clipboard) confirm.
         let gate = CapabilityGate::new();
-        for action in all_action_kinds() {
+        for (action, expected) in all_action_kinds() {
             assert_eq!(
                 gate.evaluate(&action),
-                Decision::Allow,
-                "action {:?} should be allowed by default",
-                action.kind()
+                expected,
+                "action {:?} should rule {:?} by default",
+                action.kind(),
+                expected
             );
         }
     }
@@ -309,6 +449,8 @@ mod tests {
         assert_eq!(gate.evaluate_capability(FsUserDocs), Confirm);
         assert_eq!(gate.evaluate_capability(NetNavigate), Confirm);
         assert_eq!(gate.evaluate_capability(AppLaunch), Confirm);
+        assert_eq!(gate.evaluate_capability(ShellExec), Confirm);
+        assert_eq!(gate.evaluate_capability(WindowManage), Allow);
         assert_eq!(gate.evaluate_capability(FsDestructive), Deny);
         assert_eq!(gate.evaluate_capability(SystemPower), Deny);
         assert_eq!(gate.evaluate_capability(VisionCapture), Deny);
@@ -371,6 +513,21 @@ mod tests {
         assert_eq!(
             gate.evaluate_capability(Capability::SystemPower),
             Decision::Deny
+        );
+    }
+
+    #[test]
+    fn shell_exec_stays_confirm_even_after_grant() {
+        let mut gate = CapabilityGate::new();
+        assert_eq!(
+            gate.evaluate_capability(Capability::ShellExec),
+            Decision::Confirm
+        );
+        // Shell is never-allowable: a grant cannot soften Confirm to Allow.
+        gate.grant(Capability::ShellExec);
+        assert_eq!(
+            gate.evaluate_capability(Capability::ShellExec),
+            Decision::Confirm
         );
     }
 

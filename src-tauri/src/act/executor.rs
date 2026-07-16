@@ -542,6 +542,20 @@ impl Executor {
                     options,
                 });
             }
+            // TODO(script-primitives): dispatch + verify + injection guards. The
+            // next agent wires these to the backend (launch/open_uri/run_shell/
+            // focus_app/clipboard), routes each through the shell_policy Deny
+            // classifier + capability gate, and adds origin-aware injection
+            // guards. Until then they fail closed so the plan halts rather than
+            // silently doing nothing.
+            Action::Launch { .. }
+            | Action::Uri { .. }
+            | Action::Shell { .. }
+            | Action::Wait { .. }
+            | Action::FocusApp { .. }
+            | Action::Clipboard { .. } => {
+                return Ok(Execution::Failed("not yet wired".into()));
+            }
             Action::Stop => return Ok(Execution::Stop),
         };
 

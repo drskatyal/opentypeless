@@ -44,7 +44,7 @@ use windows_sys::Win32::System::Threading::{
 
 use crate::error::AppError;
 
-use super::backend::AccessibilityBackend;
+use super::backend::{AccessibilityBackend, ShellOutput};
 use super::element::{ActionPattern, Bounds, ElementPath, ElementState, Role, Snapshot, UiElement};
 
 /// Map an internal `anyhow` error to the crate's `AppError` at the trait boundary.
@@ -187,6 +187,52 @@ impl AccessibilityBackend for WindowsUiaBackend {
         run_blocking(|| Ok(foreground_is_elevated()))
             .await
             .map_err(to_app_err)
+    }
+
+    // TODO(script-primitives): real impl. The next agent wires these to
+    // ShellExecuteEx (launch/open_uri), a Job Object + captured PowerShell/cmd
+    // pipe (run_shell), window enumeration + SetForegroundWindow (focus_app), and
+    // the Win32 clipboard APIs (clipboard_get/set). Until then they decline
+    // cleanly so the crate compiles and links on Windows.
+
+    async fn launch(&self, _target: &str) -> std::result::Result<(), AppError> {
+        Err(AppError::Config(
+            "act.launch: not yet implemented".to_string(),
+        ))
+    }
+
+    async fn open_uri(&self, _uri: &str) -> std::result::Result<(), AppError> {
+        Err(AppError::Config(
+            "act.open_uri: not yet implemented".to_string(),
+        ))
+    }
+
+    async fn run_shell(
+        &self,
+        _command: &str,
+        _shell: &str,
+    ) -> std::result::Result<ShellOutput, AppError> {
+        Err(AppError::Config(
+            "act.run_shell: not yet implemented".to_string(),
+        ))
+    }
+
+    async fn focus_app(&self, _name: &str) -> std::result::Result<bool, AppError> {
+        Err(AppError::Config(
+            "act.focus_app: not yet implemented".to_string(),
+        ))
+    }
+
+    async fn clipboard_get(&self) -> std::result::Result<String, AppError> {
+        Err(AppError::Config(
+            "act.clipboard_get: not yet implemented".to_string(),
+        ))
+    }
+
+    async fn clipboard_set(&self, _text: &str) -> std::result::Result<(), AppError> {
+        Err(AppError::Config(
+            "act.clipboard_set: not yet implemented".to_string(),
+        ))
     }
 
     fn name(&self) -> &str {

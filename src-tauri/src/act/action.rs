@@ -10,6 +10,37 @@ use serde::{Deserialize, Serialize};
 
 use super::element::ElementPath;
 
+/// Where a "script primitive" argument (a launch target, URI, or shell command)
+/// came from. This is a provenance hint the safety layer uses: an argument that
+/// originated from the trusted task intent is treated differently from one lifted
+/// off the screen (which may be attacker-controlled) or from world knowledge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Origin {
+    /// Derived from the user's own spoken task intent (most trusted).
+    TaskIntent,
+    /// Supplied by the model from its general world knowledge.
+    #[default]
+    WorldKnowledge,
+    /// Lifted from on-screen content (least trusted — possible injection).
+    Screen,
+}
+
+/// Which clipboard operation a [`Action::Clipboard`] performs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClipboardOp {
+    /// Read the current clipboard text.
+    Get,
+    /// Overwrite the clipboard with the provided text.
+    Set,
+}
+
+/// The default shell for [`Action::Shell`] when the planner omits one.
+fn default_shell() -> String {
+    "powershell".into()
+}
+
 /// A single primitive action. `op` is the discriminant on the wire so the
 /// planner can emit `{"op":"focus","target":"#/1/4/2"}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,6 +72,41 @@ pub enum Action {
         question: String,
         choices: Vec<String>,
     },
+    /// Launch / start an application or executable by name or path.
+    Launch {
+        target: String,
+        #[serde(default)]
+        origin: Origin,
+    },
+    /// Open a URI (a URL or app scheme) via the OS handler.
+    Uri {
+        uri: String,
+        #[serde(default)]
+        origin: Origin,
+    },
+    /// Run a shell command. Always the highest-risk primitive.
+    Shell {
+        command: String,
+        #[serde(default = "default_shell")]
+        shell: String,
+        #[serde(default)]
+        origin: Origin,
+    },
+    /// Pause the plan for a fixed number of milliseconds.
+    Wait { ms: u32 },
+    /// Bring a named application's window to the foreground.
+    FocusApp { name: String },
+    /// Read or write the system clipboard.
+    ///
+    /// The clipboard sub-op is serialized as `clip_op` rather than `op`: the
+    /// enum's own discriminant already occupies the `op` key, so reusing it here
+    /// would emit a duplicate JSON key and break the roundtrip.
+    Clipboard {
+        #[serde(rename = "clip_op")]
+        op: ClipboardOp,
+        #[serde(default)]
+        text: String,
+    },
     /// Stop the current plan / session.
     Stop,
 }
@@ -56,11 +122,20 @@ impl Action {
             Action::Scroll { .. } => "scroll",
             Action::SelectMenu { .. } => "select_menu",
             Action::AskUser { .. } => "ask_user",
+            Action::Launch { .. } => "launch",
+            Action::Uri { .. } => "uri",
+            Action::Shell { .. } => "shell",
+            Action::Wait { .. } => "wait",
+            Action::FocusApp { .. } => "focus_app",
+            Action::Clipboard { .. } => "clipboard",
             Action::Stop => "stop",
         }
     }
 
     /// The element path this action targets, if any (for local repair / logging).
+    ///
+    /// The new script primitives (Launch/Uri/Shell/Wait/FocusApp/Clipboard) do
+    /// not act on an accessibility element path, so they return `None`.
     pub fn target(&self) -> Option<&str> {
         match self {
             Action::Focus { target } | Action::Invoke { target } => Some(target),
@@ -68,6 +143,17 @@ impl Action {
                 target: Some(target),
                 ..
             } => Some(target),
+            _ => None,
+        }
+    }
+
+    /// The provenance of this action's argument, for the script primitives that
+    /// carry one (Launch/Uri/Shell). All other actions return `None`.
+    pub fn origin(&self) -> Option<Origin> {
+        match self {
+            Action::Launch { origin, .. }
+            | Action::Uri { origin, .. }
+            | Action::Shell { origin, .. } => Some(*origin),
             _ => None,
         }
     }
@@ -130,5 +216,137 @@ mod tests {
         assert_eq!(plan.actions.len(), 3);
         assert_eq!(plan.actions[2].target(), Some("#/2"));
         assert_eq!(plan.actions[1].kind(), "type");
+    }
+
+    #[test]
+    fn origin_defaults_to_world_knowledge() {
+        assert_eq!(Origin::default(), Origin::WorldKnowledge);
+    }
+
+    fn roundtrip(a: &Action) -> Action {
+        let json = serde_json::to_string(a).unwrap();
+        serde_json::from_str(&json).unwrap()
+    }
+
+    #[test]
+    fn launch_roundtrips_and_defaults_origin() {
+        let a: Action = serde_json::from_str(r#"{"op":"launch","target":"spotify"}"#).unwrap();
+        assert_eq!(
+            a,
+            Action::Launch {
+                target: "spotify".into(),
+                origin: Origin::WorldKnowledge,
+            }
+        );
+        assert_eq!(a.kind(), "launch");
+        assert_eq!(a.origin(), Some(Origin::WorldKnowledge));
+        assert_eq!(a.target(), None);
+        assert_eq!(roundtrip(&a), a);
+
+        let explicit: Action =
+            serde_json::from_str(r#"{"op":"launch","target":"notepad","origin":"task_intent"}"#)
+                .unwrap();
+        assert_eq!(explicit.origin(), Some(Origin::TaskIntent));
+        assert_eq!(roundtrip(&explicit), explicit);
+    }
+
+    #[test]
+    fn uri_roundtrips_and_defaults_origin() {
+        let a: Action =
+            serde_json::from_str(r#"{"op":"uri","uri":"https://example.com"}"#).unwrap();
+        assert_eq!(
+            a,
+            Action::Uri {
+                uri: "https://example.com".into(),
+                origin: Origin::WorldKnowledge,
+            }
+        );
+        assert_eq!(a.kind(), "uri");
+        assert_eq!(a.origin(), Some(Origin::WorldKnowledge));
+        assert_eq!(roundtrip(&a), a);
+
+        let from_screen: Action =
+            serde_json::from_str(r#"{"op":"uri","uri":"file:///etc","origin":"screen"}"#).unwrap();
+        assert_eq!(from_screen.origin(), Some(Origin::Screen));
+    }
+
+    #[test]
+    fn shell_roundtrips_defaults_shell_and_origin() {
+        let a: Action = serde_json::from_str(r#"{"op":"shell","command":"ipconfig"}"#).unwrap();
+        assert_eq!(
+            a,
+            Action::Shell {
+                command: "ipconfig".into(),
+                shell: "powershell".into(),
+                origin: Origin::WorldKnowledge,
+            }
+        );
+        assert_eq!(a.kind(), "shell");
+        assert_eq!(a.origin(), Some(Origin::WorldKnowledge));
+        assert_eq!(roundtrip(&a), a);
+
+        let cmd: Action = serde_json::from_str(
+            r#"{"op":"shell","command":"dir","shell":"cmd","origin":"task_intent"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            Action::Shell {
+                command: "dir".into(),
+                shell: "cmd".into(),
+                origin: Origin::TaskIntent,
+            }
+        );
+    }
+
+    #[test]
+    fn wait_roundtrips() {
+        let a: Action = serde_json::from_str(r#"{"op":"wait","ms":250}"#).unwrap();
+        assert_eq!(a, Action::Wait { ms: 250 });
+        assert_eq!(a.kind(), "wait");
+        assert_eq!(a.origin(), None);
+        assert_eq!(a.target(), None);
+        assert_eq!(roundtrip(&a), a);
+    }
+
+    #[test]
+    fn focus_app_roundtrips() {
+        let a: Action = serde_json::from_str(r#"{"op":"focus_app","name":"Chrome"}"#).unwrap();
+        assert_eq!(
+            a,
+            Action::FocusApp {
+                name: "Chrome".into()
+            }
+        );
+        assert_eq!(a.kind(), "focus_app");
+        assert_eq!(a.origin(), None);
+        assert_eq!(roundtrip(&a), a);
+    }
+
+    #[test]
+    fn clipboard_roundtrips_get_and_set() {
+        let get: Action = serde_json::from_str(r#"{"op":"clipboard","clip_op":"get"}"#).unwrap();
+        assert_eq!(
+            get,
+            Action::Clipboard {
+                op: ClipboardOp::Get,
+                text: String::new(),
+            }
+        );
+        assert_eq!(get.kind(), "clipboard");
+        assert_eq!(get.origin(), None);
+        assert_eq!(get.target(), None);
+        assert_eq!(roundtrip(&get), get);
+
+        let set: Action =
+            serde_json::from_str(r#"{"op":"clipboard","clip_op":"set","text":"hello"}"#).unwrap();
+        assert_eq!(
+            set,
+            Action::Clipboard {
+                op: ClipboardOp::Set,
+                text: "hello".into(),
+            }
+        );
+        assert_eq!(roundtrip(&set), set);
     }
 }
