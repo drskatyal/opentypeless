@@ -71,7 +71,7 @@
     "outputMode": "Text output"
   },
   "onboarding": {
-    "speakToWrite": "Speak to write — turn your voice into polished text in real time",
+    "speakToWrite": "Speak to write — turn your voice into text in real time",
     "selectLanguage": "Choose your language",
     "selectLanguageDesc": "Select the language for the app interface. You can change it later in Settings.",
     "test": {
@@ -387,7 +387,7 @@
     "removeTranslationTarget": "Remove translation target",
     "moveTranslationTargetUp": "Move translation target up",
     "moveTranslationTargetDown": "Move translation target down",
-    "aboutDescription": "Open-source AI voice input tool. Speak to write — turn your voice into polished text in real time.",
+    "aboutDescription": "Open-source AI voice input tool. Speak to write — turn your voice into text in real time.",
     "openSource": "Open Source",
     "license": "License",
     "mit": "MIT",
