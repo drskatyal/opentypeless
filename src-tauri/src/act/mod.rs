@@ -24,6 +24,7 @@ pub mod killswitch;
 pub mod llm;
 pub mod mock_backend;
 pub mod planner;
+pub mod selection;
 pub mod session;
 pub mod shell_policy;
 
