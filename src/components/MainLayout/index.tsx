@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { spring } from '../../lib/animations'
 import { useRoute, type Route } from '../../lib/router'
+import { APP_VERSION } from '../../lib/constants'
 import { AccessibilityBanner } from './AccessibilityBanner'
 
 const baseNavItems: { id: Route; labelKey: string; icon: typeof Home }[] = [
@@ -64,6 +65,11 @@ export function MainLayout({ children }: Props) {
             )
           })}
         </nav>
+
+        {/* Version footer — keeps the rail from feeling truncated */}
+        <div className="px-5 py-3 mt-auto border-t border-border">
+          <span className="text-[10px] text-text-tertiary tracking-wide">{APP_VERSION}</span>
+        </div>
       </aside>
 
       {/* Content */}

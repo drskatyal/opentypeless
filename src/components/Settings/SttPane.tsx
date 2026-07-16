@@ -411,7 +411,7 @@ export function SttPane() {
                       onClick={() => updateConfig({ stt_mode: m.value })}
                       className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] border transition-colors ${
                         active
-                          ? 'border-accent bg-accent/10 text-text-primary font-medium'
+                          ? 'border-accent bg-accent/15 text-text-primary font-medium'
                           : 'border-border bg-bg-secondary text-text-secondary hover:border-border-focus'
                       }`}
                       aria-pressed={active}
@@ -451,7 +451,7 @@ export function SttPane() {
                         }
                         className="w-full accent-accent"
                       />
-                      <div className="flex justify-between text-[10px] text-text-tertiary mt-0.5 font-mono">
+                      <div className="flex justify-between text-[11px] text-text-secondary mt-0.5 font-mono">
                         <span>
                           {p.min}
                           {p.unit}

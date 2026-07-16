@@ -54,7 +54,7 @@
   },
   "home": {
     "welcome": "Welcome to FlowRad Mic",
-    "description": "Use {{hotkey}} to start dictating. Your speech is transcribed exactly as spoken.",
+    "description": "Use {{hotkey}} to start dictating. Your speech is transcribed verbatim by default.",
     "totalRecordings": "Total Recordings",
     "today": "Today",
     "wordsRemaining": "Words remaining",
