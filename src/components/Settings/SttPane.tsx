@@ -451,6 +451,16 @@ export function SttPane() {
                         }
                         className="w-full accent-accent"
                       />
+                      <div className="flex justify-between text-[10px] text-text-tertiary mt-0.5 font-mono">
+                        <span>
+                          {p.min}
+                          {p.unit}
+                        </span>
+                        <span>
+                          {p.max}
+                          {p.unit}
+                        </span>
+                      </div>
                     </div>
                   )
                 })}

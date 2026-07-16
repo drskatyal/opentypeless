@@ -11,9 +11,9 @@
   --color-text-secondary: #666666;
   --color-text-tertiary: #999999;
 
-  --color-accent: #2abba7;
-  --color-accent-hover: #22a08e;
-  --color-accent-light: #e6f7f5;
+  --color-accent: #14b8a0; /* aurora, deepened for legibility on light surfaces */
+  --color-accent-hover: #0fa189; /* aurora hover */
+  --color-accent-light: #e3faf4; /* aurora tint */
 
   --color-success: #34c759;
   --color-warning: #ff9500;
