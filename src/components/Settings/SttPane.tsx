@@ -409,11 +409,12 @@ export function SttPane() {
                       key={m.value}
                       type="button"
                       onClick={() => updateConfig({ stt_mode: m.value })}
-                      className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] bg-bg-secondary border transition-colors ${
+                      className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] border transition-colors ${
                         active
-                          ? 'border-border-focus text-text-primary'
-                          : 'border-border text-text-secondary hover:border-border-focus'
+                          ? 'border-accent bg-accent/10 text-text-primary font-medium'
+                          : 'border-border bg-bg-secondary text-text-secondary hover:border-border-focus'
                       }`}
+                      aria-pressed={active}
                     >
                       {t(m.labelKey)}
                     </button>
