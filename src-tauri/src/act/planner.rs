@@ -286,21 +286,19 @@ fn parse_and_validate(raw: &str, req: &PlanRequest) -> Result<ActionPlan, PlanEr
             }
             // (4) A risky launch target (raw exe/script/UNC/arg-bearing path) may
             // not originate from the screen.
-            Action::Launch { target, origin } => {
-                if *origin == Origin::Screen && shell_policy::is_risky_launch_target(target) {
-                    return Err(PlanError::DeniedByPolicy(
-                        "risky launch target tagged origin=screen (untrusted source)".into(),
-                    ));
-                }
+            Action::Launch { target, origin }
+                if *origin == Origin::Screen && shell_policy::is_risky_launch_target(target) =>
+            {
+                return Err(PlanError::DeniedByPolicy(
+                    "risky launch target tagged origin=screen (untrusted source)".into(),
+                ));
             }
             // (5) A dangerous URI scheme (file:, javascript:, ms-msdt:, ...) is
             // refused regardless of origin.
-            Action::Uri { uri, .. } => {
-                if shell_policy::is_dangerous_uri_scheme(uri) {
-                    return Err(PlanError::DeniedByPolicy(format!(
-                        "dangerous uri scheme: {uri}"
-                    )));
-                }
+            Action::Uri { uri, .. } if shell_policy::is_dangerous_uri_scheme(uri) => {
+                return Err(PlanError::DeniedByPolicy(format!(
+                    "dangerous uri scheme: {uri}"
+                )));
             }
             _ => {}
         }
