@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "FlowRad Mic",
-    "tagline": "AI Voice Input"
+    "tagline": "Verbatim voice input"
   },
   "nav": {
     "home": "Home",
@@ -54,7 +54,7 @@
   },
   "home": {
     "welcome": "Welcome to FlowRad Mic",
-    "description": "Use {{hotkey}} to start voice recording. Your speech will be transcribed and optionally polished by AI.",
+    "description": "Use {{hotkey}} to start dictating. Your speech is transcribed exactly as spoken.",
     "totalRecordings": "Total Recordings",
     "today": "Today",
     "wordsRemaining": "Words remaining",

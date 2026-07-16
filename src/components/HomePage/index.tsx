@@ -165,18 +165,14 @@ export function HomePage() {
               {config.stt_provider === 'gemini' ? 'FlowRad' : config.stt_provider}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">{t('home.llmProvider')}</span>
-            <span className="text-text-primary font-medium">
-              {config.llm_provider === 'gemini' ? 'FlowRad' : config.llm_provider}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">{t('home.aiPolish')}</span>
-            <span className="text-text-primary font-medium">
-              {config.polish_enabled ? t('home.enabled') : t('home.disabled')}
-            </span>
-          </div>
+          {/* Verbatim-first: the optional cleanup pass is only surfaced when the
+              user has explicitly turned it on. */}
+          {config.polish_enabled && (
+            <div className="flex justify-between">
+              <span className="text-text-secondary">{t('home.aiPolish')}</span>
+              <span className="text-text-primary font-medium">{t('home.enabled')}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-text-secondary">{t('home.outputMode')}</span>
             <span className="text-text-primary font-medium">{config.output_mode}</span>
