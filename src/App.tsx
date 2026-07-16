@@ -25,6 +25,7 @@ import { HomePage } from './components/HomePage'
 import { UpgradePage } from './components/UpgradePage'
 import { AccountPage } from './components/AccountPage'
 import { AskPanel } from './components/AskPanel'
+import { FloatingEditor } from './components/FloatingEditor'
 import { ToastContainer } from './components/Toast'
 import { UpdatePrompt } from './components/UpdatePrompt'
 
@@ -81,6 +82,11 @@ function AskApp() {
       <ToastContainer />
     </>
   )
+}
+
+function EditorApp() {
+  useTheme()
+  return <FloatingEditor />
 }
 
 function MainApp() {
@@ -233,6 +239,7 @@ function App() {
   // Capsule window loads with #capsule hash — detect synchronously, no race condition
   if (window.location.hash === '#capsule') return <CapsuleApp />
   if (window.location.hash === '#ask') return <AskApp />
+  if (window.location.hash === '#editor') return <EditorApp />
   return <MainApp />
 }
 

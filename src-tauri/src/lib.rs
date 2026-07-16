@@ -231,6 +231,68 @@ pub fn show_ask_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::
     Ok(window)
 }
 
+fn build_editor_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    if let Some(config) = handle
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == "editor")
+    {
+        return tauri::WebviewWindowBuilder::from_config(handle, config)?.build();
+    }
+
+    tauri::WebviewWindowBuilder::new(
+        handle,
+        "editor",
+        tauri::WebviewUrl::App("index.html#editor".into()),
+    )
+    .title("OpenTypeless Editor")
+    .inner_size(420.0, 520.0)
+    .min_inner_size(320.0, 360.0)
+    .resizable(true)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .visible(false)
+    .build()
+}
+
+pub fn ensure_editor_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    if let Some(window) = handle.get_webview_window("editor") {
+        return Ok(window);
+    }
+
+    match build_editor_window(handle) {
+        Ok(window) => Ok(window),
+        Err(error) => {
+            if let Some(window) = handle.get_webview_window("editor") {
+                Ok(window)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+pub fn show_editor_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    let window = ensure_editor_window(handle)?;
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(window)
+}
+
+#[tauri::command]
+async fn show_editor_window(app: tauri::AppHandle) -> Result<(), String> {
+    show_editor_popup_window(&app)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn show_ask_window(
     app: tauri::AppHandle,
@@ -1069,6 +1131,7 @@ pub fn run() {
             commands::app_mappings::reset_custom_app_mappings,
             commands::app_mappings::set_family_scene_assignment,
             show_ask_window,
+            show_editor_window,
             commands::misc::check_accessibility_permission,
             commands::misc::request_accessibility_permission,
             commands::misc::request_browser_access,

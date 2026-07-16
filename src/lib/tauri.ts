@@ -371,6 +371,10 @@ export async function showAskWindow(): Promise<void> {
   return invoke('show_ask_window')
 }
 
+export async function showEditorWindow(): Promise<void> {
+  return invoke('show_editor_window')
+}
+
 export async function startAskFlow(): Promise<void> {
   return invoke('start_ask_flow')
 }
