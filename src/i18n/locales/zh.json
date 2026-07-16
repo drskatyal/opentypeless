@@ -479,9 +479,7 @@
     "actMode": "Act 模式",
     "actEnable": "Act 模式 — 用语音控制你的电脑",
     "actExperimentalHint": "Act 为实验性功能，目前仅支持 Windows。",
-    "actControlMode": "命令方式",
-    "actControlModeVad": "免提",
-    "actControlModeBatch": "按住说话",
+    "actFollowsDictationMode": "Act 会遵循你的听写模式（按住说话或免提）。",
     "actTier": "规划器",
     "actTierFast": "快速",
     "actTierPrecise": "精确"

@@ -479,9 +479,7 @@
     "actMode": "Режим Act",
     "actEnable": "Режим Act — управляйте компьютером голосом",
     "actExperimentalHint": "Act — экспериментальная функция, сейчас доступна только в Windows.",
-    "actControlMode": "Способ команд",
-    "actControlModeVad": "Свободные руки",
-    "actControlModeBatch": "Удерживать для разговора",
+    "actFollowsDictationMode": "Act следует вашему режиму диктовки (удерживать для разговора или свободные руки).",
     "actTier": "Планировщик",
     "actTierFast": "Быстрый",
     "actTierPrecise": "Точный"

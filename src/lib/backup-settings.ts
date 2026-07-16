@@ -55,7 +55,6 @@ type SafeScalarKey =
   | 'capsule_auto_hide'
   | 'act_enabled'
   | 'act_model_tier'
-  | 'act_mode'
 
 export type BackupSettings = Partial<Pick<AppConfig, SafeScalarKey>> & {
   voice_routing_flags?: VoiceRoutingFlags
@@ -190,7 +189,6 @@ export function createBackupSettings(config: AppConfig): BackupSettings {
     capsule_auto_hide: config.capsule_auto_hide,
     act_enabled: config.act_enabled,
     act_model_tier: config.act_model_tier,
-    act_mode: config.act_mode,
   }
 
   if (config.voice_routing_flags) {
@@ -250,7 +248,6 @@ const SAFE_SCALAR_KEYS: readonly SafeScalarKey[] = [
   'capsule_auto_hide',
   'act_enabled',
   'act_model_tier',
-  'act_mode',
 ]
 
 function isRecord(value: unknown): value is Record<string, unknown> {

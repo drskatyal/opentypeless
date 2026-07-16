@@ -479,9 +479,7 @@
     "actMode": "Act-Modus",
     "actEnable": "Act-Modus — steuere deinen Computer per Sprache",
     "actExperimentalHint": "Act ist experimentell und derzeit nur für Windows verfügbar.",
-    "actControlMode": "Befehlsart",
-    "actControlModeVad": "Freihändig",
-    "actControlModeBatch": "Zum Sprechen halten",
+    "actFollowsDictationMode": "Act folgt deinem Diktatmodus (Zum Sprechen halten oder freihändig).",
     "actTier": "Planer",
     "actTierFast": "Schnell",
     "actTierPrecise": "Präzise"

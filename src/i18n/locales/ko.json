@@ -479,9 +479,7 @@
     "actMode": "Act 모드",
     "actEnable": "Act 모드 — 음성으로 컴퓨터 제어",
     "actExperimentalHint": "Act는 실험적 기능이며 현재 Windows에서만 지원됩니다.",
-    "actControlMode": "명령 방식",
-    "actControlModeVad": "핸즈프리",
-    "actControlModeBatch": "눌러서 말하기",
+    "actFollowsDictationMode": "Act는 받아쓰기 모드(눌러서 말하기 또는 핸즈프리)를 따릅니다.",
     "actTier": "플래너",
     "actTierFast": "빠름",
     "actTierPrecise": "정밀"

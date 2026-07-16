@@ -479,9 +479,7 @@
     "actMode": "Act モード",
     "actEnable": "Act モード — 音声でコンピューターを操作",
     "actExperimentalHint": "Act は実験的機能で、現在は Windows のみ対応しています。",
-    "actControlMode": "コマンド方式",
-    "actControlModeVad": "ハンズフリー",
-    "actControlModeBatch": "押して話す",
+    "actFollowsDictationMode": "Act は音声入力モード（押して話す／ハンズフリー）に従います。",
     "actTier": "プランナー",
     "actTierFast": "高速",
     "actTierPrecise": "高精度"

@@ -2,13 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, MessageCircle } from 'lucide-react'
 import { isMacPlatform, useAppStore } from '../../stores/appStore'
-import type {
-  ActMode,
-  ActModelTier,
-  HotkeyMode,
-  OutputMode,
-  ShortcutBinding,
-} from '../../stores/appStore'
+import type { ActModelTier, HotkeyMode, OutputMode, ShortcutBinding } from '../../stores/appStore'
 import {
   actSetEnabled,
   getPlatformCapabilities,
@@ -277,19 +271,9 @@ export function GeneralPane() {
           </p>
           {config.act_enabled && (
             <div className="space-y-3 pt-1">
-              <div>
-                <p className="mb-1.5 text-[12px] text-text-secondary">
-                  {t('settings.actControlMode')}
-                </p>
-                <SegmentedControl
-                  options={[
-                    { value: 'vad', label: t('settings.actControlModeVad') },
-                    { value: 'batch', label: t('settings.actControlModeBatch') },
-                  ]}
-                  value={config.act_mode}
-                  onChange={(v) => updateConfig({ act_mode: v as ActMode })}
-                />
-              </div>
+              <p className="text-[11px] leading-relaxed text-text-tertiary">
+                {t('settings.actFollowsDictationMode')}
+              </p>
               <div>
                 <p className="mb-1.5 text-[12px] text-text-secondary">{t('settings.actTier')}</p>
                 <SegmentedControl

@@ -479,9 +479,7 @@
     "actMode": "Modo Act",
     "actEnable": "Modo Act — controla tu ordenador con la voz",
     "actExperimentalHint": "Act es experimental y por ahora solo funciona en Windows.",
-    "actControlMode": "Estilo de comando",
-    "actControlModeVad": "Manos libres",
-    "actControlModeBatch": "Mantén para hablar",
+    "actFollowsDictationMode": "Act sigue tu modo de dictado (mantén para hablar o manos libres).",
     "actTier": "Planificador",
     "actTierFast": "Rápido",
     "actTierPrecise": "Preciso"

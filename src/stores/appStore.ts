@@ -55,7 +55,6 @@ export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
 export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
 export type SceneSource = 'custom' | 'builtin' | 'cloud'
 export type ActModelTier = 'fast' | 'precise'
-export type ActMode = 'batch' | 'vad'
 export type ContextFamily =
   | 'email'
   | 'work_chat'
@@ -243,7 +242,6 @@ export interface AppConfig {
   capsule_auto_hide: boolean
   act_enabled: boolean
   act_model_tier: ActModelTier
-  act_mode: ActMode
 }
 
 export type TestStatus = 'idle' | 'testing' | 'success' | 'error'
@@ -788,7 +786,6 @@ const defaultConfig: AppConfig = {
   capsule_auto_hide: true,
   act_enabled: false,
   act_model_tier: 'fast',
-  act_mode: 'batch',
 }
 
 export const useAppStore = create<AppState>((set) => ({

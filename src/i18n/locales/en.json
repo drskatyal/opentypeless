@@ -479,9 +479,7 @@
     "actMode": "Act mode",
     "actEnable": "Act mode — control your computer by voice",
     "actExperimentalHint": "Act is experimental and currently Windows-only.",
-    "actControlMode": "Command style",
-    "actControlModeVad": "Hands-free",
-    "actControlModeBatch": "Hold-to-talk",
+    "actFollowsDictationMode": "Act follows your dictation mode (hold-to-talk or hands-free).",
     "actTier": "Planner",
     "actTierFast": "Fast",
     "actTierPrecise": "Precise"
