@@ -12,6 +12,12 @@ use super::{SttConfig, SttProvider, TranscriptEvent};
 /// Gemini inline audio has to be sent in a single request, so keep it bounded.
 const MAX_AUDIO_BYTES: usize = 24 * 1024 * 1024;
 
+/// Realtime hard cap on a single speech segment. Continuous speech (or steady
+/// noise above the gate) would otherwise never hit a trailing-silence close and
+/// grow until it trips `MAX_AUDIO_BYTES` and aborts the session. When a segment
+/// reaches this length it is force-split so transcription keeps flowing.
+const MAX_SEGMENT_MS: usize = 15_000;
+
 /// Default Gemini model used for native transcription when none is selected.
 pub const DEFAULT_MODEL: &str = "gemini-3.1-flash-lite";
 
@@ -44,6 +50,8 @@ struct VadSegmenter {
     min_silence_ms: u32,
     min_speech_ms: u32,
     speech_pad_ms: u32,
+    /// Force-split a segment once its PCM reaches this many bytes (see `MAX_SEGMENT_MS`).
+    max_segment_bytes: usize,
     /// Number of 20 ms frames of pre-speech padding to retain.
     pad_ring_capacity: usize,
     /// Leftover bytes shorter than one frame, carried across `feed_frames` calls.
@@ -69,12 +77,14 @@ impl VadSegmenter {
         // well above this; room tone sits below it.
         let gate = 0.01 + vad.threshold * 0.05;
         let pad_ring_capacity = (vad.speech_pad_ms / 20) as usize;
+        let max_segment_bytes = frame_bytes * 50 * MAX_SEGMENT_MS / 1000;
         Self {
             frame_bytes,
             gate,
             min_silence_ms: vad.min_silence_ms,
             min_speech_ms: vad.min_speech_ms,
             speech_pad_ms: vad.speech_pad_ms,
+            max_segment_bytes,
             pad_ring_capacity,
             frame_carry: Vec::new(),
             seg_buffer: Vec::new(),
@@ -130,10 +140,12 @@ impl VadSegmenter {
             }
         }
 
-        if self.segment_active
-            && self.voiced_ms >= self.min_speech_ms as f32
-            && self.trailing_silence_ms >= self.min_silence_ms as f32
-        {
+        // Close on a natural silence gap, OR force-split an over-long segment so
+        // continuous speech/noise can't grow unbounded and abort the session.
+        let silence_close = self.voiced_ms >= self.min_speech_ms as f32
+            && self.trailing_silence_ms >= self.min_silence_ms as f32;
+        let force_split = self.seg_buffer.len() >= self.max_segment_bytes;
+        if self.segment_active && (silence_close || force_split) {
             let seg = std::mem::take(&mut self.seg_buffer);
             self.closed.push(seg);
             self.voiced_ms = 0.0;
@@ -159,13 +171,16 @@ impl VadSegmenter {
         closed
     }
 
-    /// Take the in-progress segment for a final flush, if it holds enough
-    /// voiced audio to be worth transcribing. Resets the state machine.
+    /// Take the in-progress segment for a final flush on disconnect. Folds in any
+    /// leftover sub-frame `frame_carry` first, and — unlike a mid-stream close —
+    /// does NOT require `min_speech_ms`, so a short final word spoken after a
+    /// pause is transcribed instead of silently dropped. Resets the state machine.
     fn take_active_segment(&mut self) -> Option<Vec<u8>> {
-        if self.segment_active
-            && self.voiced_ms >= self.min_speech_ms as f32
-            && !self.seg_buffer.is_empty()
-        {
+        if self.segment_active && !self.frame_carry.is_empty() {
+            let carry = std::mem::take(&mut self.frame_carry);
+            self.seg_buffer.extend_from_slice(&carry);
+        }
+        if self.segment_active && self.voiced_ms > 0.0 && !self.seg_buffer.is_empty() {
             let seg = std::mem::take(&mut self.seg_buffer);
             self.segment_active = false;
             self.voiced_ms = 0.0;
@@ -386,7 +401,18 @@ impl SttProvider for GeminiSttProvider {
             let cfg = config.clone();
             tokio::spawn(async move {
                 while let Some(pcm) = seg_rx.recv().await {
-                    let result = Self::transcribe_pcm(&client, &model, &cfg, &pcm).await;
+                    // A single segment failing (transient network/HTTP error) must
+                    // not abort the whole dictation session — log and skip it by
+                    // reporting an empty result, so the stream keeps flowing.
+                    let result = match Self::transcribe_pcm(&client, &model, &cfg, &pcm).await {
+                        Ok(text) => Ok(text),
+                        Err(e) => {
+                            tracing::warn!(
+                                "Gemini realtime: segment transcription failed, skipping: {e}"
+                            );
+                            Ok(None)
+                        }
+                    };
                     if result_tx.send(result).is_err() {
                         break;
                     }
@@ -485,8 +511,17 @@ impl SttProvider for GeminiSttProvider {
         };
 
         if self.realtime.is_some() {
-            // Grab the trailing in-progress segment (if it holds enough voiced
-            // audio) before stopping the worker.
+            // Defensive: hand any already-closed-but-not-yet-sent segments to the
+            // worker (the happy path drains them in send_audio, but a future path
+            // could leave some here). These are chronologically before the tail.
+            if let (Some(seg), Some(tx)) = (self.segmenter.as_mut(), self.seg_tx.as_ref()) {
+                for pcm in std::mem::take(&mut seg.closed) {
+                    let _ = tx.send(pcm);
+                }
+            }
+
+            // Grab the trailing in-progress segment (short final words included)
+            // before stopping the worker.
             let flush_pcm = self
                 .segmenter
                 .as_mut()
@@ -753,5 +788,37 @@ mod tests {
             "trailing voiced audio flushes on disconnect"
         );
         assert!(!flushed.unwrap().is_empty());
+    }
+
+    #[test]
+    fn over_long_segment_force_splits() {
+        let mut seg = VadSegmenter::new(&default_vad(), 16000);
+        // Continuous loud audio with no silence gap would never close on silence;
+        // the max-segment cap must force at least one split so it can't grow until
+        // it trips MAX_AUDIO_BYTES and aborts the session.
+        let closed = seg.feed_frames(&loud(16_000));
+        assert!(
+            closed >= 1,
+            "continuous speech past the cap must force-split"
+        );
+    }
+
+    #[test]
+    fn short_tail_flushes_on_disconnect_even_below_min_speech() {
+        let vad = RealtimeVad {
+            threshold: 0.5,
+            min_silence_ms: 700,
+            min_speech_ms: 2000,
+            speech_pad_ms: 120,
+        };
+        let mut seg = VadSegmenter::new(&vad, 16000);
+        // 300 ms of speech — under min_speech_ms(2000) so it never auto-closes.
+        let closed = seg.feed_frames(&loud(300));
+        assert_eq!(closed, 0);
+        // Disconnect must still flush it: a short final word must not be dropped.
+        assert!(
+            seg.take_active_segment().is_some(),
+            "short final word must flush on disconnect"
+        );
     }
 }
