@@ -68,17 +68,25 @@ export function FloatingEditor() {
     void win?.startDragging().catch(() => {})
   }, [])
 
+  // Dictation is verbatim — pasting must not smuggle in rich HTML/markup that
+  // could later alter the serialized text. Force plain text on paste.
+  const handlePaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const text = event.clipboardData.getData('text/plain')
+    document.execCommand('insertText', false, text)
+    setIsEmpty(!editorRef.current?.textContent?.trim())
+  }, [])
+
   return (
     <div className="h-screen w-screen bg-transparent p-2 text-text-primary">
       <section className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-border bg-bg-primary shadow-float">
         {/* Draggable title bar */}
         <div
-          data-tauri-drag-region
           onMouseDown={startDrag}
           className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2"
         >
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-accent" style={{ background: '#6FE7CB' }} />
+            <span className="h-2 w-2 rounded-full bg-accent" />
             <span className="text-[12px] font-medium text-text-primary">Editor</span>
           </div>
           <button
@@ -128,6 +136,7 @@ export function FloatingEditor() {
             contentEditable
             suppressContentEditableWarning
             onInput={handleInput}
+            onPaste={handlePaste}
             className="h-full w-full px-3 py-3 text-[13px] leading-6 text-text-primary outline-none [&_h1]:mb-1 [&_h1]:text-[18px] [&_h1]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
           />
         </div>

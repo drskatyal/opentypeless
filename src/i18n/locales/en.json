@@ -97,7 +97,7 @@
     },
     "stt": {
       "serviceLabel": "Speech Recognition Service",
-      "apiKeyLabel": "Gemini API Key",
+      "apiKeyLabel": "FlowRad API Key",
       "apiKeyPlaceholder": "Enter your API key",
       "testButton": "Test Connection",
       "connectionOk": "Connection successful",
@@ -107,7 +107,7 @@
     },
     "llm": {
       "serviceLabel": "AI Polish Service",
-      "apiKeyLabel": "Gemini API Key",
+      "apiKeyLabel": "FlowRad API Key",
       "apiKeyPlaceholder": "Enter your API key",
       "testButton": "Test Connection",
       "modelLabel": "Model",
@@ -117,7 +117,7 @@
       "baseUrlLabel": "Base URL",
       "connectionOk": "Connection successful",
       "connectionFail": "Connection failed",
-      "geminiKeyHint": "You can reuse the same Gemini API key."
+      "geminiKeyHint": "You can reuse the same FlowRad API key."
     },
     "steps": {
       "welcome": "Welcome",

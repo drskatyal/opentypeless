@@ -117,7 +117,7 @@
       "baseUrlLabel": "URL de base",
       "connectionOk": "Connexion réussie",
       "connectionFail": "Échec de la connexion",
-      "geminiKeyHint": "You can reuse the same Gemini API key."
+      "geminiKeyHint": "You can reuse the same FlowRad API key."
     },
     "steps": {
       "welcome": "Bienvenue",

@@ -117,7 +117,7 @@
       "baseUrlLabel": "Base URL",
       "connectionOk": "连接成功",
       "connectionFail": "连接失败",
-      "geminiKeyHint": "You can reuse the same Gemini API key."
+      "geminiKeyHint": "You can reuse the same FlowRad API key."
     },
     "steps": {
       "welcome": "欢迎",

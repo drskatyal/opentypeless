@@ -107,15 +107,13 @@ export const CUSTOM_STT_PRESETS = [
   },
 ] as const
 
-// Gemini-only build: transcription is handled natively by Gemini.
+// FlowRad transcription is handled natively by the FlowRad speech engine.
 export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'gemini', labelKey: 'providers.stt.gemini' },
 ] as const
 
-// Native Gemini STT models (used when stt_provider === 'gemini').
-// Values are Gemini API model IDs; labels are brand names (not translated).
-// Public FlowRad tiers. Values are the internal engine model ids (kept for the
-// API call); labels are proprietary FlowRad names — the UI never says "Gemini".
+// Public FlowRad tiers. `value` is the internal engine model id (used for the
+// API call); `label` is the proprietary FlowRad name shown in the UI.
 export const GEMINI_STT_MODELS = [
   { value: 'gemini-3.1-flash-lite', label: 'FlowRad Fast' },
   { value: 'gemini-3.5-flash', label: 'FlowRad Precise' },
@@ -184,7 +182,7 @@ export const ONBOARDING_STT_PROVIDERS = STT_PROVIDERS.filter(
     provider.value !== 'cloud',
 )
 
-// Gemini-only build: the optional cleanup pass uses Gemini too.
+// The optional cleanup pass is served by the same FlowRad engine.
 export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
   { value: 'gemini', labelKey: 'providers.llm.gemini' },
 ] as const

@@ -12,7 +12,7 @@ export function LlmSetupStep() {
   const llmTestStatus = useAppStore((s) => s.llmTestStatus)
   const setLlmTestStatus = useAppStore((s) => s.setLlmTestStatus)
 
-  // Gemini-only build: provider, base URL and model are fixed to Gemini defaults.
+  // FlowRad build: provider, base URL and model are fixed to FlowRad defaults.
   useEffect(() => {
     if (config.llm_provider !== 'gemini') {
       const defaults = LLM_DEFAULT_CONFIG.gemini

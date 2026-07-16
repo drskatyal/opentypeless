@@ -11,7 +11,7 @@ export function SttSetupStep() {
   const sttTestStatus = useAppStore((s) => s.sttTestStatus)
   const setSttTestStatus = useAppStore((s) => s.setSttTestStatus)
 
-  // Gemini-only build: the transcription provider is fixed.
+  // FlowRad build: the transcription provider is fixed.
   useEffect(() => {
     if (config.stt_provider !== 'gemini') {
       updateConfig({ stt_provider: 'gemini' })
