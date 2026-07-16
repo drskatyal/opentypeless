@@ -6,7 +6,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-/// A cheap, clonable abort flag shared with the executor.
+/// A cheap, cloneable abort flag shared with the executor.
 #[derive(Debug, Clone, Default)]
 pub struct KillSwitch {
     aborted: Arc<AtomicBool>,
