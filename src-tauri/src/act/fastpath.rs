@@ -135,7 +135,7 @@ mod tests {
         assert!(resolve("open railway dot app").is_none());
         assert!(resolve("reply saying i'll be late").is_none());
         assert!(resolve("").is_none());
-        assert!(resolve("copywrite").is_none());
+        assert!(resolve("copier").is_none());
     }
 
     #[test]
