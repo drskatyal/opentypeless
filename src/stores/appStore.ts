@@ -54,6 +54,8 @@ export type Theme = 'light' | 'dark' | 'system'
 export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
 export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
 export type SceneSource = 'custom' | 'builtin' | 'cloud'
+export type ActModelTier = 'fast' | 'precise'
+export type ActMode = 'batch' | 'vad'
 export type ContextFamily =
   | 'email'
   | 'work_chat'
@@ -239,6 +241,9 @@ export interface AppConfig {
   history_max_entries: number
   ui_language: string
   capsule_auto_hide: boolean
+  act_enabled: boolean
+  act_model_tier: ActModelTier
+  act_mode: ActMode
 }
 
 export type TestStatus = 'idle' | 'testing' | 'success' | 'error'
@@ -781,6 +786,9 @@ const defaultConfig: AppConfig = {
   history_max_entries: 5000,
   ui_language: 'en',
   capsule_auto_hide: true,
+  act_enabled: false,
+  act_model_tier: 'fast',
+  act_mode: 'batch',
 }
 
 export const useAppStore = create<AppState>((set) => ({

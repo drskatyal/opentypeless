@@ -448,6 +448,23 @@ export async function takePendingAskMessage(): Promise<PendingAskMessage | null>
   return invoke('take_pending_ask_message')
 }
 
+// Act mode (voice-driven OS automation)
+export async function actSetEnabled(enabled: boolean): Promise<void> {
+  return invoke('act_set_enabled', { enabled })
+}
+
+export async function actGetState(): Promise<string> {
+  return invoke('act_get_state')
+}
+
+export async function actUserDecision(decision: string, index?: number): Promise<void> {
+  return invoke('act_user_decision', { decision, index })
+}
+
+export async function actAbort(): Promise<void> {
+  return invoke('act_abort')
+}
+
 // History
 export async function getHistory(limit: number, offset: number): Promise<HistoryEntry[]> {
   return invoke('get_history', { limit, offset })

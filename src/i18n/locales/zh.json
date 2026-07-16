@@ -475,7 +475,23 @@
     "vadSpeechPad": "Speech padding",
     "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
     "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
-    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free."
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free.",
+    "actMode": "Act 模式",
+    "actEnable": "Act 模式 — 用语音控制你的电脑",
+    "actExperimentalHint": "Act 为实验性功能，目前仅支持 Windows。",
+    "actControlMode": "命令方式",
+    "actControlModeVad": "免提",
+    "actControlModeBatch": "按住说话",
+    "actTier": "规划器",
+    "actTierFast": "快速",
+    "actTierPrecise": "精确"
+  },
+  "act": {
+    "armed": "Act 已就绪",
+    "confirmTitle": "确认操作",
+    "allow": "允许",
+    "deny": "拒绝",
+    "cancel": "取消"
   },
   "contextFamilies": {
     "email": "邮件",

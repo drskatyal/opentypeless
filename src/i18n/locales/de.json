@@ -475,7 +475,23 @@
     "vadSpeechPad": "Speech padding",
     "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
     "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
-    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free."
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free.",
+    "actMode": "Act-Modus",
+    "actEnable": "Act-Modus — steuere deinen Computer per Sprache",
+    "actExperimentalHint": "Act ist experimentell und derzeit nur für Windows verfügbar.",
+    "actControlMode": "Befehlsart",
+    "actControlModeVad": "Freihändig",
+    "actControlModeBatch": "Zum Sprechen halten",
+    "actTier": "Planer",
+    "actTierFast": "Schnell",
+    "actTierPrecise": "Präzise"
+  },
+  "act": {
+    "armed": "Act bereit",
+    "confirmTitle": "Aktion bestätigen",
+    "allow": "Zulassen",
+    "deny": "Ablehnen",
+    "cancel": "Abbrechen"
   },
   "contextFamilies": {
     "email": "Email",

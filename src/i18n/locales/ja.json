@@ -475,7 +475,23 @@
     "vadSpeechPad": "Speech padding",
     "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
     "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
-    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free."
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free.",
+    "actMode": "Act モード",
+    "actEnable": "Act モード — 音声でコンピューターを操作",
+    "actExperimentalHint": "Act は実験的機能で、現在は Windows のみ対応しています。",
+    "actControlMode": "コマンド方式",
+    "actControlModeVad": "ハンズフリー",
+    "actControlModeBatch": "押して話す",
+    "actTier": "プランナー",
+    "actTierFast": "高速",
+    "actTierPrecise": "高精度"
+  },
+  "act": {
+    "armed": "Act 待機中",
+    "confirmTitle": "操作の確認",
+    "allow": "許可",
+    "deny": "拒否",
+    "cancel": "キャンセル"
   },
   "contextFamilies": {
     "email": "Email",
