@@ -236,7 +236,7 @@ Act is driven by the **same mode-aware hotkeys already shipped** for Transcribe:
 ### 6a. Hold-to-talk (Batch) — the accurate one
 Manual endpointing: the user holds the key, speaks the whole command, releases.
 Release → transcribe the whole clip → plan → act. Because the user controls the
-start and end precisely, there is no VAD mis-segmentation, so this is the **most
+start and end precisely, the VAD never splits a command in the wrong place, so this is the **most
 accurate** and the recommended default for high-stakes actions.
 
 ```
