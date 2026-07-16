@@ -337,6 +337,13 @@ pub struct AppConfig {
     pub stt_custom_base_url: String,
     pub stt_custom_model: String,
     pub stt_gemini_model: String,
+    /// Transcription mode: "batch" (whole-clip, most accurate) or "realtime"
+    /// (Silero VAD segment-and-send). VAD params below apply only in realtime.
+    pub stt_mode: String,
+    pub stt_vad_threshold: f32,
+    pub stt_vad_min_silence_ms: u32,
+    pub stt_vad_min_speech_ms: u32,
+    pub stt_vad_speech_pad_ms: u32,
     pub stt_volcengine_resource_id: String,
     pub llm_provider: String,
     pub llm_api_key: String,
@@ -389,6 +396,11 @@ impl Default for AppConfig {
             stt_custom_base_url: crate::stt::config::DEFAULT_CUSTOM_WHISPER_BASE_URL.to_string(),
             stt_custom_model: crate::stt::config::DEFAULT_CUSTOM_WHISPER_MODEL.to_string(),
             stt_gemini_model: crate::stt::gemini::DEFAULT_MODEL.to_string(),
+            stt_mode: "batch".to_string(),
+            stt_vad_threshold: 0.5,
+            stt_vad_min_silence_ms: 700,
+            stt_vad_min_speech_ms: 250,
+            stt_vad_speech_pad_ms: 120,
             stt_volcengine_resource_id: crate::stt::volcengine::VOLCENGINE_SEEDASR_RESOURCE_ID
                 .to_string(),
             llm_provider: "gemini".to_string(),

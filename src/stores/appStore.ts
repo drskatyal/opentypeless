@@ -194,6 +194,11 @@ export interface AppConfig {
   stt_custom_base_url: string
   stt_custom_model: string
   stt_gemini_model: string
+  stt_mode: 'batch' | 'realtime'
+  stt_vad_threshold: number
+  stt_vad_min_silence_ms: number
+  stt_vad_min_speech_ms: number
+  stt_vad_speech_pad_ms: number
   stt_volcengine_resource_id: string
   stt_language: string
   llm_provider: LlmProvider
@@ -713,6 +718,11 @@ const defaultConfig: AppConfig = {
   stt_custom_base_url: 'http://localhost:8000/v1',
   stt_custom_model: 'Systran/faster-whisper-large-v3',
   stt_gemini_model: 'gemini-3.1-flash-lite',
+  stt_mode: 'batch',
+  stt_vad_threshold: 0.5,
+  stt_vad_min_silence_ms: 700,
+  stt_vad_min_speech_ms: 250,
+  stt_vad_speech_pad_ms: 120,
   stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   stt_language: 'multi',
   llm_provider: 'gemini',

@@ -47,6 +47,16 @@ vi.mock('react-i18next', () => ({
         'settings.volcengineResourceBigAsr': 'BigASR 1.0',
         'providers.stt.volcengineDoubao': 'Volcengine Doubao Realtime ASR',
         'providers.stt.appleSpeech': 'Apple Speech (Local)',
+        'settings.sttMode': 'Transcription mode',
+        'settings.sttModeBatch': 'Batch',
+        'settings.sttModeRealtime': 'Real-time',
+        'settings.sttModeHint': 'Batch vs real-time',
+        'settings.vadParams': 'Voice detection',
+        'settings.vadThreshold': 'Speech threshold',
+        'settings.vadMinSilence': 'Min silence',
+        'settings.vadMinSpeech': 'Min speech',
+        'settings.vadSpeechPad': 'Speech padding',
+        'settings.vadParamsHint': 'Tune VAD',
       }
       return translations[key] || key
     },
@@ -64,6 +74,11 @@ const mockAppStore = {
     stt_custom_base_url: 'http://localhost:8000/v1',
     stt_custom_model: 'Systran/faster-whisper-large-v3',
     stt_gemini_model: 'gemini-3.1-flash-lite',
+    stt_mode: 'batch',
+    stt_vad_threshold: 0.5,
+    stt_vad_min_silence_ms: 700,
+    stt_vad_min_speech_ms: 250,
+    stt_vad_speech_pad_ms: 120,
     stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   },
   updateConfig: vi.fn(),
@@ -126,6 +141,11 @@ describe('SttPane', () => {
       stt_custom_base_url: 'http://localhost:8000/v1',
       stt_custom_model: 'Systran/faster-whisper-large-v3',
       stt_gemini_model: 'gemini-3.1-flash-lite',
+      stt_mode: 'batch',
+      stt_vad_threshold: 0.5,
+      stt_vad_min_silence_ms: 700,
+      stt_vad_min_speech_ms: 250,
+      stt_vad_speech_pad_ms: 120,
       stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
     }
     mockAppStore.sttTestStatus = 'idle'
@@ -235,6 +255,25 @@ describe('SttPane', () => {
       expect(screen.getByRole('option', { name: 'FlowRad Precise' })).toHaveValue(
         'gemini-3.5-flash',
       )
+    })
+
+    it('toggles transcription mode to real-time', () => {
+      render(<SttPane />)
+      expect(screen.getByRole('button', { name: 'Batch' })).toBeInTheDocument()
+      // Batch is the default -> VAD sliders are hidden.
+      expect(screen.queryByLabelText('Speech threshold')).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Real-time' }))
+      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ stt_mode: 'realtime' })
+    })
+
+    it('shows VAD parameter sliders when real-time mode is active', () => {
+      mockAppStore.config.stt_mode = 'realtime'
+      render(<SttPane />)
+      expect(screen.getByLabelText('Speech threshold')).toBeInTheDocument()
+      expect(screen.getByLabelText('Min silence')).toBeInTheDocument()
+      expect(screen.getByLabelText('Min speech')).toBeInTheDocument()
+      expect(screen.getByLabelText('Speech padding')).toBeInTheDocument()
     })
   })
 

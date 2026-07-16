@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { isMacPlatform, useAppStore } from '../../stores/appStore'
+import { isMacPlatform, useAppStore, type AppConfig } from '../../stores/appStore'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import {
   STT_PROVIDERS,
@@ -12,6 +12,8 @@ import {
   VOLCENGINE_STT_RESOURCES,
   GEMINI_STT_MODELS,
   GEMINI_STT_DEFAULT_MODEL,
+  STT_MODES,
+  VAD_PARAMS,
 } from '../../lib/constants'
 import {
   benchSttConnection,
@@ -394,6 +396,65 @@ export function SttPane() {
                   </option>
                 ))}
               </select>
+            </FormField>
+          )}
+
+          {isGemini && (
+            <FormField label={t('settings.sttMode')}>
+              <div className="flex gap-2">
+                {STT_MODES.map((m) => {
+                  const active = config.stt_mode === m.value
+                  return (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => updateConfig({ stt_mode: m.value })}
+                      className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] bg-bg-secondary border transition-colors ${
+                        active
+                          ? 'border-border-focus text-text-primary'
+                          : 'border-border text-text-secondary hover:border-border-focus'
+                      }`}
+                    >
+                      {t(m.labelKey)}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.sttModeHint')}</p>
+            </FormField>
+          )}
+
+          {isGemini && config.stt_mode === 'realtime' && (
+            <FormField label={t('settings.vadParams')}>
+              <div className="space-y-3">
+                {VAD_PARAMS.map((p) => {
+                  const value = config[p.key as keyof AppConfig] as number
+                  return (
+                    <div key={p.key}>
+                      <div className="flex justify-between text-[12px] mb-1">
+                        <span className="text-text-secondary">{t(p.labelKey)}</span>
+                        <span className="text-text-primary font-mono">
+                          {value}
+                          {p.unit}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={p.min}
+                        max={p.max}
+                        step={p.step}
+                        value={value}
+                        aria-label={t(p.labelKey)}
+                        onChange={(e) =>
+                          updateConfig({ [p.key]: Number(e.target.value) } as Partial<AppConfig>)
+                        }
+                        className="w-full accent-accent"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.vadParamsHint')}</p>
             </FormField>
           )}
 
