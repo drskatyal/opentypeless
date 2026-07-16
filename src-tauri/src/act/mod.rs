@@ -18,6 +18,7 @@ pub mod executor;
 pub mod fastpath;
 pub mod flow;
 pub mod flow_registry;
+pub mod flow_runner;
 pub mod grounding;
 pub mod grounding_packet;
 pub mod killswitch;
