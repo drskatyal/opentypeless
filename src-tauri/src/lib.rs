@@ -1,3 +1,4 @@
+pub mod act;
 pub mod app_detector;
 pub mod audio;
 pub mod commands;

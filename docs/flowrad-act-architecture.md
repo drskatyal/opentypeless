@@ -409,19 +409,22 @@ New crates/FFI: `uiautomation-rs` (Windows), a Swift AX shim or `cidre` (macOS),
 `platform_ax`, `grounding_resolver`, `fastpath_router`, `planner`,
 `capability_gate`, `action_executor`, `kill_switch`, `audit_log`.
 
-## 13. Open decisions for the product owner
+## 13. Decisions (locked)
 
-1. **Primary OS first** — Windows (mature Rust UIA via `uiautomation-rs`, our
-   recommendation) vs macOS (bigger clinician base but AX-in-Rust gap needs a Swift
-   shim).
-2. **Default Act modality** — recommend **Batch/hold-to-talk** as the default for
-   accuracy, VAD as the opt-in power mode.
-3. **Local fast-path model** — keyword+slot to start; a tiny on-device intent model
-   later.
-4. **Vision fallback** — ship the stub disabled; decide if/when to enable for
-   accessibility-blind apps, given the PHI posture.
-5. **Elevated-app control** — likely "detect and decline" indefinitely; a signed
-   helper is a large surface for marginal gain.
+These were the open decisions; they are now settled and drive the build:
+
+1. **Primary OS: Windows first.** Build the executor on the mature Rust UIA stack
+   (`uiautomation-rs`); macOS AX follows in Phase 3.
+2. **Default Act modality: hold-to-talk (Batch).** Manual endpointing is the most
+   accurate; hands-free VAD is the opt-in power mode.
+3. **Vision fallback: ship the stub disabled.** No screenshots in the shipping
+   path; the cropped/consented/redacted vision escape exists as a disabled stub to
+   be enabled later only if needed, given the PHI posture.
+4. **Elevated-app control: detect and decline.** The agent detects an elevated
+   target and says it can't drive it; no signed elevated helper (large surface,
+   marginal gain).
+5. **Local fast-path model:** keyword+slot grammar to start; a tiny on-device
+   intent model later.
 
 ---
 
