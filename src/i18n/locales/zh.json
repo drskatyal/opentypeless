@@ -473,7 +473,9 @@
     "vadMinSilence": "Min silence",
     "vadMinSpeech": "Min speech",
     "vadSpeechPad": "Speech padding",
-    "vadParamsHint": "Tune how eagerly recording starts and stops on your voice."
+    "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
+    "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free."
   },
   "contextFamilies": {
     "email": "邮件",

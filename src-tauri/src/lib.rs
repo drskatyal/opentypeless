@@ -863,7 +863,7 @@ pub fn run() {
             app.manage(pipeline_handle);
             app.manage(commands::ask::AskDictationState::default());
             app.manage(HotkeyModeCache(Arc::new(Mutex::new(
-                initial_config.hotkey_mode.clone(),
+                initial_config.effective_hotkey_mode(),
             ))));
             app.manage(AskHotkeyCache(Arc::new(Mutex::new(
                 initial_config.ask_hotkey.clone(),

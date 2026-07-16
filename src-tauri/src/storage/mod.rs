@@ -453,6 +453,21 @@ impl AppConfig {
         }
     }
 
+    /// Effective dictation hotkey behaviour.
+    ///
+    /// Real-time (VAD) dictation is hands-free — you push once to start and push
+    /// again to stop, and speech is segmented automatically — so hold-to-talk
+    /// does not apply and the mode is always "toggle" regardless of the stored
+    /// `hotkey_mode`. Batch (non-VAD) dictation honours the user's stored choice
+    /// of "hold" or "toggle".
+    pub fn effective_hotkey_mode(&self) -> String {
+        if self.stt_mode == "realtime" {
+            "toggle".to_string()
+        } else {
+            self.hotkey_mode.clone()
+        }
+    }
+
     fn migrate_legacy_platform_hotkeys(&mut self) {
         #[cfg(target_os = "macos")]
         if self.hotkey == "Alt+/" {
@@ -2089,6 +2104,23 @@ fn correction_identity_exists(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn effective_hotkey_mode_forces_toggle_in_realtime() {
+        let mut config = AppConfig::default();
+
+        // Batch mode honours the stored choice (both hold and toggle allowed).
+        config.stt_mode = "batch".to_string();
+        config.hotkey_mode = "hold".to_string();
+        assert_eq!(config.effective_hotkey_mode(), "hold");
+        config.hotkey_mode = "toggle".to_string();
+        assert_eq!(config.effective_hotkey_mode(), "toggle");
+
+        // Real-time (VAD) is hands-free: always toggle, even if "hold" is stored.
+        config.stt_mode = "realtime".to_string();
+        config.hotkey_mode = "hold".to_string();
+        assert_eq!(config.effective_hotkey_mode(), "toggle");
+    }
 
     #[test]
     fn app_config_defaults_missing_custom_stt_api_key() {

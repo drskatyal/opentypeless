@@ -169,7 +169,7 @@ fn update_runtime_caches(
     *hotkey_mode_cache
         .0
         .lock()
-        .unwrap_or_else(|e| e.into_inner()) = config.hotkey_mode.clone();
+        .unwrap_or_else(|e| e.into_inner()) = config.effective_hotkey_mode();
     *ask_cache.0.lock().unwrap_or_else(|e| e.into_inner()) = config.ask_hotkey.clone();
     *role_cache.0.lock().unwrap_or_else(|e| e.into_inner()) =
         crate::hotkey::hotkey_registration_plan_from_config(&config.hotkeys).unwrap_or_default();

@@ -196,14 +196,32 @@ export function GeneralPane() {
       </Section>
 
       <Section title={t('settings.dictationMode')}>
-        <SegmentedControl
-          options={[
-            { value: 'hold', label: t('settings.holdToTalk') },
-            { value: 'toggle', label: t('settings.toggleOnOff') },
-          ]}
-          value={config.hotkey_mode}
-          onChange={(v) => updateConfig({ hotkey_mode: v as HotkeyMode })}
-        />
+        {config.stt_mode === 'realtime' ? (
+          <>
+            <SegmentedControl
+              options={[{ value: 'toggle', label: t('settings.toggleOnOff') }]}
+              value="toggle"
+              onChange={() => {}}
+            />
+            <p className="mt-1.5 text-[11px] text-text-tertiary">
+              {t('settings.dictationModeRealtimeHint')}
+            </p>
+          </>
+        ) : (
+          <>
+            <SegmentedControl
+              options={[
+                { value: 'hold', label: t('settings.holdToTalk') },
+                { value: 'toggle', label: t('settings.toggleOnOff') },
+              ]}
+              value={config.hotkey_mode}
+              onChange={(v) => updateConfig({ hotkey_mode: v as HotkeyMode })}
+            />
+            <p className="mt-1.5 text-[11px] text-text-tertiary">
+              {t('settings.dictationModeBatchHint')}
+            </p>
+          </>
+        )}
       </Section>
 
       <Section title={t('settings.outputMode')}>
