@@ -1020,6 +1020,20 @@ impl PipelineHandle {
         }
     }
 
+    /// Terminal cleanup for a stop() that was consumed by the Act fork.
+    ///
+    /// Mirrors the tail of the normal dictation path (minus paste/history): clears
+    /// the finished STT session and drives the pipeline back to Idle. The
+    /// `set_state(Idle)` emits the FSM-terminal `pipeline:state` = idle and
+    /// `pipeline:voice_mode` = null events the recording indicator and the hotkey
+    /// release handler wait on, so neither gets stuck after an Act command.
+    fn finish_act_command(&self, stt_control: &Option<SttTaskControl>) {
+        if let Some(control) = stt_control {
+            self.clear_stt_session(control.id);
+        }
+        self.set_state(PipelineState::Idle);
+    }
+
     /// Capture selected text from the foreground app by simulating Ctrl+C / Cmd+C.
     /// Must be called when no hotkey modifier keys are physically held down.
     /// Called from async context via block_in_place, so std::thread::sleep is acceptable.
@@ -1789,26 +1803,70 @@ impl PipelineHandle {
             .app_handle
             .try_state::<crate::commands::act::ActState>()
         {
-            let mut act_guard = act_state.session.lock().await;
-            if let Some(session) = act_guard.as_mut() {
-                if session.is_armed() {
-                    match session.on_final_transcript(raw_text.clone()).await {
-                        Ok(events) => {
-                            for event in &events {
-                                let _ = self.app_handle.emit(crate::act::events::ACT_EVENT, event);
+            // P1-5: never block the pipeline on a prior Act command. `try_lock`
+            // fails only when a previous command still holds the session (Act
+            // busy) — a VAD storm or a double release. In that case we do the
+            // terminal cleanup and bail rather than parking the audio thread.
+            match act_state.session.try_lock() {
+                Ok(mut act_guard) => {
+                    let armed = act_guard.as_ref().is_some_and(|s| s.is_armed());
+                    if armed {
+                        // (a) Run the command, capturing the Result. The session
+                        // lock is held only for this await; `act_abort` trips the
+                        // ActState-held kill switch clone WITHOUT this lock.
+                        let result = act_guard
+                            .as_mut()
+                            .expect("armed implies Some")
+                            .on_final_transcript(raw_text.clone())
+                            .await;
+                        drop(act_guard);
+
+                        // (b) ALWAYS clear STT + return the pipeline to Idle and
+                        // emit the terminal UI events the normal stop() path emits
+                        // after the final transcript (minus paste/history). The
+                        // only FSM-terminal events the recording indicator and
+                        // hotkey release handler depend on are `pipeline:state` =
+                        // idle and `pipeline:voice_mode` = null, both emitted by
+                        // set_state(Idle). This runs on BOTH success and error so a
+                        // planner/exec failure can never strand the pipeline.
+                        self.finish_act_command(&stt_control);
+
+                        // (c) Forward the engine's events, or surface a hard
+                        // session error as an Act error event.
+                        match result {
+                            Ok(events) => {
+                                for event in &events {
+                                    let _ =
+                                        self.app_handle.emit(crate::act::events::ACT_EVENT, event);
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!("Act session rejected transcript: {e}");
+                                let _ = self.app_handle.emit(
+                                    crate::act::events::ACT_EVENT,
+                                    &crate::act::events::ActEvent::Error {
+                                        message: e.to_string(),
+                                    },
+                                );
                             }
                         }
-                        Err(e) => {
-                            tracing::warn!("Act session rejected transcript: {e}");
-                        }
+                        // (d) Act consumed this transcript: do NOT dictate.
+                        return Ok(());
                     }
-                    // Act consumed this transcript: skip normal dictation output
-                    // (do NOT polish or paste) and return to Idle.
-                    drop(act_guard);
-                    if let Some(control) = &stt_control {
-                        self.clear_stt_session(control.id);
-                    }
-                    self.set_state(PipelineState::Idle);
+                    // None or disarmed: release the guard and fall through to
+                    // normal dictation exactly as before.
+                }
+                Err(_) => {
+                    // Act is busy with a prior command. Clean up this recording
+                    // without blocking and surface a best-effort busy notice; do
+                    // NOT fall through to dictation (Act is armed).
+                    self.finish_act_command(&stt_control);
+                    let _ = self.app_handle.emit(
+                        crate::act::events::ACT_EVENT,
+                        &crate::act::events::ActEvent::Error {
+                            message: "Act is busy".to_string(),
+                        },
+                    );
                     return Ok(());
                 }
             }
