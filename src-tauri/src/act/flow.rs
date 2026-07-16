@@ -33,10 +33,17 @@ pub enum FlowKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FlowStatus {
-    /// Authored (e.g. from web research) but not yet verified on the real app.
+    /// Authored but neither statically nor runtime checked. Default.
     #[default]
     Draft,
-    /// Replayed successfully with an objective verify on the real target.
+    /// Statically checked only (allowlisted URI / known-good shortcut, no
+    /// selector steps) but never executed on Windows. What web-researched
+    /// deterministic flows get — reliable-by-construction, but NOT proven at
+    /// runtime, so it never wears the `verified` badge.
+    Smoke,
+    /// Executed on the real target with the objective verify all green. Only a
+    /// real run promotes to this — authoring never sets it (audit: "verified"
+    /// must mean runtime-verified, or health/promotion is a lie).
     Verified,
     /// Failed verification repeatedly; skipped in favor of a fresh plan.
     Quarantined,
@@ -237,11 +244,12 @@ impl FlowFile {
         self.status != FlowStatus::Quarantined
     }
 
-    /// Record a successful verified run; promotes a draft to verified.
+    /// Record a successful verified run; promotes a draft or smoke-checked flow
+    /// to runtime-verified (only a real run can reach `Verified`).
     pub fn record_success(&mut self) {
         self.health.success_count = self.health.success_count.saturating_add(1);
         self.health.fail_count = 0;
-        if self.status == FlowStatus::Draft {
+        if matches!(self.status, FlowStatus::Draft | FlowStatus::Smoke) {
             self.status = FlowStatus::Verified;
         }
     }
