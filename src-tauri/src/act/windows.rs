@@ -1,7 +1,704 @@
-//! Windows UI Automation (UIA) accessibility backend.
+//! Windows accessibility backend for "Act mode", built on the Terminator SDK.
 //!
-//! TODO(act-phase0): implement [`AccessibilityBackend`](super::backend) over the
-//! `uiautomation` crate — focused-window snapshot (L0+L1), invoke / set-value /
-//! focus patterns, elevated-target detection (detect-and-decline), and input
-//! synthesis via `enigo`. Stub only: kept dependency-free so the baseline
-//! compiles on the Windows CI job before the real backend lands.
+//! This module is compiled only on Windows (`#[cfg(windows)]`, applied where the
+//! module is declared). It delegates reading and acting to `terminator` (crate
+//! `terminator-rs`, published by mediar-ai), a Playwright-style desktop
+//! automation SDK layered on Windows UI Automation. Terminator supplies the
+//! element tree, focus/invoke/set-value primitives, and input synthesis, so no
+//! raw `uiautomation` or `enigo` plumbing is needed here.
+//!
+//! Design notes:
+//!
+//! * All Terminator work happens inside `spawn_blocking` closures. A `Desktop`
+//!   and its element handles wrap COM interfaces; constructing the `Desktop`
+//!   inside the closure and returning only plain owned data keeps the
+//!   `async_trait` futures `Send` without moving COM objects across an `.await`.
+//! * The raw text value of a control is never retained. Where a length is
+//!   needed, the value is read locally, its `char` count is taken, and the
+//!   string is dropped immediately (PHI safety).
+//! * Timeout guard: synchronous UI Automation calls cannot be preempted from the
+//!   calling thread, so the guard is cooperative. A wall-clock deadline is
+//!   checked before each element probe (`probe`) and before descending, so a
+//!   slow subtree is abandoned rather than walked; individual probe errors are
+//!   treated as "skip this property". `snapshot` also wraps the whole blocking
+//!   walk in a `tokio::time::timeout`, returning control to the caller even if a
+//!   COM call is still wedged (the blocking thread is left to unwind).
+
+use std::ffi::c_void;
+use std::ptr;
+use std::time::{Duration, Instant};
+
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+
+use terminator::{AutomationError, Desktop, UIElement as TElement, UIElementAttributes};
+
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+use windows_sys::Win32::Security::{
+    GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TokenIntegrityLevel,
+    TOKEN_MANDATORY_LABEL, TOKEN_QUERY,
+};
+use windows_sys::Win32::System::Threading::{
+    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+};
+
+use crate::error::AppError;
+
+use super::backend::AccessibilityBackend;
+use super::element::{ActionPattern, Bounds, ElementPath, ElementState, Role, Snapshot, UiElement};
+
+/// Map an internal `anyhow` error to the crate's `AppError` at the trait boundary.
+fn to_app_err(err: anyhow::Error) -> AppError {
+    AppError::Config(err.to_string())
+}
+
+/// Maximum number of nodes captured in a single snapshot.
+const DEFAULT_NODE_CAP: usize = 200;
+/// Maximum subtree depth walked below the focused window.
+const DEFAULT_MAX_DEPTH: usize = 16;
+/// Cooperative wall-clock budget for a full snapshot walk.
+const DEFAULT_SNAPSHOT_BUDGET: Duration = Duration::from_secs(4);
+
+/// Terminator-backed Windows implementation of [`AccessibilityBackend`].
+#[derive(Debug, Clone)]
+pub struct WindowsUiaBackend {
+    node_cap: usize,
+    max_depth: usize,
+    snapshot_budget: Duration,
+}
+
+impl Default for WindowsUiaBackend {
+    fn default() -> Self {
+        Self {
+            node_cap: DEFAULT_NODE_CAP,
+            max_depth: DEFAULT_MAX_DEPTH,
+            snapshot_budget: DEFAULT_SNAPSHOT_BUDGET,
+        }
+    }
+}
+
+impl WindowsUiaBackend {
+    /// Create a backend with default limits.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait]
+impl AccessibilityBackend for WindowsUiaBackend {
+    async fn snapshot(&self) -> std::result::Result<Snapshot, AppError> {
+        let cap = self.node_cap;
+        let max_depth = self.max_depth;
+        let budget = self.snapshot_budget;
+
+        let handle = tokio::task::spawn_blocking(move || build_snapshot(cap, max_depth, budget));
+
+        match tokio::time::timeout(budget + Duration::from_millis(500), handle).await {
+            Ok(Ok(result)) => result.map_err(to_app_err),
+            Ok(Err(join_err)) => Err(AppError::Config(format!(
+                "snapshot task failed: {join_err}"
+            ))),
+            Err(_elapsed) => Err(AppError::Config(format!(
+                "snapshot timed out after {budget:?}"
+            ))),
+        }
+    }
+
+    async fn focus(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
+        let path = path.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            let element = resolve(&desktop, &path)?;
+            // Prefer programmatic focus; fall back to a click when the control
+            // cannot be focused directly.
+            element
+                .focus()
+                .or_else(|_| element.click().map(|_| ()))
+                .map_err(to_anyhow)
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn invoke(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
+        let path = path.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            let element = resolve(&desktop, &path)?;
+            // Prefer the Invoke pattern; fall back to a click when unsupported.
+            element
+                .invoke()
+                .or_else(|_| element.click().map(|_| ()))
+                .map_err(to_anyhow)
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn set_value(
+        &self,
+        path: &ElementPath,
+        value: &str,
+    ) -> std::result::Result<(), AppError> {
+        let path = path.to_string();
+        let value = value.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            let element = resolve(&desktop, &path)?;
+            match element.set_value(&value) {
+                Ok(()) => Ok(()),
+                Err(_) => {
+                    // No Value pattern: focus and type the value directly.
+                    let _ = element.focus();
+                    element.type_text(&value, false).map_err(to_anyhow)
+                }
+            }
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn type_text(&self, text: &str) -> std::result::Result<(), AppError> {
+        let text = text.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            let focused = desktop.focused_element().map_err(to_anyhow)?;
+            focused.type_text(&text, false).map_err(to_anyhow)
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn key_combo(&self, combo: &str) -> std::result::Result<(), AppError> {
+        let combo = combo.to_string();
+        run_blocking(move || {
+            let keys = translate_combo(&combo)?;
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            let focused = desktop.focused_element().map_err(to_anyhow)?;
+            focused.press_key(&keys).map_err(to_anyhow)
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn focused_app_is_elevated(&self) -> std::result::Result<bool, AppError> {
+        // Any failure is a soft "not elevated": this is only a detect-and-decline
+        // hint, never a security boundary.
+        run_blocking(|| Ok(foreground_is_elevated()))
+            .await
+            .map_err(to_app_err)
+    }
+
+    fn name(&self) -> &str {
+        "windows-terminator"
+    }
+}
+
+/// Run a blocking closure on the blocking thread pool and flatten the join error.
+async fn run_blocking<T, F>(f: F) -> Result<T>
+where
+    F: FnOnce() -> Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    match tokio::task::spawn_blocking(f).await {
+        Ok(result) => result,
+        Err(join_err) => Err(anyhow!("blocking task failed: {join_err}")),
+    }
+}
+
+/// Convert a Terminator error into an `anyhow` error.
+fn to_anyhow(err: AutomationError) -> anyhow::Error {
+    anyhow!("terminator error: {err}")
+}
+
+/// Issue a single guarded Terminator probe. Returns `None` when the deadline has
+/// already passed (skip the call) or when the call itself fails.
+fn probe<T, F>(deadline: Instant, f: F) -> Option<T>
+where
+    F: FnOnce() -> std::result::Result<T, AutomationError>,
+{
+    if Instant::now() >= deadline {
+        return None;
+    }
+    f().ok()
+}
+
+/// Walk the focused window's subtree into a [`Snapshot`].
+fn build_snapshot(cap: usize, max_depth: usize, budget: Duration) -> Result<Snapshot> {
+    let deadline = Instant::now() + budget;
+
+    let desktop = Desktop::new_default().map_err(to_anyhow)?;
+    let focused = desktop.focused_element().map_err(to_anyhow)?;
+    let focused_id = focused.id();
+    let root = window_root(&focused);
+
+    // Window / app context (best-effort; never carries element values).
+    let window_title = root.attributes().name.clone().unwrap_or_default();
+    let app = probe(deadline, || focused.application())
+        .flatten()
+        .and_then(|a| a.attributes().name)
+        .unwrap_or_else(|| window_title.clone());
+
+    let mut elements: Vec<UiElement> = Vec::new();
+    let mut focused_path: Option<String> = None;
+
+    // Iterative depth-first walk carrying the child-index path for each node.
+    let mut stack: Vec<(TElement, String, usize)> = vec![(root, "#".to_string(), 0)];
+    while let Some((element, path, depth)) = stack.pop() {
+        if elements.len() >= cap || Instant::now() >= deadline {
+            break;
+        }
+
+        // Identity-match the focused element by its stable id (cheap, cached),
+        // avoiding a per-node focus probe.
+        let node_id = element.id();
+        let is_focused = node_id.is_some() && node_id == focused_id;
+        if is_focused && focused_path.is_none() {
+            focused_path = Some(path.clone());
+        }
+
+        let attributes = element.attributes();
+        elements.push(map_element(
+            deadline,
+            &element,
+            &attributes,
+            &path,
+            is_focused,
+        ));
+
+        if depth < max_depth {
+            if let Some(children) = probe(deadline, || element.children()) {
+                // Push in reverse so the 1-based first child is popped first.
+                for (index, child) in children.into_iter().enumerate().rev() {
+                    let child_path = format!("{path}/{}", index + 1);
+                    stack.push((child, child_path, depth + 1));
+                }
+            }
+        }
+    }
+
+    Ok(Snapshot {
+        app,
+        window_title,
+        focused: focused_path,
+        // Terminator resolves the focused element, not a pointer hit-test, so no
+        // pointer element is reported by this backend yet.
+        pointer: None,
+        // Terminator exposes no text-selection accessor, so a precise selection
+        // length is not available from this backend.
+        selection_text_len: 0,
+        elements,
+    })
+}
+
+/// Map a single Terminator element to our [`UiElement`], guarding every probe.
+fn map_element(
+    deadline: Instant,
+    element: &TElement,
+    attributes: &UIElementAttributes,
+    path: &str,
+    is_focused: bool,
+) -> UiElement {
+    let role_str = attributes.role.as_str();
+    let role = map_role(role_str);
+
+    let name = attributes.name.clone().filter(|s| !s.is_empty());
+    let description = attributes.description.clone().filter(|s| !s.is_empty());
+
+    let bounds = attributes
+        .bounds
+        .map(to_bounds)
+        .or_else(|| probe(deadline, || element.bounds()).map(to_bounds));
+
+    // State probes, each guarded; results are reused for pattern detection.
+    let enabled = attributes
+        .enabled
+        .or_else(|| probe(deadline, || element.is_enabled()));
+    let selected = probe(deadline, || element.is_selected());
+    let toggled = probe(deadline, || element.is_toggled());
+    let visible = probe(deadline, || element.is_visible());
+
+    let mut states = Vec::new();
+    if is_focused {
+        states.push(ElementState::Focused);
+    }
+    match enabled {
+        Some(true) => states.push(ElementState::Enabled),
+        Some(false) => states.push(ElementState::Disabled),
+        None => {}
+    }
+    if selected == Some(true) {
+        states.push(ElementState::Selected);
+    }
+    if visible == Some(false) {
+        states.push(ElementState::Offscreen);
+    }
+
+    let value_len = value_length(deadline, element, attributes, role);
+
+    // Pattern detection. Terminator's snapshot attributes do not enumerate the
+    // supported UI Automation control patterns, so this mixes solid probe
+    // signals (Toggle/SelectionItem/Value) with role-based heuristics
+    // (Invoke/ExpandCollapse/Scroll).
+    let mut patterns = Vec::new();
+    if is_invokable_role(role_str) {
+        patterns.push(ActionPattern::Invoke);
+    }
+    if value_len > 0 || matches!(role, Role::TextField | Role::ComboBox | Role::Document) {
+        patterns.push(ActionPattern::SetValue);
+    }
+    if toggled.is_some() {
+        patterns.push(ActionPattern::Toggle);
+    }
+    if selected.is_some() {
+        patterns.push(ActionPattern::Select);
+    }
+    if matches!(role_str, "ComboBox" | "TreeItem") {
+        patterns.push(ActionPattern::Expand);
+    }
+    if matches!(
+        role_str,
+        "List" | "Tree" | "Document" | "Pane" | "Table" | "DataGrid"
+    ) {
+        patterns.push(ActionPattern::Scroll);
+    }
+
+    UiElement {
+        path: path.to_string(),
+        role,
+        name: name.unwrap_or_default(),
+        description: description.unwrap_or_default(),
+        value_len,
+        states,
+        bounds,
+        patterns,
+    }
+}
+
+/// Convert Terminator's `(x, y, width, height)` f64 tuple to our [`Bounds`].
+fn to_bounds(bounds: (f64, f64, f64, f64)) -> Bounds {
+    let (x, y, width, height) = bounds;
+    Bounds {
+        x: x as i32,
+        y: y as i32,
+        w: width as i32,
+        h: height as i32,
+    }
+}
+
+/// Length (in `char`s) of a control's value. The value string is never retained.
+fn value_length(
+    deadline: Instant,
+    element: &TElement,
+    attributes: &UIElementAttributes,
+    role: Role,
+) -> usize {
+    if let Some(value) = &attributes.value {
+        return value.chars().count();
+    }
+    if matches!(role, Role::TextField | Role::ComboBox | Role::Document) {
+        if let Some(Some(value)) = probe(deadline, || element.get_value()) {
+            // `value` is measured and dropped at the end of this scope.
+            return value.chars().count();
+        }
+    }
+    0
+}
+
+/// Map a Terminator role string (a UI Automation control-type name) onto our
+/// normalized [`Role`].
+fn map_role(role: &str) -> Role {
+    match role {
+        "Button" | "SplitButton" => Role::Button,
+        "CheckBox" => Role::CheckBox,
+        "ComboBox" => Role::ComboBox,
+        "Edit" => Role::TextField,
+        "Hyperlink" => Role::Link,
+        "Image" => Role::Image,
+        "List" | "DataGrid" => Role::List,
+        "ListItem" | "DataItem" => Role::ListItem,
+        "Menu" => Role::Menu,
+        "MenuBar" => Role::MenuBar,
+        "MenuItem" => Role::MenuItem,
+        "ProgressBar" => Role::ProgressBar,
+        "RadioButton" => Role::RadioButton,
+        "ScrollBar" => Role::ScrollBar,
+        "Slider" => Role::Slider,
+        "Spinner" => Role::Spinner,
+        "Tab" => Role::Tab,
+        "TabItem" => Role::TabItem,
+        "Text" => Role::Text,
+        "ToolBar" => Role::Toolbar,
+        "Tree" => Role::Tree,
+        "TreeItem" => Role::TreeItem,
+        "Group" => Role::Group,
+        "Table" => Role::Table,
+        "TitleBar" => Role::TitleBar,
+        "Window" => Role::Window,
+        "Pane" => Role::Pane,
+        "Document" => Role::Document,
+        "Separator" => Role::Separator,
+        _ => Role::Unknown,
+    }
+}
+
+/// Roles that are typically activatable via the Invoke pattern.
+fn is_invokable_role(role: &str) -> bool {
+    matches!(
+        role,
+        "Button"
+            | "SplitButton"
+            | "MenuItem"
+            | "Hyperlink"
+            | "TabItem"
+            | "ListItem"
+            | "CheckBox"
+            | "RadioButton"
+    )
+}
+
+/// Resolve the containing window (or application) of the focused element,
+/// falling back to the focused element itself.
+fn window_root(focused: &TElement) -> TElement {
+    if let Ok(Some(window)) = focused.window() {
+        return window;
+    }
+    if let Ok(Some(application)) = focused.application() {
+        return application;
+    }
+    focused.clone()
+}
+
+/// Resolve a `#/1/4/2`-style path back to a live element under the focused
+/// window.
+fn resolve(desktop: &Desktop, path: &str) -> Result<TElement> {
+    let focused = desktop.focused_element().map_err(to_anyhow)?;
+    let mut current = window_root(&focused);
+
+    let mut parts = path.split('/');
+    match parts.next() {
+        Some("#") => {}
+        _ => return Err(anyhow!("invalid path root in '{path}'")),
+    }
+
+    for token in parts {
+        if token.is_empty() {
+            continue;
+        }
+        let index: usize = token
+            .parse()
+            .map_err(|_| anyhow!("invalid path segment '{token}' in '{path}'"))?;
+        if index == 0 {
+            return Err(anyhow!("path segments are 1-based, got 0 in '{path}'"));
+        }
+        let children = current.children().map_err(to_anyhow)?;
+        current = children
+            .into_iter()
+            .nth(index - 1)
+            .ok_or_else(|| anyhow!("child index {index} out of range in '{path}'"))?;
+    }
+
+    Ok(current)
+}
+
+/// Translate a combination such as `ctrl+c` or `meta+Enter` into the `send_keys`
+/// grammar Terminator's `press_key` forwards to: modifiers are held over the
+/// primary key, for example `{CTRL}c` or `{WIN}{ENTER}`.
+fn translate_combo(combo: &str) -> Result<String> {
+    let mut out = String::new();
+    let mut primary: Option<String> = None;
+
+    for raw in combo.split('+') {
+        let token = raw.trim();
+        if token.is_empty() {
+            continue;
+        }
+        match token.to_ascii_lowercase().as_str() {
+            "ctrl" | "control" => out.push_str("{CTRL}"),
+            "shift" => out.push_str("{SHIFT}"),
+            "alt" | "option" => out.push_str("{ALT}"),
+            "meta" | "super" | "win" | "windows" | "cmd" | "command" => out.push_str("{WIN}"),
+            _ => primary = Some(token.to_string()),
+        }
+    }
+
+    let key = primary.ok_or_else(|| anyhow!("no primary key in combo '{combo}'"))?;
+    out.push_str(&key_token(&key));
+    Ok(out)
+}
+
+/// Render a single primary key token in `send_keys` grammar. Named keys become
+/// brace tokens; single characters pass through (with the grammar's reserved
+/// characters escaped).
+fn key_token(key: &str) -> String {
+    let named = match key.to_ascii_lowercase().as_str() {
+        "enter" | "return" => Some("{ENTER}"),
+        "tab" => Some("{TAB}"),
+        "space" => Some("{SPACE}"),
+        "esc" | "escape" => Some("{ESC}"),
+        "backspace" => Some("{BACKSPACE}"),
+        "delete" | "del" => Some("{DELETE}"),
+        "home" => Some("{HOME}"),
+        "end" => Some("{END}"),
+        "pageup" | "pgup" => Some("{PAGEUP}"),
+        "pagedown" | "pgdn" => Some("{PAGEDOWN}"),
+        "up" => Some("{UP}"),
+        "down" => Some("{DOWN}"),
+        "left" => Some("{LEFT}"),
+        "right" => Some("{RIGHT}"),
+        "insert" | "ins" => Some("{INSERT}"),
+        "f1" => Some("{F1}"),
+        "f2" => Some("{F2}"),
+        "f3" => Some("{F3}"),
+        "f4" => Some("{F4}"),
+        "f5" => Some("{F5}"),
+        "f6" => Some("{F6}"),
+        "f7" => Some("{F7}"),
+        "f8" => Some("{F8}"),
+        "f9" => Some("{F9}"),
+        "f10" => Some("{F10}"),
+        "f11" => Some("{F11}"),
+        "f12" => Some("{F12}"),
+        _ => None,
+    };
+    if let Some(token) = named {
+        return token.to_string();
+    }
+
+    let mut chars = key.chars();
+    match (chars.next(), chars.next()) {
+        // A single character: escape the grammar's reserved characters.
+        (Some(c), None) => match c {
+            '{' => "{{}".to_string(),
+            '}' => "{}}".to_string(),
+            '(' => "{(}".to_string(),
+            ')' => "{)}".to_string(),
+            other => other.to_string(),
+        },
+        // An unrecognized multi-character token: wrap it so `send_keys` can try
+        // to resolve it as a named key (for example `PRINT`, `PAUSE`).
+        _ => format!("{{{}}}", key.to_uppercase()),
+    }
+}
+
+/// Whether the focused application's process runs at a higher integrity level
+/// than this process. Any failure resolves to `false`.
+fn foreground_is_elevated() -> bool {
+    let pid = match Desktop::new_default()
+        .and_then(|desktop| desktop.focused_element())
+        .and_then(|element| element.process_id())
+    {
+        Ok(pid) if pid > 0 => pid,
+        _ => return false,
+    };
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return false;
+        }
+        let foreground_rid = process_integrity_rid(handle);
+        CloseHandle(handle);
+
+        // GetCurrentProcess returns a pseudo-handle that must not be closed.
+        let our_rid = process_integrity_rid(GetCurrentProcess());
+
+        matches!((foreground_rid, our_rid), (Some(f), Some(o)) if f > o)
+    }
+}
+
+/// Read a process token's mandatory integrity level RID.
+///
+/// # Safety
+///
+/// `process` must be a valid process handle opened with at least
+/// `PROCESS_QUERY_LIMITED_INFORMATION` access, or a process pseudo-handle.
+unsafe fn process_integrity_rid(process: HANDLE) -> Option<u32> {
+    let mut token: HANDLE = ptr::null_mut();
+    if OpenProcessToken(process, TOKEN_QUERY, &mut token) == 0 {
+        return None;
+    }
+
+    // First call sizes the buffer; it is expected to fail with the length set.
+    let mut needed: u32 = 0;
+    GetTokenInformation(token, TokenIntegrityLevel, ptr::null_mut(), 0, &mut needed);
+    if needed == 0 {
+        CloseHandle(token);
+        return None;
+    }
+
+    let mut buffer = vec![0u8; needed as usize];
+    let ok = GetTokenInformation(
+        token,
+        TokenIntegrityLevel,
+        buffer.as_mut_ptr() as *mut c_void,
+        needed,
+        &mut needed,
+    );
+    CloseHandle(token);
+    if ok == 0 {
+        return None;
+    }
+
+    let label = &*(buffer.as_ptr() as *const TOKEN_MANDATORY_LABEL);
+    let sid = label.Label.Sid;
+    if sid.is_null() {
+        return None;
+    }
+
+    let count_ptr = GetSidSubAuthorityCount(sid);
+    if count_ptr.is_null() {
+        return None;
+    }
+    let count = *count_ptr;
+    if count == 0 {
+        return None;
+    }
+
+    let rid_ptr = GetSidSubAuthority(sid, (count - 1) as u32);
+    if rid_ptr.is_null() {
+        return None;
+    }
+    Some(*rid_ptr)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn translates_simple_combo() {
+        assert_eq!(translate_combo("ctrl+c").unwrap(), "{CTRL}c");
+    }
+
+    #[test]
+    fn translates_meta_enter() {
+        assert_eq!(translate_combo("meta+Enter").unwrap(), "{WIN}{ENTER}");
+    }
+
+    #[test]
+    fn translates_multiple_modifiers() {
+        assert_eq!(
+            translate_combo("ctrl+shift+Tab").unwrap(),
+            "{CTRL}{SHIFT}{TAB}"
+        );
+    }
+
+    #[test]
+    fn rejects_modifier_only_combo() {
+        assert!(translate_combo("ctrl+alt").is_err());
+    }
+
+    #[test]
+    fn maps_common_roles() {
+        assert_eq!(map_role("Edit"), Role::TextField);
+        assert_eq!(map_role("Hyperlink"), Role::Link);
+        assert_eq!(map_role("ToolBar"), Role::Toolbar);
+        assert_eq!(map_role("SomethingElse"), Role::Unknown);
+    }
+
+    #[test]
+    fn backend_name_is_stable() {
+        assert_eq!(WindowsUiaBackend::new().name(), "windows-terminator");
+    }
+}
