@@ -393,16 +393,18 @@ describe('SttPane', () => {
     it('shows compact local endpoint diagnostics', async () => {
       render(<SttPane />)
 
-      await waitFor(() => {
-        expect(tauri.getSttProviderDiagnostics).toHaveBeenCalledWith(
-          '',
-          'custom-whisper',
-          'http://localhost:8000/v1',
-          'Systran/faster-whisper-large-v3',
-        )
-      })
-      expect(screen.getByText('Local endpoint ready')).toBeInTheDocument()
-      expect(screen.getByText('http://localhost:8000/v1/audio/transcriptions')).toBeInTheDocument()
+      // Wait for the async diagnostics fetch to resolve AND its state update to
+      // render, rather than a synchronous getByText that races the re-render.
+      expect(await screen.findByText('Local endpoint ready')).toBeInTheDocument()
+      expect(
+        await screen.findByText('http://localhost:8000/v1/audio/transcriptions'),
+      ).toBeInTheDocument()
+      expect(tauri.getSttProviderDiagnostics).toHaveBeenCalledWith(
+        '',
+        'custom-whisper',
+        'http://localhost:8000/v1',
+        'Systran/faster-whisper-large-v3',
+      )
     })
 
     it('shows a quiet setup status when local endpoint config is invalid', async () => {
