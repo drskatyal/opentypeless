@@ -11,6 +11,7 @@ pub mod action;
 pub mod audit;
 pub mod backend;
 pub mod capability;
+pub mod destructive;
 pub mod element;
 pub mod events;
 pub mod executor;

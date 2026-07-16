@@ -35,9 +35,12 @@ const MAX_ACTIONS: usize = 12;
 /// The maximum byte length of any `type` action's text.
 const MAX_TYPE_TEXT: usize = 500;
 
-/// Words that mark a destructive / irreversible intent for the defense-in-depth
-/// policy check (the CapabilityGate is the real boundary; this is belt-and-braces).
-const DESTRUCTIVE_WORDS: &[&str] = &["send", "delete", "submit", "pay", "remove", "discard"];
+// Words that mark a destructive / irreversible intent for the defense-in-depth
+// policy check (the CapabilityGate is the real boundary; this is belt-and-braces).
+// Shared verbatim with the executor's runtime classifier via
+// `destructive::DESTRUCTIVE_WORDS` so the planner-time and execution-time lists
+// can never drift apart.
+use super::destructive::DESTRUCTIVE_WORDS;
 
 /// Where a plan came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

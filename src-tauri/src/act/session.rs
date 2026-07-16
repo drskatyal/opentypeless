@@ -184,6 +184,9 @@ impl ActSession {
             }
         };
 
+        // Keep a copy of the spoken command as the destructive-classifier hint
+        // (enables the "confirm-activator under destructive intent" branch).
+        let transcript_hint = transcript.clone();
         let plan = match self
             .planner
             .plan(PlanRequest {
@@ -207,7 +210,10 @@ impl ActSession {
         self.state = SessionState::Executing;
         events.push(self.state_event());
 
-        let result = self.executor.execute_plan(plan.clone()).await;
+        let result = self
+            .executor
+            .execute_plan_with_context(plan.clone(), &transcript_hint)
+            .await;
         self.absorb_result(plan, result, &mut events);
         Ok(events)
     }

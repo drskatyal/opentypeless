@@ -11,10 +11,16 @@ use super::action::{Action, ActionPlan};
 use super::audit::{AuditEntry, AuditLog};
 use super::backend::AccessibilityBackend;
 use super::capability::{CapabilityGate, Decision};
-use super::element::Snapshot;
+use super::destructive::{self, Destructive};
+use super::element::{ElementPath, Snapshot};
 use super::events::AskOption;
 use super::grounding::{self, Grounded};
 use super::killswitch::KillSwitch;
+
+/// A destructive target the user has confirmed, pinned to the exact control they
+/// approved: `(resolved path, resolved name)`. A pre-approval is honored only when
+/// the re-resolved target still matches this fingerprint.
+type ConfirmedTarget = (ElementPath, String);
 
 /// The result of one action within a plan.
 #[derive(Debug)]
@@ -101,6 +107,15 @@ pub struct Executor {
     gate: CapabilityGate,
     audit: Option<AuditLog>,
     kill: KillSwitch,
+    /// The transcript that produced the current plan, threaded in via
+    /// [`Executor::execute_plan_with_context`]. Used only as a hint for the
+    /// destructive classifier's confirm-activator branch; never sent anywhere.
+    transcript: String,
+    /// The destructive target the user most recently confirmed (set when a step
+    /// pauses on the destructive classifier, consumed on a matching resume). Binds
+    /// the one-shot pre-approval to that exact control so a swapped-out control
+    /// re-confirms instead of executing.
+    confirmed_target: Option<ConfirmedTarget>,
 }
 
 impl Executor {
@@ -115,6 +130,8 @@ impl Executor {
             gate,
             audit,
             kill,
+            transcript: String::new(),
+            confirmed_target: None,
         }
     }
 
@@ -124,7 +141,29 @@ impl Executor {
 
     /// Execute a plan step by step. Returns early (completed=false) on the first
     /// Confirm / ask_user / Deny / Failed / Abort.
+    ///
+    /// This convenience form runs with no transcript hint, so the destructive
+    /// classifier's confirm-activator branch (which needs the spoken intent) is
+    /// inert; the destructive-target branch still applies. Callers that have the
+    /// transcript should prefer [`Executor::execute_plan_with_context`].
     pub async fn execute_plan(&mut self, plan: ActionPlan) -> Result<ExecResult, ExecError> {
+        self.execute_plan_with_context(plan, "").await
+    }
+
+    /// Execute a plan with the spoken `transcript` available to the destructive
+    /// classifier. The public [`Executor::execute_plan`] signature is preserved
+    /// (it delegates here with an empty transcript) so existing callers keep
+    /// compiling; the session should call this variant with the real transcript so
+    /// a bare "Yes"/"OK" confirm-activator can be caught when the intent that led
+    /// there was destructive.
+    pub async fn execute_plan_with_context(
+        &mut self,
+        plan: ActionPlan,
+        transcript: &str,
+    ) -> Result<ExecResult, ExecError> {
+        // A fresh command clears any pre-approval left over from a prior one.
+        self.transcript = transcript.to_string();
+        self.confirmed_target = None;
         self.run(plan.actions, false).await
     }
 
@@ -281,15 +320,49 @@ impl Executor {
             }));
         }
 
+        // 5b. Runtime destructive classifier (defense in depth beyond the gate and
+        // the planner). Runs after the target name is known so it sees the real
+        // control about to be activated — including the FOCUSED control for a bare
+        // Enter/Space press with no explicit target (fast-path "submit").
+        let (name, desc) = self.resolved_identity(&action, &snapshot);
+        if let Destructive::Confirm(reason) =
+            destructive::classify(&action, &name, &desc, &self.transcript)
+        {
+            // A one-shot pre-approval is honored ONLY when the re-resolved target
+            // still matches the exact (path, name) the user confirmed. Anything
+            // else — a swapped control, a re-grounded path, a renamed button —
+            // re-confirms rather than driving the wrong control.
+            let fingerprint = self.target_fingerprint(&action, &snapshot);
+            let honor =
+                preapproved && fingerprint.is_some() && self.confirmed_target == fingerprint;
+            if honor {
+                self.confirmed_target = None; // consume the one-shot approval
+            } else {
+                self.confirmed_target = fingerprint;
+                self.audit_step(&action, decision, "paused: needs_confirm_destructive");
+                return Ok(Flow::Pause(StepOutcome::NeedsConfirm { action, reason }));
+            }
+        }
+
         // 6. Execute, racing the kill switch.
         match self.execute_action(&action).await? {
             Execution::Ok => {
-                // 7. Verify (best-effort): the op returned Ok.
-                self.audit_step(&action, decision, "ok");
-                Ok(Flow::Continue(StepOutcome::Done {
-                    action,
-                    verified: true,
-                }))
+                // 7. Verify the post-condition. On failure, HALT the plan rather
+                // than run later steps — a destructive side effect must not be
+                // amplified by continuing on top of an unexpected state.
+                if self.verify(&action).await? {
+                    self.audit_step(&action, decision, "ok");
+                    Ok(Flow::Continue(StepOutcome::Done {
+                        action,
+                        verified: true,
+                    }))
+                } else {
+                    self.audit_step(&action, decision, "failed: verify");
+                    Ok(Flow::Halt(StepOutcome::Failed {
+                        action,
+                        error: "post-action verification failed".into(),
+                    }))
+                }
             }
             Execution::Failed(error) => {
                 self.audit_step(&action, decision, "failed: backend");
@@ -343,6 +416,66 @@ impl Executor {
                 TargetResolution::Ambiguous(options)
             }
             Grounded::None => TargetResolution::Gone,
+        }
+    }
+
+    /// The accessibility (name, description) of the control an action will
+    /// activate, as seen in the live snapshot. Targeted actions use their target
+    /// element; a targetless [`Action::Key`] (bare Enter/Space) uses the FOCUSED
+    /// element, so a fast-path "submit" is classified against the focused control.
+    fn resolved_identity(&self, action: &Action, snapshot: &Snapshot) -> (String, String) {
+        if let Some(path) = action.target() {
+            if let Some(e) = snapshot.get(path) {
+                return (e.name.clone(), e.description.clone());
+            }
+        }
+        if matches!(action, Action::Key { .. }) {
+            if let Some(e) = snapshot.focused_element() {
+                return (e.name.clone(), e.description.clone());
+            }
+        }
+        (String::new(), String::new())
+    }
+
+    /// The `(path, name)` fingerprint identifying the exact control an action will
+    /// activate, used to bind a destructive pre-approval. `None` when there is no
+    /// concrete control to pin (no target and nothing focused).
+    fn target_fingerprint(&self, action: &Action, snapshot: &Snapshot) -> Option<ConfirmedTarget> {
+        if let Some(path) = action.target() {
+            let name = snapshot
+                .get(path)
+                .map(|e| e.name.clone())
+                .unwrap_or_default();
+            return Some((path.to_string(), name));
+        }
+        if matches!(action, Action::Key { .. }) {
+            if let Some(path) = &snapshot.focused {
+                let name = snapshot
+                    .get(path)
+                    .map(|e| e.name.clone())
+                    .unwrap_or_default();
+                return Some((path.clone(), name));
+            }
+        }
+        None
+    }
+
+    /// Best-effort post-condition verification for a just-run action. Returns
+    /// `false` when the observed state contradicts the action's intent, which the
+    /// caller turns into a plan-halting [`StepOutcome::Failed`]. Conservative: only
+    /// checks a cheap, unambiguous post-condition (focus landed) and passes
+    /// everything else, so it never spuriously fails a benign step.
+    async fn verify(&self, action: &Action) -> Result<bool, ExecError> {
+        match action {
+            Action::Focus { target } => {
+                let snapshot = self
+                    .backend
+                    .snapshot()
+                    .await
+                    .map_err(|e| ExecError::Backend(e.to_string()))?;
+                Ok(snapshot.focused.as_deref() == Some(target.as_str()))
+            }
+            _ => Ok(true),
         }
     }
 
@@ -591,7 +724,10 @@ mod tests {
             selection_text_len: 0,
             elements: vec![
                 el("#/1", Role::TextField, "Message"),
-                el("#/2", Role::Button, "Send"),
+                // A deliberately NON-destructive control: the runtime classifier
+                // must let plain buttons through. Destructive controls are covered
+                // by their own tests below.
+                el("#/2", Role::Button, "Next"),
             ],
         }
     }
@@ -723,13 +859,13 @@ mod tests {
 
     #[tokio::test]
     async fn stale_target_reground_repairs_the_path() {
-        // The plan's target "Send" is not a live path, but grounding maps that
-        // name to the Send button (#/2). The re-grounded action then runs.
+        // The plan's target "Next" is not a live path, but grounding maps that
+        // name to the Next button (#/2). The re-grounded action then runs.
         let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
         let mut exec = executor(backend.clone());
 
         let plan = ActionPlan::new(vec![Action::Invoke {
-            target: "Send".into(),
+            target: "Next".into(),
         }]);
         let result = exec.execute_plan(plan).await.unwrap();
 
@@ -867,5 +1003,175 @@ mod tests {
             }
             other => panic!("expected NeedsAskUser, got {other:?}"),
         }
+    }
+
+    // --- Destructive-action runtime safety (must-fixes #2, #3, #5) -------------
+
+    fn snapshot_with_delete() -> Snapshot {
+        Snapshot {
+            app: "Editor".into(),
+            window_title: "Untitled".into(),
+            focused: Some("#/1".into()),
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![
+                el("#/1", Role::TextField, "Message"),
+                el("#/9", Role::Button, "Delete"),
+            ],
+        }
+    }
+
+    #[tokio::test]
+    async fn destructive_target_invoke_pauses_for_confirmation() {
+        // Invoking a "Delete" control must pause even though the capability gate
+        // allows a11y invoke by default: the runtime classifier is the net.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_with_delete())
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/9".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+
+        assert!(!result.completed);
+        match result.outcomes.as_slice() {
+            [StepOutcome::NeedsConfirm { reason, .. }] => {
+                assert!(reason.contains("destructive_target"), "reason: {reason}");
+            }
+            other => panic!("expected NeedsConfirm, got {other:?}"),
+        }
+        // Nothing was executed before the user confirmed.
+        assert!(backend.invoked().is_empty());
+    }
+
+    #[tokio::test]
+    async fn destructive_confirm_then_allow_runs_the_same_control() {
+        // Full round-trip: pause on the destructive control, then a ConfirmAllow
+        // that re-resolves to the SAME (path, name) executes it.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_with_delete())
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/9".into(),
+        }]);
+        let paused = exec.execute_plan(plan.clone()).await.unwrap();
+        assert!(matches!(
+            paused.outcomes.as_slice(),
+            [StepOutcome::NeedsConfirm { .. }]
+        ));
+        assert!(backend.invoked().is_empty());
+
+        let resumed = exec
+            .resume_after_user(plan, UserDecision::ConfirmAllow)
+            .await
+            .unwrap();
+        assert!(resumed.completed, "matching pre-approval should execute");
+        assert_eq!(backend.invoked(), vec!["#/9".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn destructive_preapproval_reconfirms_when_target_changed() {
+        // The user confirmed a control with a different name than what now sits at
+        // the resolved path; the pre-approval must NOT transfer — re-confirm.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_with_delete())
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        // Simulate a stale approval pinned to a different-looking control.
+        exec.confirmed_target = Some(("#/9".into(), "Archive".into()));
+
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/9".into(),
+        }]);
+        let result = exec
+            .resume_after_user(plan, UserDecision::ConfirmAllow)
+            .await
+            .unwrap();
+
+        assert!(!result.completed, "changed target must re-confirm, not run");
+        assert!(matches!(
+            result.outcomes.as_slice(),
+            [StepOutcome::NeedsConfirm { .. }]
+        ));
+        assert!(backend.invoked().is_empty());
+    }
+
+    #[tokio::test]
+    async fn submit_enter_on_destructive_focus_confirms() {
+        // Fast-path "submit" -> Key Enter with no target. The executor resolves the
+        // FOCUSED control ("Delete") and the classifier forces a confirmation.
+        let mut snap = snapshot_with_delete();
+        snap.focused = Some("#/9".into());
+        let backend = Arc::new(MockBackend::builder().snapshot(snap).build());
+        let mut exec = executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![Action::Key {
+            combo: "Enter".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+
+        assert!(!result.completed);
+        assert!(matches!(
+            result.outcomes.as_slice(),
+            [StepOutcome::NeedsConfirm { .. }]
+        ));
+        // The key was never pressed.
+        assert!(backend.keys().is_empty());
+    }
+
+    #[tokio::test]
+    async fn submit_enter_on_benign_focus_runs() {
+        // Same fast-path Enter, but focused on a plain text field: no confirmation.
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![Action::Key {
+            combo: "Enter".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+
+        assert!(result.completed);
+        assert_eq!(backend.keys(), vec!["Enter".to_string()]);
+    }
+
+    // --- Verify-failure halts the plan (must-fix #4) ---------------------------
+
+    #[tokio::test]
+    async fn verify_failure_halts_and_skips_later_steps() {
+        // Focus #/2 while the (static) snapshot keeps focus on #/1: the focus
+        // post-condition fails, so the plan HALTS and the following Invoke #/1
+        // never runs.
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![
+            Action::Focus {
+                target: "#/2".into(),
+            },
+            Action::Invoke {
+                target: "#/1".into(),
+            },
+        ]);
+        let result = exec.execute_plan(plan).await.unwrap();
+
+        assert!(!result.completed);
+        assert!(
+            matches!(result.outcomes.as_slice(), [StepOutcome::Failed { .. }]),
+            "expected a single Failed outcome, got {:?}",
+            result.outcomes
+        );
+        // The focus was attempted but the later invoke was skipped.
+        assert_eq!(backend.focused_targets(), vec!["#/2".to_string()]);
+        assert!(backend.invoked().is_empty());
     }
 }

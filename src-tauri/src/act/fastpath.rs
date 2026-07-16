@@ -45,6 +45,12 @@ pub fn resolve(transcript: &str) -> Option<ActionPlan> {
         "new tab" => key_plan("ctrl+t"),
         "close tab" => key_plan("ctrl+w"),
         "next field" => key_plan("Tab"),
+        // `submit` / `press enter` resolve to a bare Enter press. This intentionally
+        // does NOT go through the planner's destructive heuristic, so the executor's
+        // runtime classifier (`act::destructive::classify`) is the safety net: it
+        // resolves the FOCUSED control for a targetless Enter/Space and forces a
+        // confirmation when that control is destructive (e.g. "submit" while focused
+        // on a "Delete" button). See `executor::Executor::step`.
         "submit" | "press enter" | "enter" => key_plan("Enter"),
         "stop" | "cancel" => ActionPlan::new(vec![Action::Stop]),
         _ => return None,
