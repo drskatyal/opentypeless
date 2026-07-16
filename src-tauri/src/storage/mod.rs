@@ -407,7 +407,7 @@ impl Default for AppConfig {
             llm_api_key: String::new(),
             llm_model: "gemini-3.1-flash-lite".to_string(),
             llm_base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
-            polish_enabled: true,
+            polish_enabled: false,
             context_adaptation_enabled: true,
             voice_routing_flags: crate::voice_intent::VoiceRoutingFlags::default(),
             polish_style: "clean".to_string(),

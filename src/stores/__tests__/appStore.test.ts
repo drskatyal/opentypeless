@@ -70,7 +70,7 @@ describe('appStore', () => {
       expect(config.output_mode).toBe('keyboard')
       expect(config.insertion_strategy).toBe('auto')
       expect(config.windows_sendinput_newline_mode).toBe('enter')
-      expect(config.polish_enabled).toBe(true)
+      expect(config.polish_enabled).toBe(false)
       expect(config.polish_style).toBe('clean')
       expect(config.polish_custom_prompt).toBe('')
       expect(config.polish_chinese_script).toBe('preserve')
@@ -342,12 +342,12 @@ describe('appStore', () => {
       const saved = { ...getState().config }
       getState().setSavedConfig(saved)
 
-      getState().updateConfig({ theme: 'dark', polish_enabled: false })
+      getState().updateConfig({ theme: 'dark', polish_enabled: true })
       expect(getState().config.theme).toBe('dark')
 
       getState().resetConfig()
       expect(getState().config.theme).toBe('system')
-      expect(getState().config.polish_enabled).toBe(true)
+      expect(getState().config.polish_enabled).toBe(false)
     })
 
     it('resetConfig is a no-op when savedConfig is null', () => {

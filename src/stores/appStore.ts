@@ -729,7 +729,7 @@ const defaultConfig: AppConfig = {
   llm_api_key: '',
   llm_model: 'gemini-3.1-flash-lite',
   llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
-  polish_enabled: true,
+  polish_enabled: false,
   context_adaptation_enabled: true,
   voice_routing_flags: {
     draft_insert: true,
