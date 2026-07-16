@@ -4,21 +4,27 @@ Status: **spec / design** (not yet implemented). This is the "Act mode" endgame:
 voice-dispatched, parallel, focused task agents driving CLI tools and apps on the
 user's own machine, with the user's own logged-in sessions.
 
-Scope of _this_ track: the **orchestrator**, a **CLI worker**, and a **Cursor
-(VS Code) extension worker**, plus the **confirmation + kill-switch** model.
-Browser-CDP workers, native-a11y workers, and the multi-agent dashboard are
-adjacent tracks referenced but not fully specced here.
+**We automate the OS, never a specific IDE.** No Cursor / VS Code / editor
+automation of any kind. Actions happen through OS-level surfaces: processes
+(CLI agents), the accessibility layer (native apps, incl. caret/pointer
+grounding), and browser contexts.
+
+Scope of _this_ track: the **orchestrator**, a **CLI worker**, and the
+**caret/pointer grounding primitive** (§4), plus the **confirmation +
+kill-switch** model. Browser-CDP workers, the broader native-a11y executor, and
+the multi-agent dashboard are adjacent tracks referenced but not fully specced
+here.
 
 ---
 
 ## 1. Goal
 
-Let a user speak a task ("Codex: add tests for the auth module"; "Cursor: refactor
-this file"; "run the deploy script") and have FlowRad dispatch it to the right
+Let a user speak a task ("Codex: add tests for the auth module"; "Claude: fix the
+failing test"; "run the deploy script") and have FlowRad dispatch it to the right
 **worker**, which executes it **in parallel** with other workers, each on a
-focused task, with hard safety rails. This is "local parallel subagents across
-apps, by voice" — distinct from cloud subagents because it uses the machine's
-real processes and the user's authenticated app sessions.
+focused task, with hard safety rails. This is "local parallel subagents by voice"
+— distinct from cloud subagents because it uses the machine's real processes,
+OS-level automation, and the user's authenticated sessions.
 
 Non-goal (this track): arbitrary "operate any GUI app." Native GUI control is a
 separate, later, a11y-based track constrained by single-input focus.
@@ -127,9 +133,8 @@ How the executor uses it:
 - **No new worker type**: this is a capability of the native-a11y executor, used
   by dictation (Transcribe) and by Act mode. It is not a separate parallel worker.
 
-_(The prior draft here mistakenly specced automating the Cursor IDE; removed. The
-Grok reliability analysis of Electron/extension automation is retained only as a
-reference note in §12 in case any real app-automation worker is added later.)_
+_(The prior draft here mistakenly specced automating the Cursor IDE; removed
+entirely. We do not automate any editor/IDE — only OS-level surfaces.)_
 
 ---
 
@@ -184,8 +189,8 @@ worker never re-emits actions.
 transcript ≠ what actually runs (`sh -c`, base64→exec, `python -c`, aliases,
 `PATH` shadowing, direct binary calls all evade text parsing). The real safety
 unit is **capability use over time** — file writes, *future* execution,
-subprocesses, network, IPC, credential access, editor automation, external side
-effects. Enforcement must be at the **OS/kernel/capability layer**, with
+subprocesses, network, IPC, credential access, OS input/UI automation, external
+side effects. Enforcement must be at the **OS/kernel/capability layer**, with
 command-level confirmation as a secondary UX, not the primary control.
 
 Priority-ordered model:
@@ -234,7 +239,7 @@ Priority-ordered model:
 ## 8. Voice dispatch
 
 - Existing STT produces the task text. A lightweight **router** maps it to a worker
-  target (by named app — "Codex", "Cursor" — or capability) and extracts the payload.
+  target (by named worker — "Codex", "Claude" — or capability) and extracts the payload.
 - **Command vs dictation**: Cowork requires an explicit mode (a distinct hotkey or a
   wake token) so ordinary dictation is never interpreted as a command.
 - Ambiguous target → orchestrator asks (dashboard prompt), never guesses on
@@ -244,7 +249,7 @@ Priority-ordered model:
 
 ## 9. Latency
 
-Control layers are all structured + fast: pty stdio ~ms, extension bridge ~ms.
+Control layers are all structured + fast: pty stdio ~ms, accessibility queries ~ms.
 Dominant costs are STT and any LLM planning — but Cowork dispatch is often
 **deterministic** ("send this text to worker N; run"), needing no planner at all.
 Reserve LLM planning for genuinely ambiguous multi-step tasks.
@@ -297,13 +302,12 @@ powerful workers.
   Mediate at the OS layer; fall back to restricted profiles/sandboxes, not text
   parsing.
 - **"Cursor" was a misread (user clarification)**: "cursor" = the mouse cursor /
-  text caret, not the Cursor IDE. The Cursor-app automation track is **dropped**;
-  §4 is now the caret/pointer grounding primitive. The Grok reliability analysis
-  (extension API can't drive Cursor's AI; CDP-attach is a hot-path trap; own the
-  agent loop, extensions connect out with `windowId`, sideload `.vsix`) is retained
-  here only as a reference **if a real app-automation worker is ever added later**.
+  text caret, not the Cursor IDE. **No IDE/editor automation of any kind** — we
+  automate OS-level surfaces only (processes, accessibility, browser). §4 is now
+  the caret/pointer grounding primitive; the Cursor/VS Code automation track is
+  removed entirely.
 - **Kill immediacy (GPT)**: process-group SIGKILL is **not** enough (setsid,
-  daemons, cron/launchd, containers, extension host survive). Use cgroup/Job-Object
+  daemons, cron/launchd, containers survive). Use cgroup/Job-Object
   kill domains + network revoke + overlay rollback; UX must state kill can't undo
   committed external side effects (§6).
 - **Injection (GPT)**: repo files/tool output can steer the *inner* agent; treat
