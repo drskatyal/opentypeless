@@ -341,7 +341,7 @@ fn map_element(
     // signals (Toggle/SelectionItem/Value) with role-based heuristics
     // (Invoke/ExpandCollapse/Scroll).
     let mut patterns = Vec::new();
-    if is_invokable_role(role_str) {
+    if role_supports_invoke(role_str) {
         patterns.push(ActionPattern::Invoke);
     }
     if value_len > 0 || matches!(role, Role::TextField | Role::ComboBox | Role::Document) {
@@ -443,7 +443,7 @@ fn map_role(role: &str) -> Role {
 }
 
 /// Roles that are typically activatable via the Invoke pattern.
-fn is_invokable_role(role: &str) -> bool {
+fn role_supports_invoke(role: &str) -> bool {
     matches!(
         role,
         "Button"
