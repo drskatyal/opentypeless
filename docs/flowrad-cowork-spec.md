@@ -37,8 +37,8 @@ separate, later, a11y-based track constrained by single-input focus.
          • aggregate status → dashboard
      → WORKERS (run in parallel, isolated):
          ├─ CLI worker            (subprocess + pty; e.g. codex, claude, aider)
-         ├─ Cursor worker         (VS Code extension API over a local bridge)
-         └─ [later] browser-CDP / native-a11y workers
+         ├─ browser-CDP worker    (parallel authenticated contexts; see adjacent track)
+         └─ native-a11y worker    (acts via accessibility incl. caret/pointer grounding, §4)
      → DASHBOARD (per-worker task, status, live log, controls)
 ```
 
@@ -51,7 +51,7 @@ is a React surface.
 ```rust
 trait Worker {
     fn id(&self) -> WorkerId;
-    fn kind(&self) -> WorkerKind;            // Cli | Cursor | Browser | Native
+    fn kind(&self) -> WorkerKind;            // Cli | Browser | Native
     async fn start(&mut self, task: Task) -> Result<()>;
     async fn poll(&mut self) -> WorkerEvent;  // Output | AwaitingConfirm | Done | Error
     async fn send(&mut self, input: WorkerInput) -> Result<()>; // stdin / command
@@ -96,47 +96,40 @@ shell runners.
 
 ---
 
-## 4. Worker: Cursor (VS Code extension) — REVISED per Grok red-team
+## 4. Cursor & pointer awareness — grounding primitive (NOT an app worker)
 
-**Key correction: do NOT try to puppet Cursor's AI (Composer/Chat/Agent) as a
-programmable worker.** Those surfaces are proprietary webviews, not public API:
-you likely cannot reliably (a) trigger Composer with a supplied prompt, (b) read
-its streamed response, or (c) detect completion, via the public extension API.
-Command IDs are unstable across builds, and reverse-engineering the AI panels is
-exactly the automation pattern IDE vendors rate-limit / ban. Betting the product
-on that is the wrong reliability call — and CDP-attach as a fallback **cements**
-the fragility rather than solving it.
+**Clarification: "cursor" here means the mouse cursor / text caret — where the
+user is pointing/typing — NOT the Cursor IDE.** FlowRad does not automate the
+Cursor editor or VS Code's AI; that idea is dropped. Instead, "act where the
+cursor is" is a **grounding primitive** the executor uses, read via the same
+accessibility layer as everything else — no screenshots.
 
-**Corrected architecture — FlowRad owns the agent loop; the extension is a thin
-executor:**
+Two distinct "cursors":
 
-- **FlowRad's own agent runtime** (or a documented coding-agent CLI) does the
-  thinking. Cursor is where results are applied and reviewed — not the AI engine.
-- Ship a **companion VS Code/Cursor extension** used only for what the public API
-  does reliably: apply `WorkspaceEdit` patches, open files, run tasks/tests,
-  read diagnostics/diffs *we* created, report progress. No Composer puppeting.
-- **"Done" = our tool loop finished + tests green + files written** — never
-  inferred from Cursor's UI state (there is no public "AI finished" event, and
-  partial/multi-file accepts make UI-based completion ambiguous).
-- **Bridge direction (reliability fix): the extension connects OUT to FlowRad's
-  single local WS/socket server** — do NOT have each window `listen()` on a fixed
-  port (→ `EADDRINUSE` with N windows). On activate, the extension handshakes with
-  `{windowId: uuid, pid, workspaceFolders}` and negotiates capabilities; FlowRad
-  pins agent ↔ windowId. Extension host is per-window, so this parallelizes.
-- **Auth/hardening**: per-session unguessable token or mTLS; prefer an OS named
-  pipe / unix domain socket with ACLs over a TCP port; enforce `Origin` checks to
-  resist DNS-rebinding from a malicious page. Every bridge op goes through the same
-  policy engine as CLI actions. Enable VS Code **Restricted Mode**; disable
-  workspace tasks/debug/extensions in agent-controlled workspaces.
-- **Resilience**: extension-host crash kills only that window; checkpoint patches
-  to disk so FlowRad can resume; per-window supervisor + reload.
-- **Distribution/ToS**: ship the extension as a sideloaded `.vsix` with the
-  installer (don't depend on a marketplace); use the user's own model keys; treat
-  automating Cursor's *AI* as unsupported to stay clear of its terms.
-- **CDP**: emergency escape hatch only (e.g. a one-off "click Accept"), feature-
-  detected (`/json/version`) and version-pinned — never on the parallel hot path.
-- **Kill**: bridge `abort` (with a transaction id) cancels in-flight ops and
-  disables the session; we cancel *our* operations, we don't kill Cursor.
+- **Text caret (insertion point)** — the OS accessibility **focused element** plus
+  its selection/insertion range. This is where dictated text lands by default, and
+  what "insert this here" / "fix this sentence" target. Read via UIA
+  `TextPattern`/`ValuePattern` (Windows), AX `AXSelectedTextRange`/`AXFocusedUIElement`
+  (macOS).
+- **Mouse pointer** — the OS pointer position, plus an accessibility **hit-test**
+  ("what element is under the pointer"). This powers "click what I'm pointing at",
+  "read this", "what's under my cursor". Read via the OS cursor-position API +
+  `ElementFromPoint` (UIA) / `AXUIElementCopyElementAtPosition` (macOS).
+
+How the executor uses it:
+
+- **Target resolution**: commands like "insert here", "click here", "read this",
+  "translate this" resolve to the focused element (caret) or the element under the
+  pointer — a precise, structured target, not a guessed pixel.
+- **Same guardrails**: acting on the element under the caret/pointer still goes
+  through the risk-tier + confirmation model (§5); reading its text is subject to
+  the PHI rules (§11).
+- **No new worker type**: this is a capability of the native-a11y executor, used
+  by dictation (Transcribe) and by Act mode. It is not a separate parallel worker.
+
+_(The prior draft here mistakenly specced automating the Cursor IDE; removed. The
+Grok reliability analysis of Electron/extension automation is retained only as a
+reference note in §12 in case any real app-automation worker is added later.)_
 
 ---
 
@@ -262,10 +255,13 @@ Reserve LLM planning for genuinely ambiguous multi-step tasks.
 
 1. **Orchestrator core** + **CLI worker** (pty subprocess, scoped cwd, stream I/O,
    kill) + global stop + audit log. Smallest, highest-value, zero GUI risk.
-2. **Confirmation UI** + risk classifier + allowlist + budget/dead-man guards.
-3. **Cursor extension worker** (companion extension + local bridge).
+2. **OS-capability sandbox per worker** + confirmation UI + risk classifier +
+   budget/dead-man/kill-domain guards (see §7 — this is the real boundary).
+3. **Native-a11y executor** incl. caret/pointer grounding (§4) — act where the
+   cursor is, via accessibility.
 4. **Dashboard** (parallel workers, live logs, per-worker kill, cost).
-5. **Browser-CDP worker** + **native-a11y worker** (adjacent tracks).
+5. **Browser-CDP worker** (parallel authenticated contexts — the highest-leverage
+   piece for web dashboards).
 
 Sequencing rationale: the CLI worker delivers real parallel-agents-by-voice with
 the least risk and no dependency on GUI automation; safety rails come before more
@@ -300,12 +296,12 @@ powerful workers.
 - **CLI command broker (GPT)**: a PTY-text broker is bypassable; do not rely on it.
   Mediate at the OS layer; fall back to restricted profiles/sandboxes, not text
   parsing.
-- **Cursor extension vs CDP (Grok)**: extension API is sufficient for **editor
-  I/O** (patches, tasks, diagnostics) but **NOT** for driving Cursor's AI
-  (Composer/Chat trigger, response read, completion are private/unstable + ToS-
-  sensitive). CDP fallback is a **trap** on the hot path. → FlowRad owns the agent
-  loop; the extension is a thin executor; extensions connect **out** with a
-  `windowId` handshake; sideload `.vsix`; CDP emergency-only (§4).
+- **"Cursor" was a misread (user clarification)**: "cursor" = the mouse cursor /
+  text caret, not the Cursor IDE. The Cursor-app automation track is **dropped**;
+  §4 is now the caret/pointer grounding primitive. The Grok reliability analysis
+  (extension API can't drive Cursor's AI; CDP-attach is a hot-path trap; own the
+  agent loop, extensions connect out with `windowId`, sideload `.vsix`) is retained
+  here only as a reference **if a real app-automation worker is ever added later**.
 - **Kill immediacy (GPT)**: process-group SIGKILL is **not** enough (setsid,
   daemons, cron/launchd, containers, extension host survive). Use cgroup/Job-Object
   kill domains + network revoke + overlay rollback; UX must state kill can't undo
