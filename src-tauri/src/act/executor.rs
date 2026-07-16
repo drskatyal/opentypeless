@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use super::action::{Action, ActionPlan};
+use super::action::{Action, ActionPlan, ClipboardOp, Origin};
 use super::audit::{AuditEntry, AuditLog};
 use super::backend::AccessibilityBackend;
 use super::capability::{CapabilityGate, Decision};
@@ -16,6 +16,7 @@ use super::element::{ElementPath, Snapshot};
 use super::events::AskOption;
 use super::grounding::{self, Grounded};
 use super::killswitch::KillSwitch;
+use super::shell_policy::{self, ShellVerdict};
 
 /// A destructive target the user has confirmed, pinned to the exact control they
 /// approved: `(resolved path, resolved name)`. A pre-approval is honored only when
@@ -263,6 +264,14 @@ impl Executor {
     /// Run one action end-to-end: gate -> snapshot -> re-ground -> elevation ->
     /// execute -> verify -> audit.
     async fn step(&mut self, action: Action, preapproved: bool) -> Result<Flow, ExecError> {
+        // Script primitives (launch / uri / shell / wait / focus_app / clipboard)
+        // are not accessibility-tree targets, so they take a separate path:
+        // injection guards -> capability gate -> execute -> verify. No element
+        // resolution, no destructive-control classifier (that's for a11y invokes).
+        if is_script_primitive(&action) {
+            return self.step_script(action, preapproved).await;
+        }
+
         // 2. Capability gate. A one-time pre-approval softens Confirm to Allow.
         let decision = match (self.gate.evaluate(&action), preapproved) {
             (Decision::Confirm, true) => Decision::Allow,
@@ -377,6 +386,186 @@ impl Executor {
                 self.audit_step(&action, decision, "paused: ask_user");
                 Ok(Flow::Pause(StepOutcome::NeedsAskUser { prompt, options }))
             }
+        }
+    }
+
+    /// Run one script primitive: injection guards -> capability gate -> execute
+    /// -> minimal verify. Guards deny BEFORE the confirm gate, so a dangerous or
+    /// screen-originated command is refused outright and never offered as a
+    /// "run this?" prompt.
+    async fn step_script(&mut self, action: Action, preapproved: bool) -> Result<Flow, ExecError> {
+        // Injection / dangerous-command guards (hard Deny, ahead of the gate).
+        if let Some(reason) = self.script_guard(&action).await? {
+            self.audit_step(&action, Decision::Deny, "blocked: script_guard");
+            return Ok(Flow::Halt(StepOutcome::Denied { action, reason }));
+        }
+
+        // Capability gate. Launch/Uri/Shell/Clipboard default to Confirm; a
+        // one-time pre-approval softens Confirm to Allow. Wait/FocusApp are Allow.
+        let decision = match (self.gate.evaluate(&action), preapproved) {
+            (Decision::Confirm, true) => Decision::Allow,
+            (d, _) => d,
+        };
+        match decision {
+            Decision::Deny => {
+                let reason = format!("capability denied: {}", action.kind());
+                self.audit_step(&action, decision, "blocked: capability_denied");
+                return Ok(Flow::Halt(StepOutcome::Denied { action, reason }));
+            }
+            Decision::Confirm => {
+                let reason = script_confirm_reason(&action);
+                self.audit_step(&action, decision, "paused: needs_confirm");
+                return Ok(Flow::Pause(StepOutcome::NeedsConfirm { action, reason }));
+            }
+            Decision::Allow => {}
+        }
+
+        match self.execute_script(&action).await? {
+            Execution::Ok => {
+                // Launch/Uri only get best-effort verification (a window may take
+                // time to appear), so they are Done-but-unverified; Shell/FocusApp
+                // already encoded a concrete success signal (exit 0 / foreground).
+                let verified = !matches!(action, Action::Launch { .. } | Action::Uri { .. });
+                self.audit_step(&action, decision, "ok");
+                Ok(Flow::Continue(StepOutcome::Done { action, verified }))
+            }
+            Execution::Failed(error) => {
+                self.audit_step(&action, decision, "failed: backend");
+                Ok(Flow::Halt(StepOutcome::Failed { action, error }))
+            }
+            Execution::Aborted => Ok(Flow::Aborted),
+            Execution::Stop => Ok(Flow::Stop),
+            Execution::AskUser { prompt, options } => {
+                self.audit_step(&action, decision, "paused: ask_user");
+                Ok(Flow::Pause(StepOutcome::NeedsAskUser { prompt, options }))
+            }
+        }
+    }
+
+    /// Injection / dangerous-command guards for a script primitive. Returns
+    /// `Some(reason)` to deny the step outright. Layered with the planner's
+    /// plan-time validation (defense in depth): the executor is the last line.
+    async fn script_guard(&self, action: &Action) -> Result<Option<String>, ExecError> {
+        match action {
+            Action::Shell {
+                command,
+                shell,
+                origin,
+            } => {
+                // A command the model derived from on-screen (untrusted) content is
+                // never allowed to run.
+                if *origin == Origin::Screen {
+                    return Ok(Some("screen-originated shell command refused".into()));
+                }
+                // Independent Deny classifier — the real boundary, not the prompt.
+                if let ShellVerdict::Deny(reason) = shell_policy::classify_command(command, shell) {
+                    return Ok(Some(format!("blocked dangerous command: {reason}")));
+                }
+                // Laundering guard: a command that echoes a long span of on-screen
+                // text is very likely injected through the model. Fail closed.
+                let snapshot = self
+                    .backend
+                    .snapshot()
+                    .await
+                    .map_err(|e| ExecError::Backend(e.to_string()))?;
+                if command_echoes_screen(command, &snapshot) {
+                    return Ok(Some("shell command echoes on-screen text".into()));
+                }
+                Ok(None)
+            }
+            Action::Launch { target, origin } => {
+                if *origin == Origin::Screen && shell_policy::is_risky_launch_target(target) {
+                    return Ok(Some("screen-originated risky launch refused".into()));
+                }
+                Ok(None)
+            }
+            Action::Uri { uri, origin } => {
+                if shell_policy::is_dangerous_uri_scheme(uri) {
+                    return Ok(Some(format!("blocked dangerous URI scheme: {uri}")));
+                }
+                if *origin == Origin::Screen {
+                    return Ok(Some("screen-originated URI refused".into()));
+                }
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Perform one script primitive against the backend, racing the kill switch.
+    async fn execute_script(&self, action: &Action) -> Result<Execution, ExecError> {
+        let kill = self.kill.clone();
+        match action {
+            Action::Wait { ms } => {
+                let dur = std::time::Duration::from_millis((*ms).min(15_000) as u64);
+                tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => Ok(Execution::Aborted),
+                    _ = tokio::time::sleep(dur) => Ok(Execution::Ok),
+                }
+            }
+            Action::Launch { target, .. } => {
+                let res = tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    r = self.backend.launch(target) => r,
+                };
+                Ok(res.map_or_else(|e| Execution::Failed(e.to_string()), |()| Execution::Ok))
+            }
+            Action::Uri { uri, .. } => {
+                let res = tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    r = self.backend.open_uri(uri) => r,
+                };
+                Ok(res.map_or_else(|e| Execution::Failed(e.to_string()), |()| Execution::Ok))
+            }
+            Action::FocusApp { name } => {
+                let res = tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    r = self.backend.focus_app(name) => r,
+                };
+                match res {
+                    Ok(true) => Ok(Execution::Ok),
+                    Ok(false) => Ok(Execution::Failed(format!("could not focus \"{name}\""))),
+                    Err(e) => Ok(Execution::Failed(e.to_string())),
+                }
+            }
+            Action::Shell { command, shell, .. } => {
+                let res = tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    r = self.backend.run_shell(command, shell) => r,
+                };
+                match res {
+                    Ok(out) if out.exit_code == 0 => Ok(Execution::Ok),
+                    Ok(out) => {
+                        let tail: String = out.stdout.chars().take(200).collect();
+                        Ok(Execution::Failed(format!("exit {}: {tail}", out.exit_code)))
+                    }
+                    Err(e) => Ok(Execution::Failed(e.to_string())),
+                }
+            }
+            Action::Clipboard { op, text } => match op {
+                ClipboardOp::Set => {
+                    let res = tokio::select! {
+                        biased;
+                        _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                        r = self.backend.clipboard_set(text) => r,
+                    };
+                    Ok(res.map_or_else(|e| Execution::Failed(e.to_string()), |()| Execution::Ok))
+                }
+                ClipboardOp::Get => {
+                    let res = tokio::select! {
+                        biased;
+                        _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                        r = self.backend.clipboard_get() => r,
+                    };
+                    Ok(res.map_or_else(|e| Execution::Failed(e.to_string()), |_| Execution::Ok))
+                }
+            },
+            _ => Ok(Execution::Failed("not a script primitive".into())),
         }
     }
 
@@ -542,19 +731,17 @@ impl Executor {
                     options,
                 });
             }
-            // TODO(script-primitives): dispatch + verify + injection guards. The
-            // next agent wires these to the backend (launch/open_uri/run_shell/
-            // focus_app/clipboard), routes each through the shell_policy Deny
-            // classifier + capability gate, and adds origin-aware injection
-            // guards. Until then they fail closed so the plan halts rather than
-            // silently doing nothing.
+            // Script primitives are routed to `step_script` before reaching here;
+            // this arm only exists for match exhaustiveness and fails closed.
             Action::Launch { .. }
             | Action::Uri { .. }
             | Action::Shell { .. }
             | Action::Wait { .. }
             | Action::FocusApp { .. }
             | Action::Clipboard { .. } => {
-                return Ok(Execution::Failed("not yet wired".into()));
+                return Ok(Execution::Failed(
+                    "script primitive reached the a11y path".into(),
+                ));
             }
             Action::Stop => return Ok(Execution::Stop),
         };
@@ -689,6 +876,64 @@ enum Execution {
         prompt: String,
         options: Vec<AskOption>,
     },
+}
+
+/// Whether an action is a "script primitive" (OS/shell op) rather than an
+/// accessibility-tree op, and so takes the [`Executor::step_script`] path.
+fn is_script_primitive(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::Launch { .. }
+            | Action::Uri { .. }
+            | Action::Shell { .. }
+            | Action::Wait { .. }
+            | Action::FocusApp { .. }
+            | Action::Clipboard { .. }
+    )
+}
+
+/// A short, PHI-free confirmation reason shown before a gated script primitive
+/// runs. Shell shows the exact command + shell so the user sees what will run.
+fn script_confirm_reason(action: &Action) -> String {
+    match action {
+        Action::Shell { command, shell, .. } => format!("run {shell} command: {command}"),
+        Action::Launch { target, .. } => format!("launch {target}"),
+        Action::Uri { uri, .. } => format!("open {uri}"),
+        Action::Clipboard {
+            op: ClipboardOp::Set,
+            ..
+        } => "write to the clipboard".into(),
+        Action::Clipboard {
+            op: ClipboardOp::Get,
+            ..
+        } => "read the clipboard".into(),
+        other => format!("{} requires confirmation", other.kind()),
+    }
+}
+
+/// Whether `command` contains a contiguous >=12-character span that also appears
+/// in the snapshot's on-screen text — a strong signal the command was laundered
+/// from injected screen content rather than the user's spoken intent.
+fn command_echoes_screen(command: &str, snapshot: &Snapshot) -> bool {
+    const MIN: usize = 12;
+    let screen: String = snapshot
+        .elements
+        .iter()
+        .map(|e| e.name.to_lowercase())
+        .collect::<Vec<_>>()
+        .join(" ");
+    if screen.trim().is_empty() {
+        return false;
+    }
+    let cmd: Vec<char> = command.to_lowercase().chars().collect();
+    if cmd.len() < MIN {
+        return false;
+    }
+    (0..=cmd.len() - MIN).any(|start| {
+        let window: String = cmd[start..start + MIN].iter().collect();
+        // Ignore windows that are mostly whitespace (weak matches).
+        window.trim().len() >= MIN && screen.contains(&window)
+    })
 }
 
 /// Return `action` with its target path replaced by `path` (for the target-bearing
@@ -1187,5 +1432,186 @@ mod tests {
         // The focus was attempted but the later invoke was skipped.
         assert_eq!(backend.focused_targets(), vec!["#/2".to_string()]);
         assert!(backend.invoked().is_empty());
+    }
+
+    // ---- Script primitives (launch / uri / shell / wait / focus_app / clipboard) ----
+
+    #[tokio::test]
+    async fn wait_and_focus_app_are_allowed_and_execute() {
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![
+            Action::Wait { ms: 1 },
+            Action::FocusApp {
+                name: "Chrome".into(),
+            },
+        ]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed, "wait + focus_app are Allow and complete");
+        assert_eq!(backend.focused_apps(), vec!["Chrome".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn launch_pauses_for_confirmation_and_does_not_run() {
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Launch {
+            target: "spotify".into(),
+            origin: Origin::WorldKnowledge,
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(!result.completed);
+        assert!(matches!(
+            result.outcomes.last(),
+            Some(StepOutcome::NeedsConfirm { .. })
+        ));
+        assert!(
+            backend.launched().is_empty(),
+            "must not launch before confirm"
+        );
+    }
+
+    #[tokio::test]
+    async fn shell_runs_only_after_confirmation() {
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot())
+                .shell_output(0, "10.0.0.1")
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let shell = Action::Shell {
+            command: "ipconfig".into(),
+            shell: "cmd".into(),
+            origin: Origin::WorldKnowledge,
+        };
+        // First pass pauses for confirmation without running.
+        let paused = exec
+            .execute_plan(ActionPlan::new(vec![shell.clone()]))
+            .await
+            .unwrap();
+        assert!(matches!(
+            paused.outcomes.last(),
+            Some(StepOutcome::NeedsConfirm { .. })
+        ));
+        assert!(backend.ran_shells().is_empty());
+        // Confirming runs it exactly once.
+        let done = exec
+            .resume_after_user(ActionPlan::new(vec![shell]), UserDecision::ConfirmAllow)
+            .await
+            .unwrap();
+        assert!(done.completed);
+        assert_eq!(
+            backend.ran_shells(),
+            vec![("ipconfig".to_string(), "cmd".to_string())]
+        );
+    }
+
+    #[tokio::test]
+    async fn dangerous_shell_is_denied_before_confirm() {
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Shell {
+            command: "format c: /y".into(),
+            shell: "cmd".into(),
+            origin: Origin::WorldKnowledge,
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(!result.completed);
+        assert!(
+            matches!(result.outcomes.as_slice(), [StepOutcome::Denied { .. }]),
+            "a destructive command is Denied, never offered as a confirm: {:?}",
+            result.outcomes
+        );
+        assert!(backend.ran_shells().is_empty());
+    }
+
+    #[tokio::test]
+    async fn screen_originated_shell_is_denied() {
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Shell {
+            command: "echo hi".into(),
+            shell: "powershell".into(),
+            origin: Origin::Screen,
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(matches!(
+            result.outcomes.as_slice(),
+            [StepOutcome::Denied { .. }]
+        ));
+        assert!(backend.ran_shells().is_empty());
+    }
+
+    #[tokio::test]
+    async fn dangerous_uri_scheme_is_denied() {
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Uri {
+            uri: "file:///c:/windows/system32/x".into(),
+            origin: Origin::WorldKnowledge,
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(matches!(
+            result.outcomes.as_slice(),
+            [StepOutcome::Denied { .. }]
+        ));
+        assert!(backend.opened_uris().is_empty());
+    }
+
+    #[tokio::test]
+    async fn shell_echoing_on_screen_text_is_denied() {
+        // A snapshot whose control name carries a long token; a shell command that
+        // echoes that token is treated as laundered-from-screen and refused.
+        let snap = Snapshot {
+            app: "App".into(),
+            window_title: "W".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![el("#/1", Role::Text, "verysecrettoken_abcdef")],
+        };
+        let backend = Arc::new(MockBackend::builder().snapshot(snap).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Shell {
+            command: "echo verysecrettoken_abcdef".into(),
+            shell: "powershell".into(),
+            origin: Origin::WorldKnowledge,
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(
+            matches!(result.outcomes.as_slice(), [StepOutcome::Denied { .. }]),
+            "command echoing on-screen text is denied: {:?}",
+            result.outcomes
+        );
+        assert!(backend.ran_shells().is_empty());
+    }
+
+    #[tokio::test]
+    async fn shell_nonzero_exit_fails_the_plan() {
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot())
+                .shell_output(1, "not recognized")
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let shell = Action::Shell {
+            command: "frobnicate".into(),
+            shell: "cmd".into(),
+            origin: Origin::WorldKnowledge,
+        };
+        exec.execute_plan(ActionPlan::new(vec![shell.clone()]))
+            .await
+            .unwrap();
+        let done = exec
+            .resume_after_user(ActionPlan::new(vec![shell]), UserDecision::ConfirmAllow)
+            .await
+            .unwrap();
+        assert!(!done.completed);
+        assert!(matches!(
+            done.outcomes.last(),
+            Some(StepOutcome::Failed { .. })
+        ));
     }
 }

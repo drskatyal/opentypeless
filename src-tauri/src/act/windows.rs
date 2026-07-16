@@ -189,50 +189,118 @@ impl AccessibilityBackend for WindowsUiaBackend {
             .map_err(to_app_err)
     }
 
-    // TODO(script-primitives): real impl. The next agent wires these to
-    // ShellExecuteEx (launch/open_uri), a Job Object + captured PowerShell/cmd
-    // pipe (run_shell), window enumeration + SetForegroundWindow (focus_app), and
-    // the Win32 clipboard APIs (clipboard_get/set). Until then they decline
-    // cleanly so the crate compiles and links on Windows.
+    // Script primitives. These delegate to Terminator (launch / activate / open
+    // URL / run) and arboard (clipboard). The executor has already run the shell
+    // Deny classifier, the origin/injection guards, and the capability-gate
+    // confirm before any of these are called — this layer just performs the
+    // vetted OS action. No elevation is ever requested.
+    //
+    // Known v1 limitation: run_shell has a 15s wall-clock timeout but the kill
+    // switch cannot reap a shell child mid-run (the blocking thread + child keep
+    // going until the command or the timeout completes). A confirmed, Deny-vetted,
+    // non-elevated command running to completion is low-risk; a Job Object that
+    // reaps the whole child tree on abort is a planned hardening.
 
-    async fn launch(&self, _target: &str) -> std::result::Result<(), AppError> {
-        Err(AppError::Config(
-            "act.launch: not yet implemented".to_string(),
-        ))
+    async fn launch(&self, target: &str) -> std::result::Result<(), AppError> {
+        let target = target.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            desktop.open_application(&target).map_err(to_anyhow)?;
+            Ok(())
+        })
+        .await
+        .map_err(to_app_err)
     }
 
-    async fn open_uri(&self, _uri: &str) -> std::result::Result<(), AppError> {
-        Err(AppError::Config(
-            "act.open_uri: not yet implemented".to_string(),
-        ))
+    async fn open_uri(&self, uri: &str) -> std::result::Result<(), AppError> {
+        let uri = uri.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            desktop.open_url(&uri, None).map_err(to_anyhow)?;
+            Ok(())
+        })
+        .await
+        .map_err(to_app_err)
     }
 
     async fn run_shell(
         &self,
-        _command: &str,
-        _shell: &str,
+        command: &str,
+        shell: &str,
     ) -> std::result::Result<ShellOutput, AppError> {
-        Err(AppError::Config(
-            "act.run_shell: not yet implemented".to_string(),
-        ))
+        const TIMEOUT: Duration = Duration::from_secs(15);
+        const MAX_OUTPUT_CHARS: usize = 8192;
+        let command = command.to_string();
+        let shell = shell.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            // Terminator's `run` is async; drive it on a private current-thread
+            // runtime so the non-Send Desktop / COM handles never cross an await in
+            // the async-trait future.
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| anyhow!("act.run_shell runtime: {e}"))?;
+            let out = rt
+                .block_on(async {
+                    tokio::time::timeout(TIMEOUT, desktop.run(&command, Some(&shell), None)).await
+                })
+                .map_err(|_| anyhow!("shell command timed out after {}s", TIMEOUT.as_secs()))?
+                .map_err(to_anyhow)?;
+            let mut stdout = out.stdout;
+            if !out.stderr.trim().is_empty() {
+                if !stdout.is_empty() {
+                    stdout.push('\n');
+                }
+                stdout.push_str(&out.stderr);
+            }
+            if stdout.chars().count() > MAX_OUTPUT_CHARS {
+                stdout = stdout.chars().take(MAX_OUTPUT_CHARS).collect::<String>()
+                    + "…[output truncated]";
+            }
+            Ok(ShellOutput {
+                exit_code: out.exit_status.unwrap_or(-1),
+                stdout,
+            })
+        })
+        .await
+        .map_err(to_app_err)
     }
 
-    async fn focus_app(&self, _name: &str) -> std::result::Result<bool, AppError> {
-        Err(AppError::Config(
-            "act.focus_app: not yet implemented".to_string(),
-        ))
+    async fn focus_app(&self, name: &str) -> std::result::Result<bool, AppError> {
+        let name = name.to_string();
+        run_blocking(move || {
+            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+            Ok(desktop.activate_application(&name).is_ok())
+        })
+        .await
+        .map_err(to_app_err)
     }
 
     async fn clipboard_get(&self) -> std::result::Result<String, AppError> {
-        Err(AppError::Config(
-            "act.clipboard_get: not yet implemented".to_string(),
-        ))
+        run_blocking(|| {
+            let mut clipboard =
+                arboard::Clipboard::new().map_err(|e| anyhow!("clipboard open: {e}"))?;
+            clipboard
+                .get_text()
+                .map_err(|e| anyhow!("clipboard read: {e}"))
+        })
+        .await
+        .map_err(to_app_err)
     }
 
-    async fn clipboard_set(&self, _text: &str) -> std::result::Result<(), AppError> {
-        Err(AppError::Config(
-            "act.clipboard_set: not yet implemented".to_string(),
-        ))
+    async fn clipboard_set(&self, text: &str) -> std::result::Result<(), AppError> {
+        let text = text.to_string();
+        run_blocking(move || {
+            let mut clipboard =
+                arboard::Clipboard::new().map_err(|e| anyhow!("clipboard open: {e}"))?;
+            clipboard
+                .set_text(text)
+                .map_err(|e| anyhow!("clipboard write: {e}"))?;
+            Ok(())
+        })
+        .await
+        .map_err(to_app_err)
     }
 
     fn name(&self) -> &str {
