@@ -22,6 +22,10 @@ pub struct AskOption {
 pub enum ActEvent {
     /// Session state changed (idle / armed / planning / executing / awaiting_*).
     State { state: String },
+    /// A live, human-readable progress line for the activity indicator, e.g.
+    /// "opening play_song", "launching Spotify", "searching Hotel California".
+    /// PHI-free by construction (labels, not values).
+    Step { label: String },
     /// A medium-risk action needs the user's explicit confirmation.
     Confirm { summary: String, reason: String },
     /// The target was ambiguous; the user must pick one.
