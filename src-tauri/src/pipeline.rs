@@ -1776,6 +1776,44 @@ impl PipelineHandle {
             return Ok(());
         }
 
+        // ── Act fork ───────────────────────────────────────────────────
+        // When Act mode is armed, the final transcript drives OS automation
+        // instead of being polished and inserted as dictation. This is the
+        // single choke point: `raw_text` is the completed final transcript, the
+        // abort check above has already run, and no output has happened yet.
+        //
+        // If Act is off (state absent), the session is `None`, or it is not
+        // armed, this is a zero-behavior-change no-op and dictation proceeds
+        // exactly as before.
+        if let Some(act_state) = self
+            .app_handle
+            .try_state::<crate::commands::act::ActState>()
+        {
+            let mut act_guard = act_state.session.lock().await;
+            if let Some(session) = act_guard.as_mut() {
+                if session.is_armed() {
+                    match session.on_final_transcript(raw_text.clone()).await {
+                        Ok(events) => {
+                            for event in &events {
+                                let _ = self.app_handle.emit(crate::act::events::ACT_EVENT, event);
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Act session rejected transcript: {e}");
+                        }
+                    }
+                    // Act consumed this transcript: skip normal dictation output
+                    // (do NOT polish or paste) and return to Idle.
+                    drop(act_guard);
+                    if let Some(control) = &stt_control {
+                        self.clear_stt_session(control.id);
+                    }
+                    self.set_state(PipelineState::Idle);
+                    return Ok(());
+                }
+            }
+        }
+
         // ── Phase 2: LLM polish + output ───────────────────────────────
         let polish_outcome = self
             .polish_text(PolishTextInput {

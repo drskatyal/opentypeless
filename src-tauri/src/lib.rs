@@ -859,6 +859,7 @@ pub fn run() {
             app.manage(history_store);
             app.manage(dictionary_store);
             app.manage(app_mapping_store);
+            app.manage(commands::act::ActState::new(shared_client.clone()));
             app.manage(shared_client);
             app.manage(context_detector);
             app.manage(pipeline_handle);
@@ -1178,6 +1179,10 @@ pub fn run() {
             commands::config::set_auto_start,
             commands::config::set_capsule_auto_hide,
             commands::config::set_session_token,
+            commands::act::act_set_enabled,
+            commands::act::act_get_state,
+            commands::act::act_user_decision,
+            commands::act::act_abort,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

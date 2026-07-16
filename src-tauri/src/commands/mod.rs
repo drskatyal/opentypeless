@@ -1,3 +1,4 @@
+pub mod act;
 pub mod app_mappings;
 pub mod ask;
 pub mod backup;
