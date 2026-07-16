@@ -345,6 +345,13 @@ pub struct AppConfig {
     pub stt_vad_min_speech_ms: u32,
     pub stt_vad_speech_pad_ms: u32,
     pub stt_volcengine_resource_id: String,
+    /// Act mode: voice-driven OS automation. Opt-in and off by default; when on,
+    /// a final transcript is planned + executed instead of inserted as text.
+    pub act_enabled: bool,
+    /// Act planner model tier: "fast" (default) or "precise".
+    pub act_model_tier: String,
+    /// Act control modality: "batch" (hold-to-talk) or "vad" (hands-free).
+    pub act_mode: String,
     pub llm_provider: String,
     pub llm_api_key: String,
     pub llm_model: String,
@@ -403,6 +410,9 @@ impl Default for AppConfig {
             stt_vad_speech_pad_ms: 120,
             stt_volcengine_resource_id: crate::stt::volcengine::VOLCENGINE_SEEDASR_RESOURCE_ID
                 .to_string(),
+            act_enabled: false,
+            act_model_tier: "fast".to_string(),
+            act_mode: "batch".to_string(),
             llm_provider: "gemini".to_string(),
             llm_api_key: String::new(),
             llm_model: "gemini-3.1-flash-lite".to_string(),

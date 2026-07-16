@@ -12,10 +12,40 @@ pub mod audit;
 pub mod backend;
 pub mod capability;
 pub mod element;
+pub mod events;
+pub mod executor;
 pub mod fastpath;
 pub mod grounding;
+pub mod grounding_packet;
 pub mod killswitch;
+pub mod llm;
 pub mod mock_backend;
+pub mod planner;
+pub mod session;
 
 #[cfg(windows)]
 pub mod windows;
+
+use std::sync::Arc;
+
+use backend::AccessibilityBackend;
+
+/// Construct the platform accessibility backend for Act.
+///
+/// Windows uses the UIA/Terminator backend; every other platform gets the mock
+/// (Act is Windows-only in Phase 1 — the command layer refuses to arm elsewhere).
+pub fn create_backend() -> Arc<dyn AccessibilityBackend> {
+    #[cfg(windows)]
+    {
+        Arc::new(windows::WindowsUiaBackend::new())
+    }
+    #[cfg(not(windows))]
+    {
+        Arc::new(mock_backend::MockBackend::default())
+    }
+}
+
+/// Whether Act's accessibility backend is functional on this platform.
+pub const fn act_supported() -> bool {
+    cfg!(windows)
+}
