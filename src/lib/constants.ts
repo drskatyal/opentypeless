@@ -132,10 +132,38 @@ export const STT_MODES = [
 // Silero VAD tuning params (only used in Real-time mode). Scaffolded UI;
 // the engine that consumes them lands in a later step.
 export const VAD_PARAMS = [
-  { key: 'stt_vad_threshold', labelKey: 'settings.vadThreshold', min: 0, max: 1, step: 0.05, unit: '' },
-  { key: 'stt_vad_min_silence_ms', labelKey: 'settings.vadMinSilence', min: 0, max: 2000, step: 50, unit: 'ms' },
-  { key: 'stt_vad_min_speech_ms', labelKey: 'settings.vadMinSpeech', min: 0, max: 1000, step: 25, unit: 'ms' },
-  { key: 'stt_vad_speech_pad_ms', labelKey: 'settings.vadSpeechPad', min: 0, max: 500, step: 10, unit: 'ms' },
+  {
+    key: 'stt_vad_threshold',
+    labelKey: 'settings.vadThreshold',
+    min: 0,
+    max: 1,
+    step: 0.05,
+    unit: '',
+  },
+  {
+    key: 'stt_vad_min_silence_ms',
+    labelKey: 'settings.vadMinSilence',
+    min: 0,
+    max: 2000,
+    step: 50,
+    unit: 'ms',
+  },
+  {
+    key: 'stt_vad_min_speech_ms',
+    labelKey: 'settings.vadMinSpeech',
+    min: 0,
+    max: 1000,
+    step: 25,
+    unit: 'ms',
+  },
+  {
+    key: 'stt_vad_speech_pad_ms',
+    labelKey: 'settings.vadSpeechPad',
+    min: 0,
+    max: 500,
+    step: 10,
+    unit: 'ms',
+  },
 ] as const
 
 export const VOLCENGINE_STT_RESOURCES = [
