@@ -1246,11 +1246,24 @@ impl PipelineHandle {
             operation_id: Some(cloud_operation_id),
         };
 
+        // Realtime (energy-VAD streaming) mode for the native Gemini provider.
+        let gemini_realtime = if config_data.stt_mode == "realtime" {
+            Some(stt::gemini::RealtimeVad {
+                threshold: config_data.stt_vad_threshold,
+                min_silence_ms: config_data.stt_vad_min_silence_ms,
+                min_speech_ms: config_data.stt_vad_min_speech_ms,
+                speech_pad_ms: config_data.stt_vad_speech_pad_ms,
+            })
+        } else {
+            None
+        };
+
         let mut provider = match stt::create_provider(
             &config_data.stt_provider,
             custom_whisper_config,
             Some(self.shared_client.clone()),
             Some(config_data.stt_gemini_model.clone()),
+            gemini_realtime,
         ) {
             Ok(provider) => provider,
             Err(e) => {

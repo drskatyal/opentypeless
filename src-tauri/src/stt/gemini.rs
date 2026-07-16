@@ -1,5 +1,8 @@
+use std::collections::VecDeque;
+
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use tokio::sync::mpsc;
 
 use crate::error::AppError;
 
@@ -12,18 +15,192 @@ const MAX_AUDIO_BYTES: usize = 24 * 1024 * 1024;
 /// Default Gemini model used for native transcription when none is selected.
 pub const DEFAULT_MODEL: &str = "gemini-3.1-flash-lite";
 
+/// Real-time energy-VAD tuning parameters.
+///
+/// When present the provider runs in streaming (realtime) mode: it segments the
+/// incoming audio on silence and transcribes each closed speech segment on its
+/// own, emitting a `TranscriptEvent::Final` per segment. When absent the
+/// provider stays in the default BATCH mode (buffer everything, transcribe once
+/// in `disconnect`).
+#[derive(Debug, Clone)]
+pub struct RealtimeVad {
+    pub threshold: f32,
+    pub min_silence_ms: u32,
+    pub min_speech_ms: u32,
+    pub speech_pad_ms: u32,
+}
+
+/// Energy-VAD segmentation state machine.
+///
+/// Pure and network-free: it consumes raw PCM in fixed 20 ms frames and, when a
+/// speech segment ends (enough voiced audio followed by enough trailing
+/// silence), pushes the segment's PCM bytes onto `closed` for the caller to
+/// drain. Kept separate from the provider so it can be unit-tested directly.
+struct VadSegmenter {
+    /// Bytes per 20 ms frame (`sample_rate / 50` samples * 2 bytes, 640 @ 16kHz).
+    frame_bytes: usize,
+    /// Energy gate on the normalized RMS (0..1).
+    gate: f32,
+    min_silence_ms: u32,
+    min_speech_ms: u32,
+    speech_pad_ms: u32,
+    /// Number of 20 ms frames of pre-speech padding to retain.
+    pad_ring_capacity: usize,
+    /// Leftover bytes shorter than one frame, carried across `feed_frames` calls.
+    frame_carry: Vec<u8>,
+    /// PCM of the segment currently being built (once speech has started).
+    seg_buffer: Vec<u8>,
+    /// Rolling buffer of the last `speech_pad_ms` of pre-speech frames.
+    pad_ring: VecDeque<Vec<u8>>,
+    voiced_ms: f32,
+    trailing_silence_ms: f32,
+    segment_active: bool,
+    /// Segments closed since the last drain, in FIFO order.
+    closed: Vec<Vec<u8>>,
+}
+
+impl VadSegmenter {
+    fn new(vad: &RealtimeVad, sample_rate: u32) -> Self {
+        let samples_per_frame = (sample_rate / 50).max(1) as usize;
+        let frame_bytes = samples_per_frame * 2;
+        // Energy gate heuristic: map the 0..1 UI `threshold` onto a small
+        // normalized-RMS window. threshold 0.0 => 0.010 (very sensitive),
+        // threshold 0.5 => 0.035, threshold 1.0 => 0.060. Speech typically sits
+        // well above this; room tone sits below it.
+        let gate = 0.01 + vad.threshold * 0.05;
+        let pad_ring_capacity = (vad.speech_pad_ms / 20) as usize;
+        Self {
+            frame_bytes,
+            gate,
+            min_silence_ms: vad.min_silence_ms,
+            min_speech_ms: vad.min_speech_ms,
+            speech_pad_ms: vad.speech_pad_ms,
+            pad_ring_capacity,
+            frame_carry: Vec::new(),
+            seg_buffer: Vec::new(),
+            pad_ring: VecDeque::new(),
+            voiced_ms: 0.0,
+            trailing_silence_ms: 0.0,
+            segment_active: false,
+            closed: Vec::new(),
+        }
+    }
+
+    /// Normalized (0..1) RMS energy of one 16-bit LE mono frame.
+    fn frame_rms_normalized(frame: &[u8]) -> f32 {
+        if frame.len() < 2 {
+            return 0.0;
+        }
+        let n = frame.len() / 2;
+        let mut acc = 0f64;
+        for s in frame.chunks_exact(2) {
+            let v = i16::from_le_bytes([s[0], s[1]]) as f64;
+            acc += v * v;
+        }
+        let rms = (acc / n as f64).sqrt();
+        (rms / 32768.0) as f32
+    }
+
+    /// Process one complete 20 ms frame. Returns true if it closed a segment.
+    fn process_frame(&mut self, frame: Vec<u8>) -> bool {
+        let voiced = Self::frame_rms_normalized(&frame) > self.gate;
+
+        if voiced {
+            if !self.segment_active {
+                // Start the segment, prepending the retained pre-speech padding.
+                self.segment_active = true;
+                for pf in self.pad_ring.drain(..) {
+                    self.seg_buffer.extend_from_slice(&pf);
+                }
+            }
+            self.seg_buffer.extend_from_slice(&frame);
+            self.voiced_ms += 20.0;
+            self.trailing_silence_ms = 0.0;
+        } else if self.segment_active {
+            self.trailing_silence_ms += 20.0;
+            // Append up to `speech_pad_ms` of trailing silence, then stop.
+            if self.trailing_silence_ms <= self.speech_pad_ms as f32 {
+                self.seg_buffer.extend_from_slice(&frame);
+            }
+        } else {
+            // Not in a segment: keep the last `speech_pad_ms` of frames around.
+            self.pad_ring.push_back(frame);
+            while self.pad_ring.len() > self.pad_ring_capacity {
+                self.pad_ring.pop_front();
+            }
+        }
+
+        if self.segment_active
+            && self.voiced_ms >= self.min_speech_ms as f32
+            && self.trailing_silence_ms >= self.min_silence_ms as f32
+        {
+            let seg = std::mem::take(&mut self.seg_buffer);
+            self.closed.push(seg);
+            self.voiced_ms = 0.0;
+            self.trailing_silence_ms = 0.0;
+            self.segment_active = false;
+            self.pad_ring.clear();
+            return true;
+        }
+        false
+    }
+
+    /// Feed a chunk of PCM. Returns the number of segments closed this call.
+    /// Closed segment PCM is queued on `self.closed` for the caller to drain.
+    fn feed_frames(&mut self, chunk: &[u8]) -> usize {
+        self.frame_carry.extend_from_slice(chunk);
+        let mut closed = 0;
+        while self.frame_carry.len() >= self.frame_bytes {
+            let frame: Vec<u8> = self.frame_carry.drain(..self.frame_bytes).collect();
+            if self.process_frame(frame) {
+                closed += 1;
+            }
+        }
+        closed
+    }
+
+    /// Take the in-progress segment for a final flush, if it holds enough
+    /// voiced audio to be worth transcribing. Resets the state machine.
+    fn take_active_segment(&mut self) -> Option<Vec<u8>> {
+        if self.segment_active
+            && self.voiced_ms >= self.min_speech_ms as f32
+            && !self.seg_buffer.is_empty()
+        {
+            let seg = std::mem::take(&mut self.seg_buffer);
+            self.segment_active = false;
+            self.voiced_ms = 0.0;
+            self.trailing_silence_ms = 0.0;
+            self.pad_ring.clear();
+            Some(seg)
+        } else {
+            None
+        }
+    }
+}
+
 /// Native Gemini STT provider.
 ///
 /// Gemini has no OpenAI Whisper-style `/audio/transcriptions` endpoint, so it
 /// cannot be driven through the Whisper-compatible provider. Instead it
 /// transcribes via `generateContent` with the audio sent as inline base64 data.
-/// Like the other file-based providers it buffers PCM during recording and does
-/// the actual transcription in `disconnect`.
+///
+/// Two modes:
+/// - BATCH (default): buffers PCM during recording and transcribes the whole
+///   clip in `disconnect`, like the other file-based providers.
+/// - REALTIME: runs an energy-VAD state machine in `send_audio`, spawns a
+///   background worker that transcribes each closed speech segment FIFO, and
+///   emits a `TranscriptEvent::Final` per segment through `recv_transcript`.
 pub struct GeminiSttProvider {
     model: String,
     stt_config: Option<SttConfig>,
     audio_buffer: Vec<u8>,
     client: reqwest::Client,
+    /// `Some` => realtime mode; `None` => batch mode (default).
+    realtime: Option<RealtimeVad>,
+    // Realtime runtime state (all `None` in batch mode / before connect):
+    segmenter: Option<VadSegmenter>,
+    seg_tx: Option<mpsc::UnboundedSender<Vec<u8>>>,
+    result_rx: Option<mpsc::UnboundedReceiver<Result<Option<String>, AppError>>>,
 }
 
 impl GeminiSttProvider {
@@ -37,7 +214,18 @@ impl GeminiSttProvider {
             stt_config: None,
             audio_buffer: Vec::new(),
             client,
+            realtime: None,
+            segmenter: None,
+            seg_tx: None,
+            result_rx: None,
         }
+    }
+
+    /// Construct the provider in realtime (energy-VAD streaming) mode.
+    pub fn with_realtime(model: Option<String>, client: reqwest::Client, vad: RealtimeVad) -> Self {
+        let mut provider = Self::with_client(model, client);
+        provider.realtime = Some(vad);
+        provider
     }
 
     /// Build a WAV file from raw PCM 16-bit mono audio.
@@ -86,53 +274,24 @@ impl GeminiSttProvider {
         }
         s
     }
-}
 
-#[async_trait]
-impl SttProvider for GeminiSttProvider {
-    async fn connect(&mut self, config: &SttConfig) -> Result<(), AppError> {
-        if config.api_key.trim().is_empty() {
-            return Err(AppError::Auth("Gemini API key is empty".into()));
-        }
-        self.stt_config = Some(config.clone());
-        self.audio_buffer.clear();
-        tracing::info!(
-            "Gemini STT provider ready (buffering mode), model={}",
-            self.model
-        );
-        Ok(())
-    }
-
-    async fn send_audio(&mut self, chunk: &[u8]) -> Result<(), AppError> {
-        if self.audio_buffer.len() + chunk.len() > MAX_AUDIO_BYTES {
-            return Err(AppError::Config(
-                "Gemini: audio exceeds maximum length (~12 min)".into(),
-            ));
-        }
-        self.audio_buffer.extend_from_slice(chunk);
-        Ok(())
-    }
-
-    async fn recv_transcript(&mut self) -> Result<Option<TranscriptEvent>, AppError> {
-        // File-based provider: transcription happens in disconnect(); keep this
-        // future pending so the pipeline select loop does not busy-spin.
-        std::future::pending().await
-    }
-
-    async fn disconnect(&mut self) -> Result<Option<String>, AppError> {
-        let config = match &self.stt_config {
-            Some(c) => c.clone(),
-            None => return Ok(None),
-        };
-
-        if self.audio_buffer.is_empty() {
-            tracing::info!("Gemini: no audio buffered, skipping");
+    /// Transcribe one clip of raw PCM via Gemini `generateContent`.
+    ///
+    /// Shared by BATCH `disconnect` and the REALTIME background worker. Keeps
+    /// the WAV build, injection-hardened system instruction, temperature 0.0 and
+    /// error handling identical across both modes.
+    async fn transcribe_pcm(
+        client: &reqwest::Client,
+        model: &str,
+        config: &SttConfig,
+        pcm: &[u8],
+    ) -> Result<Option<String>, AppError> {
+        if pcm.is_empty() {
             return Ok(None);
         }
 
-        let audio_len_secs = self.audio_buffer.len() as f64 / (config.sample_rate as f64 * 2.0);
-        let wav = Self::build_wav(&self.audio_buffer, config.sample_rate);
-        self.audio_buffer.clear();
+        let audio_len_secs = pcm.len() as f64 / (config.sample_rate as f64 * 2.0);
+        let wav = Self::build_wav(pcm, config.sample_rate);
         tracing::info!(
             "Gemini: sending {:.1}s of audio for transcription",
             audio_len_secs
@@ -140,7 +299,7 @@ impl SttProvider for GeminiSttProvider {
 
         let url = format!(
             "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
-            self.model
+            model
         );
 
         let system_text = Self::system_instruction(config.language.as_deref());
@@ -158,8 +317,7 @@ impl SttProvider for GeminiSttProvider {
             "generationConfig": { "temperature": 0.0 }
         });
 
-        let resp = self
-            .client
+        let resp = client
             .post(&url)
             .header("x-goog-api-key", config.api_key.trim())
             .json(&body)
@@ -203,6 +361,182 @@ impl SttProvider for GeminiSttProvider {
         tracing::info!("Gemini transcription: {} chars", text.len());
         Ok(if text.is_empty() { None } else { Some(text) })
     }
+}
+
+#[async_trait]
+impl SttProvider for GeminiSttProvider {
+    async fn connect(&mut self, config: &SttConfig) -> Result<(), AppError> {
+        if config.api_key.trim().is_empty() {
+            return Err(AppError::Auth("Gemini API key is empty".into()));
+        }
+        self.stt_config = Some(config.clone());
+        self.audio_buffer.clear();
+
+        if let Some(vad) = self.realtime.clone() {
+            // Realtime mode: build the VAD segmenter and spawn a detached worker
+            // that transcribes closed segments strictly FIFO so transcript order
+            // is preserved.
+            self.segmenter = Some(VadSegmenter::new(&vad, config.sample_rate));
+
+            let (seg_tx, mut seg_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+            let (result_tx, result_rx) =
+                mpsc::unbounded_channel::<Result<Option<String>, AppError>>();
+            let client = self.client.clone();
+            let model = self.model.clone();
+            let cfg = config.clone();
+            tokio::spawn(async move {
+                while let Some(pcm) = seg_rx.recv().await {
+                    let result = Self::transcribe_pcm(&client, &model, &cfg, &pcm).await;
+                    if result_tx.send(result).is_err() {
+                        break;
+                    }
+                }
+            });
+            self.seg_tx = Some(seg_tx);
+            self.result_rx = Some(result_rx);
+
+            tracing::info!(
+                "Gemini STT provider ready (realtime VAD mode), model={}",
+                self.model
+            );
+        } else {
+            tracing::info!(
+                "Gemini STT provider ready (buffering mode), model={}",
+                self.model
+            );
+        }
+        Ok(())
+    }
+
+    async fn send_audio(&mut self, chunk: &[u8]) -> Result<(), AppError> {
+        if self.realtime.is_some() {
+            // Realtime: run the energy-VAD state machine; never await HTTP here.
+            let closed = {
+                let seg = self
+                    .segmenter
+                    .as_mut()
+                    .ok_or_else(|| AppError::Config("Gemini: realtime segmenter missing".into()))?;
+                if seg.seg_buffer.len() + chunk.len() > MAX_AUDIO_BYTES {
+                    return Err(AppError::Config(
+                        "Gemini: audio exceeds maximum length (~12 min)".into(),
+                    ));
+                }
+                seg.feed_frames(chunk);
+                std::mem::take(&mut seg.closed)
+            };
+            if let Some(tx) = &self.seg_tx {
+                for segment in closed {
+                    let _ = tx.send(segment);
+                }
+            }
+            return Ok(());
+        }
+
+        // Batch mode: buffer everything, transcribe once in disconnect().
+        if self.audio_buffer.len() + chunk.len() > MAX_AUDIO_BYTES {
+            return Err(AppError::Config(
+                "Gemini: audio exceeds maximum length (~12 min)".into(),
+            ));
+        }
+        self.audio_buffer.extend_from_slice(chunk);
+        Ok(())
+    }
+
+    async fn recv_transcript(&mut self) -> Result<Option<TranscriptEvent>, AppError> {
+        if self.realtime.is_some() {
+            // Await the worker's results. This future is polled inside the
+            // pipeline `select!` and may be cancelled between iterations; the
+            // unbounded receiver is cancel-safe so no segment is lost.
+            let rx = self.result_rx.as_mut().ok_or_else(|| {
+                AppError::Config("Gemini: realtime result channel missing".into())
+            })?;
+            loop {
+                match rx.recv().await {
+                    Some(Ok(Some(text))) => {
+                        return Ok(Some(TranscriptEvent::Final {
+                            text,
+                            confidence: 1.0,
+                        }));
+                    }
+                    // Empty transcription — keep waiting for the next segment
+                    // rather than returning None (which the pipeline busy-spins on).
+                    Some(Ok(None)) => continue,
+                    Some(Err(e)) => {
+                        return Ok(Some(TranscriptEvent::Error {
+                            message: e.to_string(),
+                        }));
+                    }
+                    // Worker gone: park forever so the select loop keeps forwarding
+                    // audio until it closes and disconnect() runs.
+                    None => return std::future::pending().await,
+                }
+            }
+        }
+
+        // File-based provider (batch): transcription happens in disconnect();
+        // keep this future pending so the pipeline select loop does not busy-spin.
+        std::future::pending().await
+    }
+
+    async fn disconnect(&mut self) -> Result<Option<String>, AppError> {
+        let config = match &self.stt_config {
+            Some(c) => c.clone(),
+            None => return Ok(None),
+        };
+
+        if self.realtime.is_some() {
+            // Grab the trailing in-progress segment (if it holds enough voiced
+            // audio) before stopping the worker.
+            let flush_pcm = self
+                .segmenter
+                .as_mut()
+                .and_then(|s| s.take_active_segment());
+
+            // Stop the worker by dropping the segment sender; it drains any
+            // queued segments and then exits.
+            let _ = self.seg_tx.take();
+
+            // Drain every remaining worker result FIFO (waits for in-flight
+            // transcriptions, preserving order). These are earlier segments that
+            // were closed but not yet emitted through recv_transcript.
+            let mut parts: Vec<String> = Vec::new();
+            if let Some(mut rx) = self.result_rx.take() {
+                while let Some(result) = rx.recv().await {
+                    if let Ok(Some(text)) = result {
+                        if !text.is_empty() {
+                            parts.push(text);
+                        }
+                    }
+                }
+            }
+
+            // The flushed trailing segment is chronologically last.
+            if let Some(pcm) = flush_pcm {
+                if let Ok(Some(text)) =
+                    Self::transcribe_pcm(&self.client, &self.model, &config, &pcm).await
+                {
+                    if !text.is_empty() {
+                        parts.push(text);
+                    }
+                }
+            }
+
+            self.segmenter = None;
+            return Ok(if parts.is_empty() {
+                None
+            } else {
+                Some(parts.join(" "))
+            });
+        }
+
+        // Batch mode.
+        if self.audio_buffer.is_empty() {
+            tracing::info!("Gemini: no audio buffered, skipping");
+            return Ok(None);
+        }
+        let pcm = std::mem::take(&mut self.audio_buffer);
+        Self::transcribe_pcm(&self.client, &self.model, &config, &pcm).await
+    }
 
     fn name(&self) -> &str {
         "gemini"
@@ -221,6 +555,34 @@ mod tests {
             sample_rate: 16000,
             resource_id: None,
             operation_id: None,
+        }
+    }
+
+    // ---- synthetic PCM helpers (16 kHz, 16-bit mono LE) ----
+
+    /// `ms` milliseconds of digital silence.
+    fn silence(ms: u32) -> Vec<u8> {
+        let samples = (ms * 16) as usize; // 16 samples per ms at 16 kHz
+        vec![0u8; samples * 2]
+    }
+
+    /// `ms` milliseconds of a loud tone (|amplitude| ≈ 8000, well above the gate).
+    fn loud(ms: u32) -> Vec<u8> {
+        let samples = (ms * 16) as usize;
+        let mut pcm = Vec::with_capacity(samples * 2);
+        for i in 0..samples {
+            let v: i16 = if i % 2 == 0 { 8000 } else { -8000 };
+            pcm.extend_from_slice(&v.to_le_bytes());
+        }
+        pcm
+    }
+
+    fn default_vad() -> RealtimeVad {
+        RealtimeVad {
+            threshold: 0.5,
+            min_silence_ms: 700,
+            min_speech_ms: 250,
+            speech_pad_ms: 120,
         }
     }
 
@@ -313,5 +675,83 @@ mod tests {
             !GeminiSttProvider::system_instruction(Some("multi")).contains("spoken language is")
         );
         assert!(!GeminiSttProvider::system_instruction(Some("  ")).contains("spoken language is"));
+    }
+
+    // ---- realtime energy-VAD state machine tests (network-free) ----
+
+    #[test]
+    fn with_realtime_sets_realtime_mode() {
+        let provider =
+            GeminiSttProvider::with_realtime(None, reqwest::Client::new(), default_vad());
+        assert!(provider.realtime.is_some());
+        assert_eq!(provider.name(), "gemini");
+    }
+
+    #[test]
+    fn vad_frame_size_is_20ms() {
+        let seg = VadSegmenter::new(&default_vad(), 16000);
+        // 16000 / 50 = 320 samples * 2 bytes = 640 bytes.
+        assert_eq!(seg.frame_bytes, 640);
+    }
+
+    #[test]
+    fn speech_then_silence_closes_exactly_one_segment() {
+        let mut seg = VadSegmenter::new(&default_vad(), 16000);
+        let mut audio = loud(400);
+        audio.extend_from_slice(&silence(800));
+        let closed = seg.feed_frames(&audio);
+        assert_eq!(closed, 1, "one speech segment should close");
+        assert_eq!(seg.closed.len(), 1);
+        assert!(!seg.segment_active, "state resets after closing");
+    }
+
+    #[test]
+    fn continuous_speech_without_trailing_silence_closes_zero() {
+        let mut seg = VadSegmenter::new(&default_vad(), 16000);
+        let closed = seg.feed_frames(&loud(1000));
+        assert_eq!(closed, 0, "no trailing silence => no segment closes");
+        assert!(seg.segment_active, "segment stays open awaiting silence");
+    }
+
+    #[test]
+    fn short_blip_below_min_speech_does_not_close() {
+        // Require 2s of speech; a 300 ms blip followed by long silence must not close.
+        let vad = RealtimeVad {
+            threshold: 0.5,
+            min_silence_ms: 700,
+            min_speech_ms: 2000,
+            speech_pad_ms: 120,
+        };
+        let mut seg = VadSegmenter::new(&vad, 16000);
+        let mut audio = loud(300);
+        audio.extend_from_slice(&silence(800));
+        let closed = seg.feed_frames(&audio);
+        assert_eq!(closed, 0, "blip shorter than min_speech must not close");
+    }
+
+    #[test]
+    fn multiple_segments_close_in_order() {
+        let mut seg = VadSegmenter::new(&default_vad(), 16000);
+        let mut audio = loud(400);
+        audio.extend_from_slice(&silence(800));
+        audio.extend_from_slice(&loud(400));
+        audio.extend_from_slice(&silence(800));
+        let closed = seg.feed_frames(&audio);
+        assert_eq!(closed, 2, "two speech segments should close");
+        assert_eq!(seg.closed.len(), 2);
+    }
+
+    #[test]
+    fn take_active_segment_flushes_trailing_speech() {
+        let mut seg = VadSegmenter::new(&default_vad(), 16000);
+        // Speech that never gets enough trailing silence to auto-close.
+        let closed = seg.feed_frames(&loud(400));
+        assert_eq!(closed, 0);
+        let flushed = seg.take_active_segment();
+        assert!(
+            flushed.is_some(),
+            "trailing voiced audio flushes on disconnect"
+        );
+        assert!(!flushed.unwrap().is_empty());
     }
 }

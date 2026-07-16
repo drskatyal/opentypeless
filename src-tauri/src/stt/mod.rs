@@ -61,6 +61,7 @@ pub fn create_provider(
     custom_whisper_config: Option<WhisperCompatConfig>,
     client: Option<reqwest::Client>,
     gemini_model: Option<String>,
+    gemini_realtime: Option<gemini::RealtimeVad>,
 ) -> Result<Box<dyn SttProvider>, AppError> {
     match provider_name {
         "cloud" => {
@@ -77,9 +78,17 @@ pub fn create_provider(
         "gemini" => {
             // An empty selection falls back to the provider's default model.
             let model = gemini_model.filter(|m| !m.trim().is_empty());
-            Ok(match client {
-                Some(ref c) => Box::new(gemini::GeminiSttProvider::with_client(model, c.clone())),
-                None => Box::new(gemini::GeminiSttProvider::new(model)),
+            let http = client.clone().unwrap_or_default();
+            Ok(match gemini_realtime {
+                // Realtime (energy-VAD streaming) mode.
+                Some(vad) => Box::new(gemini::GeminiSttProvider::with_realtime(model, http, vad)),
+                // Default BATCH mode.
+                None => match client {
+                    Some(ref c) => {
+                        Box::new(gemini::GeminiSttProvider::with_client(model, c.clone()))
+                    }
+                    None => Box::new(gemini::GeminiSttProvider::new(model)),
+                },
             })
         }
         "deepgram" => Ok(Box::new(deepgram::DeepgramProvider::new())),
@@ -117,7 +126,7 @@ mod tests {
 
     #[test]
     fn custom_whisper_requires_explicit_config() {
-        let result = create_provider(config::CUSTOM_WHISPER_PROVIDER, None, None, None);
+        let result = create_provider(config::CUSTOM_WHISPER_PROVIDER, None, None, None, None);
         assert!(result.is_err());
     }
 
@@ -130,32 +139,33 @@ mod tests {
         .unwrap();
 
         let provider =
-            create_provider(config::CUSTOM_WHISPER_PROVIDER, Some(cfg), None, None).unwrap();
+            create_provider(config::CUSTOM_WHISPER_PROVIDER, Some(cfg), None, None, None).unwrap();
         assert_eq!(provider.name(), config::CUSTOM_WHISPER_PROVIDER);
     }
 
     #[test]
     fn creates_volcengine_doubao_realtime_provider() {
-        let provider = create_provider("volcengine-doubao", None, None, None).unwrap();
+        let provider = create_provider("volcengine-doubao", None, None, None, None).unwrap();
         assert_eq!(provider.name(), "Volcengine Doubao Realtime ASR");
     }
 
     #[test]
     fn creates_apple_speech_builtin_local_provider() {
-        let provider = create_provider("apple-speech", None, None, None).unwrap();
+        let provider = create_provider("apple-speech", None, None, None, None).unwrap();
         assert_eq!(provider.name(), "Apple Speech");
     }
 
     #[test]
     fn creates_gemini_provider() {
-        let provider = create_provider("gemini", None, None, None).unwrap();
+        let provider = create_provider("gemini", None, None, None, None).unwrap();
         assert_eq!(provider.name(), "gemini");
     }
 
     #[test]
     fn creates_gemini_provider_with_selected_model() {
         // A blank model must not override the default; a real one must be honored.
-        let default_model = create_provider("gemini", None, None, Some("  ".to_string())).unwrap();
+        let default_model =
+            create_provider("gemini", None, None, Some("  ".to_string()), None).unwrap();
         assert_eq!(default_model.name(), "gemini");
 
         let selected = create_provider(
@@ -163,6 +173,7 @@ mod tests {
             None,
             None,
             Some("gemini-3.1-flash-lite".to_string()),
+            None,
         )
         .unwrap();
         assert_eq!(selected.name(), "gemini");
@@ -170,7 +181,7 @@ mod tests {
 
     #[test]
     fn unknown_stt_provider_returns_error() {
-        let result = create_provider("not-a-provider", None, None, None);
+        let result = create_provider("not-a-provider", None, None, None, None);
         assert!(result.is_err());
     }
 }
