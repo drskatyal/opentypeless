@@ -66,7 +66,9 @@ impl LlmClient for GeminiLlmClient {
             "responseMimeType": "application/json",
         });
         if let Some(schema) = schema {
-            generation_config["responseSchema"] = schema.clone();
+            let mut sanitized = schema.clone();
+            sanitize_gemini_schema(&mut sanitized);
+            generation_config["responseSchema"] = sanitized;
         }
         let body = serde_json::json!({
             "systemInstruction": { "parts": [{ "text": system }] },
@@ -126,6 +128,71 @@ impl LlmClient for GeminiLlmClient {
             return Err(AppError::Config("Act planner returned no content".into()));
         }
         Ok(text)
+    }
+}
+
+/// Gemini's `responseSchema` accepts only a restricted OpenAPI 3.0 subset and
+/// returns HTTP 400 on JSON-Schema keywords it doesn't recognise (most notably
+/// `additionalProperties`, but also `$schema`/`$ref`/`$defs`/`definitions`/
+/// `patternProperties`). Recursively strip those keys so any planner or
+/// selection schema is accepted; the remaining keywords (`type`, `properties`,
+/// `items`, `enum`, `required`, …) are all supported.
+fn sanitize_gemini_schema(value: &mut serde_json::Value) {
+    const UNSUPPORTED: &[&str] = &[
+        "additionalProperties",
+        "$schema",
+        "$id",
+        "$ref",
+        "$defs",
+        "definitions",
+        "patternProperties",
+    ];
+    match value {
+        serde_json::Value::Object(map) => {
+            for key in UNSUPPORTED {
+                map.remove(*key);
+            }
+            for child in map.values_mut() {
+                sanitize_gemini_schema(child);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items.iter_mut() {
+                sanitize_gemini_schema(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::sanitize_gemini_schema;
+
+    #[test]
+    fn strips_additional_properties_recursively() {
+        let mut schema = serde_json::json!({
+            "type": "object",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+                "missions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": { "type": "string" },
+                        "properties": { "id": { "type": "string" } }
+                    }
+                }
+            }
+        });
+        sanitize_gemini_schema(&mut schema);
+        let flat = schema.to_string();
+        assert!(!flat.contains("additionalProperties"), "got: {flat}");
+        assert!(!flat.contains("$schema"), "got: {flat}");
+        // Supported keywords survive.
+        assert!(flat.contains("properties"));
+        assert!(flat.contains("\"id\""));
     }
 }
 
