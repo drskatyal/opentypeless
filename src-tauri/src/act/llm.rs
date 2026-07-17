@@ -74,6 +74,7 @@ impl LlmClient for GeminiLlmClient {
             "generationConfig": generation_config,
         });
 
+        tracing::debug!(model = %self.model, "Act LLM request");
         let resp = self
             .client
             .post(&url)
@@ -92,9 +93,19 @@ impl LlmClient for GeminiLlmClient {
                 .last()
                 .map(|(i, c)| i + c.len_utf8())
                 .unwrap_or(raw.len());
+            let snippet = raw[..truncate_at].to_string();
+            // A bad model id (404) or auth/quota (403/429) here means Act silently
+            // does nothing — the error only reaches the HUD. Log it so it is
+            // visible in the terminal too.
+            tracing::warn!(
+                status = status.as_u16(),
+                model = %self.model,
+                body = %snippet,
+                "Act LLM call failed"
+            );
             return Err(AppError::Api {
                 status: status.as_u16(),
-                body: raw[..truncate_at].to_string(),
+                body: snippet,
             });
         }
 

@@ -213,6 +213,7 @@ impl Conductor {
         }
 
         // Route onto the drawer.
+        tracing::info!(transcript = %transcript, "Act on_transcript: routing");
         let selection = match selection::select(
             self.llm.as_ref(),
             &self.registry,
@@ -223,17 +224,47 @@ impl Conductor {
         {
             Ok(s) => s,
             Err(e) => {
+                let message = describe_selection_error(&e);
+                tracing::warn!(error = %e, "Act selection failed");
                 self.state = self.baseline();
-                events.push(ActEvent::Error {
-                    message: describe_selection_error(&e),
-                });
+                events.push(ActEvent::Error { message });
                 events.push(self.state_event());
                 return Ok(events);
             }
         };
 
+        let summary: Vec<String> = selection
+            .missions
+            .iter()
+            .map(|m| match m {
+                Mission::OpenFlow { id, .. } => format!("open_flow:{id}"),
+                Mission::Novel { .. } => "novel".to_string(),
+                Mission::Answer { .. } => "answer".to_string(),
+            })
+            .collect();
+        tracing::info!(
+            count = selection.missions.len(),
+            missions = ?summary,
+            "Act selection resolved"
+        );
+
         let queue: VecDeque<Mission> = selection.missions.into();
         self.drive_queue(queue, &mut events).await;
+
+        let errors = events
+            .iter()
+            .filter(|e| matches!(e, ActEvent::Error { .. }))
+            .count();
+        let results = events
+            .iter()
+            .filter(|e| matches!(e, ActEvent::Result { .. }))
+            .count();
+        tracing::info!(
+            results,
+            errors,
+            total_events = events.len(),
+            "Act command finished"
+        );
         Ok(events)
     }
 
@@ -331,9 +362,18 @@ impl Conductor {
     /// Carry out one mission.
     async fn run_mission(&mut self, mission: Mission, events: &mut Vec<ActEvent>) -> Step {
         match mission {
-            Mission::OpenFlow { id, slots } => self.run_flow(&id, slots, events).await,
-            Mission::Novel { goal } => self.run_novel(goal, events).await,
-            Mission::Answer { question } => self.run_answer(question, events).await,
+            Mission::OpenFlow { id, slots } => {
+                tracing::info!(flow = %id, slots = ?slots, "Act running flow");
+                self.run_flow(&id, slots, events).await
+            }
+            Mission::Novel { goal } => {
+                tracing::info!(goal = %goal, "Act running novel goal (planner)");
+                self.run_novel(goal, events).await
+            }
+            Mission::Answer { question } => {
+                tracing::info!(question = %question, "Act answering (talk-back)");
+                self.run_answer(question, events).await
+            }
         }
     }
 
