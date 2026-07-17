@@ -58,7 +58,7 @@ pub enum FlowOutcome {
     Done { verified: bool },
     /// A step's capability ruled `Confirm`; the session pauses for the user and
     /// resumes the flow.
-    NeedsConfirm { reason: String },
+    NeedsConfirm { reason: String, resume: Resume },
     /// A branch file was opened — its context (and the live slots) go back to the
     /// planner, which reasons and loops.
     Branch {
@@ -74,9 +74,45 @@ pub enum FlowOutcome {
     NeedsChoice {
         prompt: String,
         options: Vec<AskOption>,
+        resume: Resume,
     },
     /// The kill switch tripped mid-run.
     Aborted,
+}
+
+/// A continuation captured when a leaf pauses for the user, so the flow resumes
+/// from the paused step (with its accumulated bindings) rather than re-running.
+/// Carries no snapshot — the resumed step re-resolves against a fresh one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resume {
+    /// Index of the paused step in `file.steps`.
+    step_index: usize,
+    /// Bindings accumulated by the steps that already ran.
+    binds: HashMap<String, Selector>,
+}
+
+/// The user's answer to a paused leaf, applied by [`FlowRunner::resume`].
+#[derive(Debug, Clone)]
+pub enum ResumeDecision {
+    /// Confirm: yes — run the paused step now, with its gate granted once.
+    Approve,
+    /// Confirm: no, or a cancelled choice — the flow fails at the paused step.
+    Decline,
+    /// The option the user picked for a paused `pick_result` / `choose`.
+    Choose(AskOption),
+}
+
+/// How the *resumed* step is handled on its first (re-)attempt. Ordinary steps
+/// always run with [`StepOverride::None`].
+#[derive(Debug, Clone, Default)]
+enum StepOverride {
+    /// Normal resolution + gating.
+    #[default]
+    None,
+    /// The gate ruled Confirm and the user approved — run this step as Allow.
+    GrantGate,
+    /// The user chose this row for a paused pick; act on that identity directly.
+    UsePicked(AskOption),
 }
 
 /// A hard runner failure (a backend the run cannot proceed without), distinct from
@@ -179,21 +215,66 @@ impl FlowRunner {
             });
         }
 
-        // A slot's declared default filter chain, applied to executed values that
-        // reference it without an inline filter spec. Built once per run.
-        let filters: HashMap<String, Vec<SlotFilter>> = file
-            .slots
-            .iter()
-            .filter(|s| !s.filters.is_empty())
-            .map(|s| (s.name.clone(), s.filters.clone()))
-            .collect();
+        let filters = slot_filter_defaults(file);
+        self.drive(
+            file,
+            slots,
+            &filters,
+            0,
+            HashMap::new(),
+            StepOverride::None,
+            emit,
+        )
+        .await
+    }
 
-        // Cross-step bindings: a step's `bind` records a *re-resolvable identity*
-        // (never a cached path) under a name; a later step's `element_ref` /
-        // `within_ref` re-finds it against that step's own fresh snapshot.
-        let mut binds: HashMap<String, Selector> = HashMap::new();
+    /// Continue a leaf that paused for the user. `decision` answers the pause; the
+    /// flow re-runs the paused step (gate granted, or on the chosen row) and then
+    /// carries on to the end — bindings and progress are preserved, not restarted.
+    pub async fn resume(
+        &self,
+        file: &FlowFile,
+        slots: &HashMap<String, String>,
+        resume: Resume,
+        decision: ResumeDecision,
+        emit: &impl Fn(ActEvent),
+    ) -> Result<FlowOutcome, FlowRunError> {
+        let filters = slot_filter_defaults(file);
+        let Resume { step_index, binds } = resume;
+        let over = match decision {
+            ResumeDecision::Approve => StepOverride::GrantGate,
+            ResumeDecision::Choose(opt) => StepOverride::UsePicked(opt),
+            ResumeDecision::Decline => {
+                let step = file
+                    .steps
+                    .get(step_index)
+                    .map(|s| s.id.clone())
+                    .unwrap_or_default();
+                return Ok(FlowOutcome::Failed {
+                    step,
+                    error: "declined by user".into(),
+                });
+            }
+        };
+        self.drive(file, slots, &filters, step_index, binds, over, emit)
+            .await
+    }
 
-        for step in &file.steps {
+    /// The core step loop, shared by `run` (from step 0) and `resume` (from the
+    /// paused step). `first_over` applies only to the step at `start`; every later
+    /// step runs normally. On a pause it captures a [`Resume`] with the live binds.
+    #[allow(clippy::too_many_arguments)] // a step loop legitimately needs its context
+    async fn drive(
+        &self,
+        file: &FlowFile,
+        slots: &HashMap<String, String>,
+        filters: &HashMap<String, Vec<SlotFilter>>,
+        start: usize,
+        mut binds: HashMap<String, Selector>,
+        first_over: StepOverride,
+        emit: &impl Fn(ActEvent),
+    ) -> Result<FlowOutcome, FlowRunError> {
+        for (i, step) in file.steps.iter().enumerate().skip(start) {
             // a. The agent can never steer past a trip.
             if self.kill.is_tripped() {
                 return Ok(FlowOutcome::Aborted);
@@ -213,11 +294,34 @@ impl FlowRunner {
                 self.wait_for(wait, slots, &binds).await;
             }
 
-            match self.run_step(step, slots, &filters, &mut binds).await? {
+            let over = if i == start {
+                first_over.clone()
+            } else {
+                StepOverride::None
+            };
+            match self
+                .run_step(step, slots, filters, &mut binds, over)
+                .await?
+            {
                 StepFlow::Next => continue,
-                StepFlow::Confirm(reason) => return Ok(FlowOutcome::NeedsConfirm { reason }),
+                StepFlow::Confirm(reason) => {
+                    return Ok(FlowOutcome::NeedsConfirm {
+                        reason,
+                        resume: Resume {
+                            step_index: i,
+                            binds,
+                        },
+                    })
+                }
                 StepFlow::AskChoice { prompt, options } => {
-                    return Ok(FlowOutcome::NeedsChoice { prompt, options })
+                    return Ok(FlowOutcome::NeedsChoice {
+                        prompt,
+                        options,
+                        resume: Resume {
+                            step_index: i,
+                            binds,
+                        },
+                    })
                 }
                 StepFlow::Aborted => return Ok(FlowOutcome::Aborted),
                 StepFlow::Failed(error) => {
@@ -246,9 +350,10 @@ impl FlowRunner {
         slots: &HashMap<String, String>,
         filters: &HashMap<String, Vec<SlotFilter>>,
         binds: &mut HashMap<String, Selector>,
+        over: StepOverride,
     ) -> Result<StepFlow, FlowRunError> {
-        // First attempt.
-        let failure = match self.attempt(step, slots, filters, binds).await? {
+        // First attempt (honoring any resume override).
+        let failure = match self.attempt(step, slots, filters, binds, over).await? {
             Attempt::Ran => self.postcondition_failure(step, slots, binds).await,
             Attempt::Confirm(reason) => return Ok(StepFlow::Confirm(reason)),
             Attempt::AskChoice { prompt, options } => {
@@ -268,11 +373,15 @@ impl FlowRunner {
             // Replan bails out of the flow; the session replans the remaining goal.
             OnFail::Replan => Ok(StepFlow::Failed(format!("replan: {reason}"))),
             OnFail::RetryOnce => {
-                // Let a mid-drift UI settle, then re-run the whole step once.
+                // Let a mid-drift UI settle, then re-run the whole step once. The
+                // retry resolves normally — a granted/picked resume already applied.
                 if self.sleep_or_abort(STABLE_WAIT).await {
                     return Ok(StepFlow::Aborted);
                 }
-                match self.attempt(step, slots, filters, binds).await? {
+                match self
+                    .attempt(step, slots, filters, binds, StepOverride::None)
+                    .await?
+                {
                     Attempt::Ran => match self.postcondition_failure(step, slots, binds).await {
                         Some(again) => Ok(StepFlow::Failed(again)),
                         None => Ok(StepFlow::Next),
@@ -298,79 +407,104 @@ impl FlowRunner {
         slots: &HashMap<String, String>,
         filters: &HashMap<String, Vec<SlotFilter>>,
         binds: &mut HashMap<String, Selector>,
+        over: StepOverride,
     ) -> Result<Attempt, FlowRunError> {
         let action = step.action.as_str();
         let is_pick = matches!(action, "pick_result" | "choose");
 
         // d. Resolve the control this step addresses, if any. `pick_result`/`choose`
         //    with a `PickSpec` use scored candidate selection; everything else uses
-        //    the additive scored resolver. Keep the snapshot for binding synthesis.
-        let (target, snapshot): (Option<ElementPath>, Option<Snapshot>) = if let Some(sel) =
-            &step.target
-        {
-            let snapshot = self.snapshot().await?;
-            let path = if let (true, Some(pick)) = (is_pick, &step.pick) {
-                match self.choose_candidate(&snapshot, sel, pick, slots, binds) {
-                    Choice::One(path) => path,
-                    Choice::None { best } => match pick.if_none {
-                        PickFallback::Fail => {
-                            return Ok(Attempt::Failed(format!(
-                                "pick: no candidate met the match threshold for step {}",
-                                step.id
-                            )))
-                        }
-                        PickFallback::TakeBest => match best {
-                            Some(p) => p,
-                            None => {
-                                return Ok(Attempt::Failed(format!(
-                                    "pick: no candidates at all for step {}",
-                                    step.id
-                                )))
-                            }
-                        },
-                        PickFallback::Ask => {
-                            return Ok(self.ask_choice(
-                                &snapshot,
-                                best.into_iter().collect(),
-                                "Which one did you mean?",
-                            ))
-                        }
-                    },
-                    Choice::Ambiguous { candidates } => match pick.if_ambiguous {
-                        PickFallback::Fail => {
-                            return Ok(Attempt::Failed(format!(
-                                "pick: ambiguous candidates for step {}",
-                                step.id
-                            )))
-                        }
-                        PickFallback::TakeBest => match candidates.into_iter().next() {
-                            Some(p) => p,
-                            None => {
-                                return Ok(Attempt::Failed(format!(
-                                    "pick: ambiguous with no candidate for step {}",
-                                    step.id
-                                )))
-                            }
-                        },
-                        PickFallback::Ask => {
-                            return Ok(self.ask_choice(
-                                &snapshot,
-                                candidates,
-                                "Which one did you mean?",
-                            ))
-                        }
-                    },
-                }
-            } else {
-                match self.resolve_selector(&snapshot, sel, slots, binds) {
+        //    the additive scored resolver. A resumed pick (`UsePicked`) resolves the
+        //    row the user chose. Keep the snapshot for binding synthesis.
+        let (target, snapshot): (Option<ElementPath>, Option<Snapshot>) =
+            if let StepOverride::UsePicked(opt) = &over {
+                let snapshot = self.snapshot().await?;
+                // Prefer the exact row the user saw when it's still present and
+                // unchanged — this distinguishes duplicates the name alone can't.
+                // If the tree shifted (path gone / renamed), fall back to re-resolving
+                // the chosen name unambiguously.
+                let stable = snapshot
+                    .get(&opt.path)
+                    .filter(|el| el.name == opt.label && !is_unusable(el))
+                    .map(|el| el.path.clone());
+                let path = match stable.or_else(|| {
+                    self.resolve_binding(&snapshot, &picked_selector(step, opt), slots, binds, 0)
+                }) {
                     Some(path) => path,
-                    None => return Ok(Attempt::Failed(format!("no target for step {}", step.id))),
-                }
+                    None => {
+                        return Ok(Attempt::Failed(format!(
+                            "the chosen item is no longer on screen for step {}",
+                            step.id
+                        )))
+                    }
+                };
+                (Some(path), Some(snapshot))
+            } else if let Some(sel) = &step.target {
+                let snapshot = self.snapshot().await?;
+                let path = if let (true, Some(pick)) = (is_pick, &step.pick) {
+                    match self.choose_candidate(&snapshot, sel, pick, slots, binds) {
+                        Choice::One(path) => path,
+                        Choice::None { best } => match pick.if_none {
+                            PickFallback::Fail => {
+                                return Ok(Attempt::Failed(format!(
+                                    "pick: no candidate met the match threshold for step {}",
+                                    step.id
+                                )))
+                            }
+                            PickFallback::TakeBest => match best {
+                                Some(p) => p,
+                                None => {
+                                    return Ok(Attempt::Failed(format!(
+                                        "pick: no candidates at all for step {}",
+                                        step.id
+                                    )))
+                                }
+                            },
+                            PickFallback::Ask => {
+                                return Ok(self.ask_choice(
+                                    &snapshot,
+                                    best.into_iter().collect(),
+                                    "Which one did you mean?",
+                                ))
+                            }
+                        },
+                        Choice::Ambiguous { candidates } => match pick.if_ambiguous {
+                            PickFallback::Fail => {
+                                return Ok(Attempt::Failed(format!(
+                                    "pick: ambiguous candidates for step {}",
+                                    step.id
+                                )))
+                            }
+                            PickFallback::TakeBest => match candidates.into_iter().next() {
+                                Some(p) => p,
+                                None => {
+                                    return Ok(Attempt::Failed(format!(
+                                        "pick: ambiguous with no candidate for step {}",
+                                        step.id
+                                    )))
+                                }
+                            },
+                            PickFallback::Ask => {
+                                return Ok(self.ask_choice(
+                                    &snapshot,
+                                    candidates,
+                                    "Which one did you mean?",
+                                ))
+                            }
+                        },
+                    }
+                } else {
+                    match self.resolve_selector(&snapshot, sel, slots, binds) {
+                        Some(path) => path,
+                        None => {
+                            return Ok(Attempt::Failed(format!("no target for step {}", step.id)))
+                        }
+                    }
+                };
+                (Some(path), Some(snapshot))
+            } else {
+                (None, None)
             };
-            (Some(path), Some(snapshot))
-        } else {
-            (None, None)
-        };
 
         // Record a binding of the resolved element (a re-resolvable identity), so a
         // later step can address it via `element_ref` / `within_ref`.
@@ -385,15 +519,20 @@ impl FlowRunner {
             return Ok(Attempt::Ran);
         }
 
-        // e. Capability gate. Confirm pauses; Deny fails the step.
-        match self.gate.evaluate_capability(capability_for(action)) {
-            Decision::Allow => {}
-            Decision::Confirm => {
-                let reason = format!("{action} needs confirmation");
-                return Ok(Attempt::Confirm(reason));
-            }
-            Decision::Deny => {
-                return Ok(Attempt::Failed(format!("{action} denied by policy")));
+        // e. Capability gate. Confirm pauses; Deny fails the step. A `GrantGate`
+        //    resume means the user already approved this exact step — run it once
+        //    without re-prompting (Deny is a policy hard-stop, never overridden, so
+        //    it is not reachable here: only a `Confirm` ruling is ever resumed).
+        if !matches!(over, StepOverride::GrantGate) {
+            match self.gate.evaluate_capability(capability_for(action)) {
+                Decision::Allow => {}
+                Decision::Confirm => {
+                    let reason = format!("{action} needs confirmation");
+                    return Ok(Attempt::Confirm(reason));
+                }
+                Decision::Deny => {
+                    return Ok(Attempt::Failed(format!("{action} denied by policy")));
+                }
             }
         }
 
@@ -1119,6 +1258,33 @@ fn parse_filter(name: &str) -> Option<SlotFilter> {
         "lower" => Some(SlotFilter::Lower),
         "urlencode" => Some(SlotFilter::Urlencode),
         _ => None,
+    }
+}
+
+/// A slot's declared default filter chain, applied to executed values that
+/// reference it without an inline filter spec. Built once per run.
+fn slot_filter_defaults(file: &FlowFile) -> HashMap<String, Vec<SlotFilter>> {
+    file.slots
+        .iter()
+        .filter(|s| !s.filters.is_empty())
+        .map(|s| (s.name.clone(), s.filters.clone()))
+        .collect()
+}
+
+/// Build a re-resolvable identity for the row a user picked at a paused
+/// `pick_result` / `choose`: the option's accessible name, constrained to the
+/// paused step's control type. Re-resolved unambiguously against a fresh
+/// snapshot, so a moment-later resume acts on the same row the user saw.
+fn picked_selector(step: &FlowStep, opt: &AskOption) -> Selector {
+    let role = step.target.as_ref().and_then(|t| t.role.clone());
+    Selector {
+        role,
+        name_any: if opt.label.is_empty() {
+            Vec::new()
+        } else {
+            vec![opt.label.clone()]
+        },
+        ..Default::default()
     }
 }
 
@@ -1850,6 +2016,155 @@ mod tests {
             "ambiguous bound container must fail closed, got {outcome:?}"
         );
         assert!(backend.invoked().is_empty(), "nothing clicked on ambiguity");
+    }
+
+    #[tokio::test]
+    async fn confirm_pause_resumes_with_approval_and_completes() {
+        // A launch step with an ungranted AppLaunch capability rules Confirm.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![])));
+        let runner = FlowRunner::new(
+            backend.clone(),
+            CapabilityGate::new(), // grants nothing extra -> AppLaunch = Confirm
+            KillSwitch::new(),
+        );
+        let mut file = base_file();
+        let mut s = step("s1", "launch");
+        s.value = Some("Spotify".into());
+        file.steps = vec![s];
+
+        let resume = match runner.run(&file, &no_slots(), &noop_emit).await.unwrap() {
+            FlowOutcome::NeedsConfirm { resume, .. } => resume,
+            other => panic!("expected NeedsConfirm, got {other:?}"),
+        };
+        assert!(
+            backend.launched().is_empty(),
+            "nothing runs before approval"
+        );
+
+        let out = runner
+            .resume(
+                &file,
+                &no_slots(),
+                resume,
+                ResumeDecision::Approve,
+                &noop_emit,
+            )
+            .await
+            .unwrap();
+        assert_eq!(out, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.launched(), vec!["Spotify".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn confirm_pause_declined_fails_the_step() {
+        let backend = Arc::new(MockBackend::new(snapshot(vec![])));
+        let runner = FlowRunner::new(backend.clone(), CapabilityGate::new(), KillSwitch::new());
+        let mut file = base_file();
+        let mut s = step("s1", "launch");
+        s.value = Some("Spotify".into());
+        file.steps = vec![s];
+
+        let resume = match runner.run(&file, &no_slots(), &noop_emit).await.unwrap() {
+            FlowOutcome::NeedsConfirm { resume, .. } => resume,
+            other => panic!("expected NeedsConfirm, got {other:?}"),
+        };
+        let out = runner
+            .resume(
+                &file,
+                &no_slots(),
+                resume,
+                ResumeDecision::Decline,
+                &noop_emit,
+            )
+            .await
+            .unwrap();
+        match out {
+            FlowOutcome::Failed { step, error } => {
+                assert_eq!(step, "s1");
+                assert!(error.contains("declined"));
+            }
+            other => panic!("expected Failed, got {other:?}"),
+        }
+        assert!(backend.launched().is_empty());
+    }
+
+    #[tokio::test]
+    async fn choice_pause_resumes_on_the_row_the_user_picked() {
+        // Two identically-named rows: the pick is ambiguous, so it asks; the user
+        // picks the second, and the resume acts on exactly that row (by path).
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::ListItem, "Hotel California — Eagles"),
+            el("#/2", Role::ListItem, "Hotel California — Eagles"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut slots = HashMap::new();
+        slots.insert("song".to_string(), "Hotel California".to_string());
+        let mut file = base_file();
+        let mut s = step("s1", "pick_result");
+        s.target = Some(Selector {
+            role: Some("list_item".into()),
+            ..Default::default()
+        });
+        s.pick = Some(PickSpec {
+            match_terms: vec!["{song}".into()],
+            if_ambiguous: PickFallback::Ask,
+            ..pick_defaults()
+        });
+        file.steps = vec![s];
+
+        let (options, resume) = match runner.run(&file, &slots, &noop_emit).await.unwrap() {
+            FlowOutcome::NeedsChoice {
+                options, resume, ..
+            } => (options, resume),
+            other => panic!("expected NeedsChoice, got {other:?}"),
+        };
+        assert_eq!(options.len(), 2);
+
+        let out = runner
+            .resume(
+                &file,
+                &slots,
+                resume,
+                ResumeDecision::Choose(options[1].clone()),
+                &noop_emit,
+            )
+            .await
+            .unwrap();
+        assert_eq!(out, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn resume_continues_the_remaining_steps() {
+        // A two-step flow pauses on step 1 (launch confirm); after approval the
+        // second step (a key) still runs — resume doesn't restart the flow.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![])));
+        let runner = FlowRunner::new(backend.clone(), CapabilityGate::new(), KillSwitch::new());
+        let mut file = base_file();
+        let mut launch = step("s1", "launch");
+        launch.value = Some("Spotify".into());
+        let mut key = step("s2", "key");
+        key.value = Some("ctrl+l".into());
+        file.steps = vec![launch, key];
+
+        let resume = match runner.run(&file, &no_slots(), &noop_emit).await.unwrap() {
+            FlowOutcome::NeedsConfirm { resume, .. } => resume,
+            other => panic!("expected NeedsConfirm, got {other:?}"),
+        };
+        let out = runner
+            .resume(
+                &file,
+                &no_slots(),
+                resume,
+                ResumeDecision::Approve,
+                &noop_emit,
+            )
+            .await
+            .unwrap();
+        assert_eq!(out, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.launched(), vec!["Spotify".to_string()]);
+        assert_eq!(backend.keys(), vec!["ctrl+l".to_string()]);
     }
 
     #[tokio::test]
