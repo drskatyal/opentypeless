@@ -1825,17 +1825,29 @@ impl PipelineHandle {
                     // Act toggle routes every armed recording (the simple model). So
                     // if the user bound a separate Act key it purely picks the role;
                     // if they didn't, toggling Act on is enough.
+                    let session_present = act_guard.is_some();
                     let is_armed = act_guard.as_ref().is_some_and(|s| s.is_armed());
                     let act_run = self.act_run.load(Ordering::SeqCst);
                     let has_act_hotkey = act_state.has_act_hotkey.load(Ordering::SeqCst);
                     let armed = is_armed && (act_run || !has_act_hotkey);
-                    tracing::debug!(
+                    tracing::info!(
+                        session_present,
                         is_armed,
                         act_run,
                         has_act_hotkey,
                         route_to_act = armed,
                         "Act fork routing decision"
                     );
+                    // The confusing failure: the user pressed the Act key (or has
+                    // Act toggled on) but there is no armed session to receive it,
+                    // so it silently dictates. Call it out explicitly.
+                    if !armed && (act_run || !has_act_hotkey) && !is_armed {
+                        tracing::warn!(
+                            session_present,
+                            "Act was requested but no armed session — falling back to dictation. \
+                             Toggle Act off/on in Settings, or check that a Gemini key is set."
+                        );
+                    }
                     if armed {
                         // (a) Run the command, capturing the Result. The session
                         // lock is held only for this await; `act_abort` trips the

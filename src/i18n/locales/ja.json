@@ -491,7 +491,9 @@
     "actFlowsLoadError": "アクション一覧を読み込めませんでした。",
     "actFlowsExample": "話しかけてみる",
     "actFlowsFills": "あなたの発話",
-    "actFlowsBranch": "アシスト"
+    "actFlowsBranch": "アシスト",
+    "actFlowsIntro": "Act が有効なときに話せる内容の一覧です。Act キーを押して自然に話しかけてください。以下の言い回しどおりでなくても大丈夫です。",
+    "actSeeAllHint": "Act でできることの全一覧は Act タブで確認できます。"
   },
   "act": {
     "armed": "Act 待機中",

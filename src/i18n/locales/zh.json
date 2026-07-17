@@ -491,7 +491,9 @@
     "actFlowsLoadError": "无法加载操作列表。",
     "actFlowsExample": "试着说",
     "actFlowsFills": "你说",
-    "actFlowsBranch": "辅助"
+    "actFlowsBranch": "辅助",
+    "actFlowsIntro": "Act 启用时你可以说的所有内容。按下 Act 键后自然说话即可，不必照搬下面的措辞。",
+    "actSeeAllHint": "在 Act 标签页查看 Act 能做的完整列表。"
   },
   "act": {
     "armed": "Act 已就绪",

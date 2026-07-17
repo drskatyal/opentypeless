@@ -491,7 +491,9 @@
     "actFlowsLoadError": "Couldn't load the action list.",
     "actFlowsExample": "Try saying",
     "actFlowsFills": "You say",
-    "actFlowsBranch": "Assisted"
+    "actFlowsBranch": "Assisted",
+    "actFlowsIntro": "Everything you can say when Act is armed. Press your Act key, then speak naturally — you don't need the exact words below.",
+    "actSeeAllHint": "See the full list of what Act can do in the Act tab."
   },
   "act": {
     "armed": "Act armed",

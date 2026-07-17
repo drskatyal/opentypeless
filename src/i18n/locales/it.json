@@ -491,7 +491,9 @@
     "actFlowsLoadError": "Impossibile caricare l'elenco delle azioni.",
     "actFlowsExample": "Prova a dire",
     "actFlowsFills": "Tu dici",
-    "actFlowsBranch": "Assistito"
+    "actFlowsBranch": "Assistito",
+    "actFlowsIntro": "Tutto ciò che puoi dire quando Act è attivo. Premi il tasto Act e parla in modo naturale — non servono le parole esatte.",
+    "actSeeAllHint": "Trovi l'elenco completo di ciò che Act può fare nella scheda Act."
   },
   "act": {
     "armed": "Act pronto",

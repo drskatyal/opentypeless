@@ -491,7 +491,9 @@
     "actFlowsLoadError": "Aktionsliste konnte nicht geladen werden.",
     "actFlowsExample": "Sag zum Beispiel",
     "actFlowsFills": "Du sagst",
-    "actFlowsBranch": "Unterstützt"
+    "actFlowsBranch": "Unterstützt",
+    "actFlowsIntro": "Alles, was du sagen kannst, wenn Act aktiv ist. Drücke deine Act-Taste und sprich natürlich — die genauen Worte unten sind nicht nötig.",
+    "actSeeAllHint": "Die vollständige Liste, was Act kann, findest du im Act-Tab."
   },
   "act": {
     "armed": "Act bereit",

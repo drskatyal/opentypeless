@@ -6,6 +6,7 @@ import { SettingsSidebar, type PaneId } from './SettingsSidebar'
 import { GeneralPane } from './GeneralPane'
 import { SttPane } from './SttPane'
 import { LlmPane } from './LlmPane'
+import { ActPane } from './ActPane'
 import { DictionaryPane } from './DictionaryPane'
 import { ScenesPane } from './ScenesPane'
 import { AboutPane } from './AboutPane'
@@ -16,6 +17,7 @@ const paneTitleKeys: Record<PaneId, string> = {
   general: 'settings.general',
   stt: 'settings.speechRecognition',
   llm: 'settings.aiPolish',
+  act: 'settings.actMode',
   dictionary: 'settings.dictionary',
   scenes: 'settings.scenes',
   about: 'settings.about',
@@ -63,6 +65,7 @@ export function Settings() {
               {activePane === 'general' && <GeneralPane />}
               {activePane === 'stt' && <SttPane />}
               {activePane === 'llm' && <LlmPane />}
+              {activePane === 'act' && <ActPane />}
               {activePane === 'dictionary' && <DictionaryPane />}
               {activePane === 'scenes' && <ScenesPane />}
               {activePane === 'about' && <AboutPane />}

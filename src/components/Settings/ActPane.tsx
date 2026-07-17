@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Search, Sparkles } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { actListFlows } from '../../lib/tauri'
 import type { ActFlowInfo } from '../../lib/tauri'
 
 /**
- * A collapsible, searchable catalog of the built-in Act drawer recipes so the
- * user can see exactly what they can say. Loads the list lazily on first expand
- * (the recipes are static, so one fetch is enough).
+ * A dedicated Settings pane listing the built-in Act drawer recipes — the full,
+ * searchable catalog of everything the user can say when Act is armed. Loads the
+ * (static) list once on mount.
  */
-export function ActFlowsList() {
+export function ActPane() {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
   const [flows, setFlows] = useState<ActFlowInfo[] | null>(null)
   const [error, setError] = useState(false)
   const [query, setQuery] = useState('')
@@ -27,8 +26,8 @@ export function ActFlowsList() {
   }, [])
 
   useEffect(() => {
-    if (open && flows === null && !error) load()
-  }, [open, flows, error, load])
+    load()
+  }, [load])
 
   const filtered = useMemo(() => {
     if (!flows) return []
@@ -41,62 +40,45 @@ export function ActFlowsList() {
   }, [flows, query])
 
   return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-[10px] border border-border bg-bg-secondary/40 px-3 py-2 text-[13px] font-medium text-text-primary transition-colors hover:border-border-focus"
-      >
-        <span className="flex items-center gap-2">
-          <Sparkles size={13} className="text-accent" />
-          {t('settings.actFlowsShow')}
-          {flows && (
-            <span className="text-[11px] font-normal text-text-tertiary">
-              {t('settings.actFlowsCount', { count: flows.length })}
-            </span>
-          )}
-        </span>
-        <ChevronDown
-          size={14}
-          className={`text-text-tertiary transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
+    <div className="space-y-4">
+      <p className="text-[12px] leading-relaxed text-text-tertiary">
+        {t('settings.actFlowsIntro')}
+      </p>
 
-      {open && (
-        <div className="mt-3 space-y-3">
-          {error ? (
-            <p className="text-[12px] text-warning">{t('settings.actFlowsLoadError')}</p>
-          ) : flows === null ? (
-            <p className="text-[12px] text-text-tertiary">…</p>
+      {error ? (
+        <p className="text-[12px] text-warning">{t('settings.actFlowsLoadError')}</p>
+      ) : flows === null ? (
+        <p className="text-[12px] text-text-tertiary">…</p>
+      ) : (
+        <>
+          <div className="relative">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+            />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('settings.actFlowsSearch')}
+              className="w-full rounded-[8px] border border-border bg-bg-primary py-2 pl-9 pr-3 text-[13px] text-text-primary outline-none focus:border-border-focus"
+            />
+          </div>
+
+          <p className="text-[11px] text-text-tertiary">
+            {t('settings.actFlowsCount', { count: flows.length })}
+          </p>
+
+          {filtered.length === 0 ? (
+            <p className="text-[12px] text-text-tertiary">{t('settings.actFlowsEmpty')}</p>
           ) : (
-            <>
-              <div className="relative">
-                <Search
-                  size={13}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
-                />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('settings.actFlowsSearch')}
-                  className="w-full rounded-[8px] border border-border bg-bg-primary py-2 pl-8 pr-3 text-[13px] text-text-primary outline-none focus:border-border-focus"
-                />
-              </div>
-
-              {filtered.length === 0 ? (
-                <p className="text-[12px] text-text-tertiary">{t('settings.actFlowsEmpty')}</p>
-              ) : (
-                <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                  {filtered.map((flow) => (
-                    <FlowRow key={flow.id} flow={flow} />
-                  ))}
-                </ul>
-              )}
-            </>
+            <ul className="space-y-2">
+              {filtered.map((flow) => (
+                <FlowRow key={flow.id} flow={flow} />
+              ))}
+            </ul>
           )}
-        </div>
+        </>
       )}
     </div>
   )

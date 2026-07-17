@@ -114,6 +114,51 @@ fn build_conductor(
     Conductor::new(registry, llm, runner, planner, executor, backend)
 }
 
+/// Build + arm a fresh Conductor from `config` and store it — plus its kill
+/// switch and the dedicated-hotkey flag — into `state`. The single arming path
+/// shared by the enable command and startup rehydration.
+///
+/// A fresh kill switch is minted per arm; its clone in [`ActState`] lets
+/// `act_abort` trip the exact switch this Conductor's runner + executor race
+/// against.
+async fn arm_into(state: &ActState, config: &storage::AppConfig) {
+    let kill = KillSwitch::new();
+    let mut conductor = build_conductor(state.client.clone(), config, kill.clone());
+    conductor.arm();
+    let state_name = conductor.state().name();
+    *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
+    let has_act_hotkey = config.hotkeys.act.is_some();
+    state
+        .has_act_hotkey
+        .store(has_act_hotkey, std::sync::atomic::Ordering::SeqCst);
+    *state.session.lock().await = Some(conductor);
+    tracing::info!(
+        conductor_state = state_name,
+        has_act_hotkey,
+        model_tier = %config.act_model_tier,
+        "Act session built and armed"
+    );
+}
+
+/// Rehydrate the in-memory Act session at startup from persisted config.
+///
+/// `act_enabled` survives restarts, but the live Conductor does not — it is
+/// built only when the toggle is flipped. A launch with Act previously on must
+/// therefore rebuild + arm it here, or the pipeline sees no armed session and
+/// every recording falls back to plain dictation. No-op when Act is off,
+/// unsupported, or no Gemini key is configured.
+pub async fn rehydrate_if_enabled(state: &ActState, config: &storage::AppConfig) {
+    if !config.act_enabled || !act::act_supported() {
+        return;
+    }
+    if act_gemini_key(config).is_empty() {
+        tracing::warn!("Act is enabled but no Gemini API key is configured; not arming on startup.");
+        return;
+    }
+    arm_into(state, config).await;
+    tracing::info!("Act rehydrated and armed from persisted config on startup.");
+}
+
 /// Turn Act on (build + arm a session) or off (disarm + drop it).
 ///
 /// `act_enabled` itself is persisted by the frontend via `update_config`; this
@@ -124,7 +169,9 @@ pub async fn act_set_enabled(
     config: State<'_, ConfigManager>,
     enabled: bool,
 ) -> Result<(), String> {
+    tracing::info!(enabled, "act_set_enabled called");
     if enabled && !act::act_supported() {
+        tracing::warn!("Act enable refused: not supported on this platform");
         return Err("Act mode is only available on Windows in this version.".to_string());
     }
 
@@ -132,21 +179,18 @@ pub async fn act_set_enabled(
         // Preflight BEFORE touching the session: Act planning needs LLM
         // credentials, so refuse (and store nothing) when none are configured.
         let cfg = config.load().await.map_err(|e| e.to_string())?;
-        if act_gemini_key(&cfg).is_empty() {
+        let has_key = !act_gemini_key(&cfg).is_empty();
+        tracing::info!(
+            has_gemini_key = has_key,
+            act_hotkey_bound = cfg.hotkeys.act.is_some(),
+            "Act enable preflight"
+        );
+        if !has_key {
+            tracing::warn!("Act enable refused: no Gemini API key configured");
             return Err("Act mode requires a Gemini API key — add one in Settings.".to_string());
         }
 
-        // Fresh kill switch per enable; its clone in ActState lets act_abort trip
-        // the exact switch this Conductor's runner + executor race against.
-        let kill = KillSwitch::new();
-        let mut conductor = build_conductor(state.client.clone(), &cfg, kill.clone());
-        conductor.arm();
-        *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
-        state.has_act_hotkey.store(
-            cfg.hotkeys.act.is_some(),
-            std::sync::atomic::Ordering::SeqCst,
-        );
-        *state.session.lock().await = Some(conductor);
+        arm_into(&state, &cfg).await;
     } else {
         // Trip FIRST (no session lock) so a live executor is cancelled at its next
         // await rather than silently dropped, then disarm and drop the session.
@@ -156,6 +200,7 @@ pub async fn act_set_enabled(
             session.disarm();
         }
         *guard = None;
+        tracing::info!("Act session disarmed and dropped");
     }
     Ok(())
 }

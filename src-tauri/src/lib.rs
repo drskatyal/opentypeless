@@ -884,6 +884,19 @@ pub fn run() {
             ))));
             app.manage(SessionTokenStore(Arc::new(Mutex::new(String::new()))));
 
+            // Rehydrate the Act runtime from persisted config: `act_enabled`
+            // survives restarts, but the live Conductor is in-memory only and is
+            // otherwise built solely when the toggle is flipped. Without this, a
+            // launch with Act already on has no armed session, so every recording
+            // (even an Act-hotkey one) falls back to plain dictation.
+            {
+                let act_state = app.state::<commands::act::ActState>();
+                tauri::async_runtime::block_on(commands::act::rehydrate_if_enabled(
+                    &act_state,
+                    &initial_config,
+                ));
+            }
+
             // Register global shortcut from config
             let handler = hotkey::build_shortcut_handler(app_handle.clone());
             app.handle().plugin(
