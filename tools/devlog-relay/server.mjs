@@ -199,7 +199,11 @@ function checkAuth(req, res) {
   const auth = req.headers['authorization'] || ''
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : ''
   const headerTok = req.headers['x-relay-token']
-  if (bearer === TOKEN || headerTok === TOKEN) return true
+  // Also accept the token as a `?token=` query param: claude.ai custom
+  // connectors expose only a URL (no custom-header field), so the token must
+  // ride in the URL for the MCP endpoint. Dev-only tool; token in URL is fine.
+  const queryTok = req.query.token
+  if (bearer === TOKEN || headerTok === TOKEN || queryTok === TOKEN) return true
   res.status(401).json({ error: 'unauthorized' })
   return false
 }
