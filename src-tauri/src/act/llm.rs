@@ -131,6 +131,124 @@ impl LlmClient for GeminiLlmClient {
     }
 }
 
+/// Follow-up transport: an OpenAI-compatible `/chat/completions` provider, used
+/// for Act's text-only follow-up calls (selection routing, planner, answer) when
+/// the user opts into a faster model. Cerebras (`gpt-oss-120b`) is the first
+/// option — very high tokens/sec, so the follow-ups return sooner than Gemini.
+/// The FIRST/audio call always stays on Gemini (see `stt/gemini.rs`); this client
+/// is text-only.
+pub struct CerebrasLlmClient {
+    client: reqwest::Client,
+    api_key: String,
+    model: String,
+    base_url: String,
+    timeout: std::time::Duration,
+}
+
+impl CerebrasLlmClient {
+    /// The public Cerebras OpenAI-compatible endpoint base.
+    pub const DEFAULT_BASE_URL: &'static str = "https://api.cerebras.ai/v1";
+
+    pub fn new(client: reqwest::Client, api_key: String, model: String) -> Self {
+        Self {
+            client,
+            api_key,
+            model,
+            base_url: Self::DEFAULT_BASE_URL.to_string(),
+            timeout: std::time::Duration::from_secs(12),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn with_base_url(mut self, base_url: String) -> Self {
+        self.base_url = base_url;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+}
+
+#[async_trait]
+impl LlmClient for CerebrasLlmClient {
+    async fn generate_json(
+        &self,
+        system: &str,
+        user: &str,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
+        if self.api_key.trim().is_empty() {
+            return Err(AppError::Auth("Act follow-up API key is empty".into()));
+        }
+        // OpenAI-style JSON mode requires the word "json" somewhere in the
+        // messages; the schema (when present) is folded into the system prompt so
+        // the model both satisfies that constraint and sees the expected shape.
+        let system_prompt = match schema {
+            Some(schema) => format!(
+                "{system}\n\nRespond with a single JSON object that conforms to this JSON Schema:\n{schema}"
+            ),
+            None => format!("{system}\n\nRespond with a single JSON object."),
+        };
+        let body = serde_json::json!({
+            "model": self.model,
+            "temperature": 0.0,
+            "response_format": { "type": "json_object" },
+            "messages": [
+                { "role": "system", "content": system_prompt },
+                { "role": "user", "content": user },
+            ],
+        });
+
+        let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
+        tracing::debug!(model = %self.model, "Act follow-up LLM request (Cerebras)");
+        let resp = self
+            .client
+            .post(&url)
+            .bearer_auth(self.api_key.trim())
+            .json(&body)
+            .timeout(self.timeout)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let raw = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
+            let truncate_at = raw
+                .char_indices()
+                .take_while(|&(i, _)| i < 200)
+                .last()
+                .map(|(i, c)| i + c.len_utf8())
+                .unwrap_or(raw.len());
+            let snippet = raw[..truncate_at].to_string();
+            tracing::warn!(
+                status = status.as_u16(),
+                model = %self.model,
+                body = %snippet,
+                "Act follow-up LLM call failed (Cerebras)"
+            );
+            return Err(AppError::Api {
+                status: status.as_u16(),
+                body: snippet,
+            });
+        }
+
+        let v: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|e| AppError::Config(e.to_string()))?;
+        let text = v["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if text.is_empty() {
+            return Err(AppError::Config("Act follow-up returned no content".into()));
+        }
+        Ok(text)
+    }
+}
+
 /// Gemini's `responseSchema` accepts only a restricted OpenAPI 3.0 subset and
 /// returns HTTP 400 on JSON-Schema keywords it doesn't recognise (most notably
 /// `additionalProperties`, but also `$schema`/`$ref`/`$defs`/`definitions`/
@@ -162,6 +280,27 @@ fn sanitize_gemini_schema(value: &mut serde_json::Value) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod cerebras_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn empty_api_key_is_rejected_before_any_request() {
+        let client = CerebrasLlmClient::new(
+            reqwest::Client::new(),
+            "   ".to_string(),
+            "gpt-oss-120b".to_string(),
+        )
+        .with_base_url("http://127.0.0.1:0/v1".to_string())
+        .with_timeout(std::time::Duration::from_millis(50));
+        let err = client
+            .generate_json("system", "user", None)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AppError::Auth(_)), "got: {err:?}");
     }
 }
 

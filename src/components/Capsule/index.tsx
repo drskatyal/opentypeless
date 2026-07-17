@@ -53,6 +53,7 @@ export function Capsule() {
   const setContextMenuReady = useAppStore((s) => s.setContextMenuReady)
   const translationTargetMenuOpen = useAppStore((s) => s.translationTargetMenuOpen)
   const setTranslationTargetMenuOpen = useAppStore((s) => s.setTranslationTargetMenuOpen)
+  const actEnabled = useAppStore((s) => s.config.act_enabled)
   const { stopRecording, isRecording } = useRecording()
 
   const dragStart = useRef<{ x: number; y: number } | null>(null)
@@ -63,6 +64,14 @@ export function Capsule() {
   const hasError = pipelineError !== null
   const capsuleState = getCapsuleState(pipelineState, hasError)
   const capsuleShellSize = getCapsuleShellSize(capsuleState)
+  const actArmed = capsuleState === 'idle' && actEnabled
+
+  const shellClassName =
+    capsuleState === 'error'
+      ? 'jelly-capsule-error capsule-shell-error'
+      : capsuleState === 'idle'
+        ? `jelly-capsule text-neutral-700 capsule-shell-idle${actArmed ? ' capsule-shell-armed' : ''}`
+        : 'jelly-capsule-active text-white capsule-shell-active'
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return
@@ -140,13 +149,7 @@ export function Capsule() {
       <motion.div
         layout
         transition={{ layout: { duration: 0.2, ease: [0.2, 0, 0, 1] } }}
-        className={`absolute left-3 rounded-full pointer-events-auto shrink-0 ${
-          capsuleState === 'error'
-            ? 'jelly-capsule-error'
-            : capsuleState === 'idle'
-              ? 'jelly-capsule text-neutral-700'
-              : 'jelly-capsule-active text-white'
-        }`}
+        className={`absolute left-3 rounded-full pointer-events-auto shrink-0 ${shellClassName}`}
         style={capsuleShellSize}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -161,7 +164,7 @@ export function Capsule() {
             exit={{ opacity: 0, filter: 'blur(2px)' }}
             transition={{ duration: 0.12, ease: [0.2, 0, 0, 1] }}
           >
-            {capsuleState === 'idle' && <CapsuleIdle />}
+            {capsuleState === 'idle' && <CapsuleIdle armed={actArmed} />}
             {capsuleState === 'preparing' && <CapsulePreparing />}
             {capsuleState === 'recording' && <CapsuleRecording />}
             {capsuleState === 'transcribing' && <CapsuleProcessing />}

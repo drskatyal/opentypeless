@@ -3,8 +3,15 @@ import { useReducedMotion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 
 const BAR_COUNT = 7
-const MIN_HEIGHT = 3
-const MAX_HEIGHT = 16
+const MIN_HEIGHT = 4
+const MAX_HEIGHT = 20
+
+// A gentle centre-weighted envelope so the middle bars swing widest —
+// reads as an organic "mouth" rather than a flat equalizer.
+const ENVELOPE = Array.from({ length: BAR_COUNT }, (_, i) => {
+  const t = i / (BAR_COUNT - 1)
+  return 0.55 + 0.45 * Math.sin(t * Math.PI)
+})
 
 export function Waveform() {
   const barsRef = useRef<(HTMLDivElement | null)[]>([])
@@ -13,25 +20,30 @@ export function Waveform() {
 
   useEffect(() => {
     if (reduced) {
-      // Static bars at mid-height when reduced motion is preferred
-      barsRef.current.forEach((bar) => {
+      // Static bars following the envelope when reduced motion is preferred
+      barsRef.current.forEach((bar, i) => {
         if (!bar) return
-        bar.style.height = `${(MIN_HEIGHT + MAX_HEIGHT) / 2}px`
-        bar.style.opacity = '0.7'
+        bar.style.height = `${MIN_HEIGHT + (MAX_HEIGHT - MIN_HEIGHT) * 0.4 * ENVELOPE[i]}px`
+        bar.style.opacity = '0.75'
       })
       return
     }
 
     const animate = () => {
       const volume = useAppStore.getState().audioVolume
+      const now = Date.now()
       barsRef.current.forEach((bar, i) => {
         if (!bar) return
-        const offset = Math.sin(Date.now() / 200 + i * 0.9) * 0.15
-        const normalized = Math.max(0, Math.min(1, volume + offset))
+        // Multi-sine wobble per bar for an organic, non-repeating motion
+        const wobble =
+          Math.sin(now / 180 + i * 0.9) * 0.16 +
+          Math.sin(now / 90 + i * 1.7) * 0.08 +
+          Math.sin(now / 310 - i * 0.5) * 0.06
+        const level = (volume * 0.7 + 0.12) * ENVELOPE[i] + wobble
+        const normalized = Math.max(0, Math.min(1, level))
         const height = MIN_HEIGHT + (MAX_HEIGHT - MIN_HEIGHT) * normalized
-        const opacity = Math.max(0.5, normalized)
         bar.style.height = `${height}px`
-        bar.style.opacity = `${opacity}`
+        bar.style.opacity = `${Math.max(0.55, normalized)}`
       })
       rafRef.current = requestAnimationFrame(animate)
     }
@@ -41,19 +53,15 @@ export function Waveform() {
   }, [reduced])
 
   return (
-    <div className="flex items-center justify-center gap-[3px] h-4">
+    <div className="capsule-wave" aria-hidden="true">
       {Array.from({ length: BAR_COUNT }).map((_, i) => (
         <div
           key={i}
           ref={(el) => {
             barsRef.current[i] = el
           }}
-          className="w-[2px] rounded-full bg-white/80"
-          style={{
-            height: `${MIN_HEIGHT}px`,
-            opacity: 0.5,
-            transition: 'height 75ms ease-out, opacity 75ms ease-out',
-          }}
+          className="capsule-wave-bar"
+          style={{ height: `${MIN_HEIGHT}px`, opacity: 0.55 }}
         />
       ))}
     </div>

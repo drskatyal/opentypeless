@@ -660,3 +660,246 @@ body,
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-secondary);
 }
+
+/* ============================================================
+   CAPSULE REDESIGN — FlowRad Mic (appended block)
+   Supplements the existing .jelly-capsule* shells with aurora
+   glow, a rotating idle ring, level-reactive waveform, spinner,
+   shimmer sweep and status accents. Only adds new rules; the
+   base .jelly-capsule* rules above are left untouched.
+   ============================================================ */
+
+/* ── Shell glow (box-shadow escapes the shell's overflow:hidden) ── */
+/* Idle — soft breathing aurora. Light glass on white. */
+.capsule-shell-idle {
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.05),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    0 0 16px -3px rgba(13, 148, 136, 0.4);
+}
+.dark .capsule-shell-idle {
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.04),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 0 20px -2px rgba(111, 231, 203, 0.42),
+    0 0 40px -8px rgba(111, 231, 203, 0.22);
+}
+
+/* Act-armed idle — violet + teal dual glow, instantly distinct. */
+.capsule-shell-armed {
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.05),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(167, 139, 250, 0.4),
+    0 0 18px -2px rgba(167, 139, 250, 0.5),
+    0 0 34px -8px rgba(13, 148, 136, 0.3);
+}
+.dark .capsule-shell-armed {
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.05),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3),
+    0 0 0 1.5px rgba(185, 163, 255, 0.55),
+    0 0 24px -2px rgba(167, 139, 250, 0.5),
+    0 0 46px -6px rgba(111, 231, 203, 0.3);
+}
+
+/* Active pill — accent aurora ring + bloom (dark gel in both themes). */
+.capsule-shell-active {
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.12),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(111, 231, 203, 0.42),
+    0 0 24px -2px rgba(111, 231, 203, 0.45),
+    0 0 52px -10px rgba(111, 231, 203, 0.26),
+    0 8px 26px rgba(0, 0, 0, 0.3);
+}
+
+/* Error pill — red-tinted ring + bloom. */
+.capsule-shell-error {
+  box-shadow:
+    inset 0 1px 4px rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(255, 107, 107, 0.45),
+    0 0 20px -3px rgba(255, 107, 107, 0.42),
+    0 8px 26px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Idle mic glyph — theme-aware color on the glass shell ── */
+.capsule-mic {
+  color: #1a1a1a;
+}
+.dark .capsule-mic {
+  color: #eef2f7;
+}
+
+/* ── Rotating conic ring (idle) ── */
+.capsule-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 40deg,
+    transparent 0deg,
+    rgba(111, 231, 203, 0.85) 90deg,
+    transparent 180deg,
+    rgba(111, 231, 203, 0.45) 270deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.6px),
+    #000 calc(100% - 1.6px)
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.6px));
+  animation: capsule-ring-spin 6s linear infinite;
+  pointer-events: none;
+}
+.capsule-ring-violet {
+  background: conic-gradient(
+    from 40deg,
+    transparent 0deg,
+    rgba(185, 163, 255, 0.9) 90deg,
+    transparent 180deg,
+    rgba(111, 231, 203, 0.55) 270deg,
+    transparent 360deg
+  );
+}
+@keyframes capsule-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Idle inner aura (blurred radial) ── */
+.capsule-aura {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  filter: blur(7px);
+  background: radial-gradient(circle, rgba(111, 231, 203, 0.5), transparent 68%);
+  pointer-events: none;
+}
+.capsule-aura-violet {
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.55), transparent 66%);
+}
+
+/* ── Act-armed dot badge ── */
+.capsule-badge-dot {
+  position: absolute;
+  bottom: 0;
+  right: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #a78bfa;
+  box-shadow: 0 0 0 1.5px #0c111b;
+  z-index: 4;
+}
+
+/* ── Recording pulse dot (red, with halo) ── */
+.capsule-rec-dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background: #ff6b6b;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.9);
+  flex: 0 0 auto;
+}
+.capsule-rec-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background: rgba(255, 107, 107, 0.35);
+  filter: blur(3px);
+}
+
+/* ── Level-reactive waveform bars ── */
+.capsule-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 20px;
+}
+.capsule-wave-bar {
+  width: 2.6px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #bff5e7, #6fe7cb);
+  box-shadow: 0 0 6px rgba(111, 231, 203, 0.5);
+  transition:
+    height 75ms ease-out,
+    opacity 75ms ease-out;
+}
+
+/* ── Accent spinner (transcribing / preparing / thinking) ── */
+.capsule-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 9999px;
+  border: 2.2px solid rgba(111, 231, 203, 0.25);
+  border-top-color: #6fe7cb;
+  flex: 0 0 auto;
+  animation: capsule-spin 0.7s linear infinite;
+}
+@keyframes capsule-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Polishing shimmer sweep ── */
+.capsule-shimmer-bar {
+  position: relative;
+  width: 42px;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(111, 231, 203, 0.14);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.capsule-shimmer-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 45%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, #6fe7cb, transparent);
+  animation: capsule-shimmer-slide 1.15s ease-in-out infinite;
+}
+@keyframes capsule-shimmer-slide {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* ── Done checkmark chip ── */
+.capsule-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: rgba(84, 224, 176, 0.16);
+  border: 1px solid rgba(84, 224, 176, 0.32);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: #54e0b0;
+}
+
+/* ── Reduced-motion: freeze the CSS-driven capsule animations ── */
+@media (prefers-reduced-motion: reduce) {
+  .capsule-ring,
+  .capsule-spinner,
+  .capsule-shimmer-bar::after {
+    animation: none !important;
+  }
+}

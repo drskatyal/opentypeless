@@ -77,9 +77,14 @@ impl std::error::Error for ConductorError {}
 /// The suspended work when a mission pauses for the user.
 struct Pending {
     kind: PendingKind,
+    /// Stable board id of the paused mission, so its `TaskResult` matches its card.
+    task_id: String,
     /// Missions not yet started, resumed after the paused one finishes.
-    queue: VecDeque<Mission>,
+    queue: VecDeque<QueuedMission>,
 }
+
+/// A mission tagged with the stable board id its card is keyed by (e.g. "t0").
+type QueuedMission = (String, Mission);
 
 enum PendingKind {
     /// Paused inside a leaf recipe.
@@ -105,6 +110,9 @@ pub struct Conductor {
     board: Blackboard,
     state: ConductorState,
     pending: Option<Pending>,
+    /// The board id of the mission currently running (set in `run_mission`, and
+    /// restored on resume), so a terminal outcome emits the matching `TaskResult`.
+    current_task: Option<String>,
 }
 
 /// Where the mission loop lands after one mission.
@@ -137,6 +145,7 @@ impl Conductor {
             board: Blackboard::new(),
             state: ConductorState::Idle,
             pending: None,
+            current_task: None,
         }
     }
 
@@ -248,7 +257,14 @@ impl Conductor {
             "Act selection resolved"
         );
 
-        let queue: VecDeque<Mission> = selection.missions.into();
+        // Tag each mission with a stable board id ("t0", "t1", …) so the Agents
+        // board can key one card per mission across its whole lifecycle.
+        let queue: VecDeque<QueuedMission> = selection
+            .missions
+            .into_iter()
+            .enumerate()
+            .map(|(i, m)| (format!("t{i}"), m))
+            .collect();
         self.drive_queue(queue, &mut events).await;
 
         let errors = events
@@ -280,7 +296,12 @@ impl Conductor {
         self.state = ConductorState::Working;
         events.push(self.state_event());
 
-        let Pending { kind, queue } = pending;
+        let Pending {
+            kind,
+            task_id,
+            queue,
+        } = pending;
+        self.current_task = Some(task_id);
         match self.resume_paused(kind, decision, &mut events).await {
             Step::Next => self.drive_queue(queue, &mut events).await,
             Step::Paused(kind) => self.suspend(kind, queue, &mut events),
@@ -324,9 +345,13 @@ impl Conductor {
     }
 
     /// Run missions until the queue drains or one pauses / aborts.
-    async fn drive_queue(&mut self, mut queue: VecDeque<Mission>, events: &mut Vec<ActEvent>) {
-        while let Some(mission) = queue.pop_front() {
-            match self.run_mission(mission, events).await {
+    async fn drive_queue(
+        &mut self,
+        mut queue: VecDeque<QueuedMission>,
+        events: &mut Vec<ActEvent>,
+    ) {
+        while let Some((id, mission)) = queue.pop_front() {
+            match self.run_mission(id, mission, events).await {
                 Step::Next => continue,
                 Step::Paused(kind) => {
                     self.suspend(kind, queue, events);
@@ -348,25 +373,52 @@ impl Conductor {
     }
 
     /// Store a pause: remember the continuation and reflect it in state + events.
-    fn suspend(&mut self, kind: PendingKind, queue: VecDeque<Mission>, events: &mut Vec<ActEvent>) {
+    fn suspend(
+        &mut self,
+        kind: PendingKind,
+        queue: VecDeque<QueuedMission>,
+        events: &mut Vec<ActEvent>,
+    ) {
         self.state = match &kind {
             PendingKind::Flow { .. } | PendingKind::Novel { .. } => match events.last() {
                 Some(ActEvent::AskUser { .. }) => ConductorState::AwaitingChoice,
                 _ => ConductorState::AwaitingConfirm,
             },
         };
-        self.pending = Some(Pending { kind, queue });
+        // The paused card stays "running"; remember its id for the eventual result.
+        let task_id = self.current_task.clone().unwrap_or_default();
+        self.pending = Some(Pending {
+            kind,
+            task_id,
+            queue,
+        });
         events.push(self.state_event());
     }
 
-    /// Carry out one mission.
-    async fn run_mission(&mut self, mission: Mission, events: &mut Vec<ActEvent>) -> Step {
+    /// Carry out one mission. `task_id` keys its card on the Agents board.
+    async fn run_mission(
+        &mut self,
+        task_id: String,
+        mission: Mission,
+        events: &mut Vec<ActEvent>,
+    ) -> Step {
+        // Announce the card and mark it running before any work begins.
+        self.current_task = Some(task_id.clone());
+        events.push(ActEvent::TaskSpawned {
+            id: task_id.clone(),
+            label: self.mission_label(&mission),
+        });
+        events.push(ActEvent::TaskProgress {
+            id: task_id,
+            text: "Working…".into(),
+        });
+
         match mission {
-            Mission::OpenFlow { id, slots } => {
+            Mission::OpenFlow { id, slots, .. } => {
                 tracing::info!(flow = %id, slots = ?slots, "Act running flow");
                 self.run_flow(&id, slots, events).await
             }
-            Mission::Novel { goal } => {
+            Mission::Novel { goal, .. } => {
                 tracing::info!(goal = %goal, "Act running novel goal (planner)");
                 self.run_novel(goal, events).await
             }
@@ -377,6 +429,31 @@ impl Conductor {
         }
     }
 
+    /// A short human title for a mission's card: the saved flow's name (falling
+    /// back to its id), the novel goal, or the question asked.
+    fn mission_label(&self, mission: &Mission) -> String {
+        match mission {
+            Mission::OpenFlow { id, .. } => self
+                .registry
+                .open(id)
+                .map(|f| f.name.clone())
+                .unwrap_or_else(|| id.clone()),
+            Mission::Novel { goal, .. } => short_goal(goal),
+            Mission::Answer { question } => short_goal(question),
+        }
+    }
+
+    /// Emit the terminal `TaskResult` for the running card, if one is tracked.
+    fn finish_task(&self, ok: bool, summary: &str, events: &mut Vec<ActEvent>) {
+        if let Some(id) = &self.current_task {
+            events.push(ActEvent::TaskResult {
+                id: id.clone(),
+                ok,
+                summary: summary.to_string(),
+            });
+        }
+    }
+
     /// Answer a question from the current state (talk-back), without acting.
     async fn run_answer(&mut self, question: String, events: &mut Vec<ActEvent>) -> Step {
         let screen = self.screen_summary().await;
@@ -384,6 +461,7 @@ impl Conductor {
         let text = super::answer::answer(self.llm.as_ref(), &question, &context, &screen).await;
         self.board
             .record(format!("answered: {}", short_goal(&question)));
+        self.finish_task(true, &text, events);
         events.push(ActEvent::Say { text });
         Step::Next
     }
@@ -419,9 +497,9 @@ impl Conductor {
     /// Open a saved recipe and replay it (a branch hands its context to the planner).
     async fn run_flow(&mut self, id: &str, mut slots: SlotMap, events: &mut Vec<ActEvent>) -> Step {
         let Some(file) = self.registry.open(id).cloned() else {
-            events.push(ActEvent::Error {
-                message: format!("that saved task is unavailable ({id})"),
-            });
+            let message = format!("that saved task is unavailable ({id})");
+            self.finish_task(false, &message, events);
+            events.push(ActEvent::Error { message });
             return Step::Next;
         };
         // Fill any declared slot that the model left unset with its default, so an
@@ -453,22 +531,20 @@ impl Conductor {
         match outcome {
             Ok(FlowOutcome::Done { verified }) => {
                 self.board.record(format!("ran {}", file.id));
-                events.push(ActEvent::Result {
-                    ok: true,
-                    summary: if verified {
-                        format!("Done: {}", file.name)
-                    } else {
-                        format!("Ran {} (couldn't verify)", file.name)
-                    },
-                });
+                let summary = if verified {
+                    format!("Done: {}", file.name)
+                } else {
+                    format!("Ran {} (couldn't verify)", file.name)
+                };
+                self.finish_task(true, &summary, events);
+                events.push(ActEvent::Result { ok: true, summary });
                 Step::Next
             }
             Ok(FlowOutcome::Failed { step, error }) => {
                 self.board.record(format!("{} failed", file.id));
-                events.push(ActEvent::Result {
-                    ok: false,
-                    summary: format!("Couldn't finish {}: {error} (at {step})", file.name),
-                });
+                let summary = format!("Couldn't finish {}: {error} (at {step})", file.name);
+                self.finish_task(false, &summary, events);
+                events.push(ActEvent::Result { ok: false, summary });
                 Step::Next
             }
             Ok(FlowOutcome::NeedsConfirm { reason, resume }) => {
@@ -506,6 +582,7 @@ impl Conductor {
                     .await
             }
             Ok(FlowOutcome::Aborted) => {
+                self.finish_task(false, "Stopped", events);
                 events.push(ActEvent::Result {
                     ok: false,
                     summary: "Stopped".into(),
@@ -513,9 +590,9 @@ impl Conductor {
                 Step::Stop
             }
             Err(e) => {
-                events.push(ActEvent::Error {
-                    message: format!("Couldn't read the screen: {e}"),
-                });
+                let message = format!("Couldn't read the screen: {e}");
+                self.finish_task(false, &message, events);
+                events.push(ActEvent::Error { message });
                 Step::Next
             }
         }
@@ -537,9 +614,9 @@ impl Conductor {
                 GroundingPacket::from_snapshot(&snap, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS)
             }
             Err(e) => {
-                events.push(ActEvent::Error {
-                    message: format!("Couldn't read the screen: {e}"),
-                });
+                let message = format!("Couldn't read the screen: {e}");
+                self.finish_task(false, &message, events);
+                events.push(ActEvent::Error { message });
                 return Step::Next;
             }
         };
@@ -562,9 +639,9 @@ impl Conductor {
         {
             Ok(res) => res.plan,
             Err(e) => {
-                events.push(ActEvent::Error {
-                    message: e.to_string(),
-                });
+                let message = e.to_string();
+                self.finish_task(false, &message, events);
+                events.push(ActEvent::Error { message });
                 return Step::Next;
             }
         };
@@ -587,9 +664,9 @@ impl Conductor {
         let result = match result {
             Ok(r) => r,
             Err(e) => {
-                events.push(ActEvent::Error {
-                    message: e.to_string(),
-                });
+                let message = e.to_string();
+                self.finish_task(false, &message, events);
+                events.push(ActEvent::Error { message });
                 return Step::Next;
             }
         };
@@ -621,6 +698,7 @@ impl Conductor {
                 })
             }
             Some(StepOutcome::Aborted) => {
+                self.finish_task(false, "Stopped", events);
                 events.push(ActEvent::Result {
                     ok: false,
                     summary: "Stopped".into(),
@@ -630,6 +708,7 @@ impl Conductor {
             _ => {
                 self.board.record(short_goal(hint));
                 let (ok, summary) = summarize_novel(&result);
+                self.finish_task(ok, &summary, events);
                 events.push(ActEvent::Result { ok, summary });
                 Step::Next
             }

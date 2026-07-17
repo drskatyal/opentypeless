@@ -40,6 +40,20 @@ pub enum ActEvent {
     Result { ok: bool, summary: String },
     /// A recoverable error (bad plan, timeout, unsupported platform, …).
     Error { message: String },
+    /// A mission entered the queue and started — one card on the Agents board.
+    /// `id` is stable for the life of the command (e.g. "t0"); `label` is a
+    /// short human title (a flow name, a goal, or a question).
+    TaskSpawned { id: String, label: String },
+    /// A live status line for a running task's card. PHI-free (labels, not
+    /// values), same discipline as [`ActEvent::Step`].
+    TaskProgress { id: String, text: String },
+    /// A task finished — the card flips to Done ✓ or Failed. Mirrors the
+    /// mission's [`ActEvent::Result`]/[`ActEvent::Say`] outcome.
+    TaskResult {
+        id: String,
+        ok: bool,
+        summary: String,
+    },
 }
 
 #[cfg(test)]
@@ -76,5 +90,33 @@ mod tests {
         };
         let json = serde_json::to_string(&e).unwrap();
         assert_eq!(serde_json::from_str::<ActEvent>(&json).unwrap(), e);
+    }
+
+    #[test]
+    fn task_events_roundtrip_with_snake_case_kinds() {
+        let spawned = ActEvent::TaskSpawned {
+            id: "t0".into(),
+            label: "Open Gmail".into(),
+        };
+        let json = serde_json::to_string(&spawned).unwrap();
+        assert!(json.contains("\"kind\":\"task_spawned\""));
+        assert_eq!(serde_json::from_str::<ActEvent>(&json).unwrap(), spawned);
+
+        let progress = ActEvent::TaskProgress {
+            id: "t0".into(),
+            text: "Working…".into(),
+        };
+        let json = serde_json::to_string(&progress).unwrap();
+        assert!(json.contains("\"kind\":\"task_progress\""));
+        assert_eq!(serde_json::from_str::<ActEvent>(&json).unwrap(), progress);
+
+        let result = ActEvent::TaskResult {
+            id: "t0".into(),
+            ok: true,
+            summary: "Done: Open Gmail".into(),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"kind\":\"task_result\""));
+        assert_eq!(serde_json::from_str::<ActEvent>(&json).unwrap(), result);
     }
 }

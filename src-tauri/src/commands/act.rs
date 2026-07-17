@@ -20,12 +20,12 @@ use crate::act::executor::{Executor, UserDecision};
 use crate::act::flow_registry::FlowRegistry;
 use crate::act::flow_runner::FlowRunner;
 use crate::act::killswitch::KillSwitch;
-use crate::act::llm::GeminiLlmClient;
+use crate::act::llm::{CerebrasLlmClient, GeminiLlmClient, LlmClient};
 use crate::act::planner::Planner;
 use crate::act::{self, seed};
 use crate::credentials::{
-    resolve_llm_config_secret, resolve_stt_config_secret, CredentialSecretReader,
-    SystemCredentialVault,
+    resolve_cerebras_config_secret, resolve_llm_config_secret, resolve_stt_config_secret,
+    CredentialSecretReader, SystemCredentialVault,
 };
 use crate::storage::{self, ConfigManager};
 
@@ -93,6 +93,47 @@ fn model_for_tier(tier: &str) -> &'static str {
     }
 }
 
+/// The Cerebras model used for Act's follow-up calls — a large open model served
+/// at very high tokens/sec, chosen for lower follow-up latency.
+const CEREBRAS_FOLLOWUP_MODEL: &str = "gpt-oss-120b";
+
+/// Build the LlmClient for Act's text-only FOLLOW-UP calls (selection routing,
+/// planner, answer). When `act_followup_provider` is "cerebras" AND a Cerebras
+/// key resolves from the vault, route those calls through the OpenAI-compatible
+/// Cerebras endpoint for lower latency; otherwise fall back to Gemini. The
+/// first/audio call is a separate path (`stt/gemini.rs`) and always stays Gemini.
+fn build_followup_llm<V: CredentialSecretReader>(
+    client: reqwest::Client,
+    config: &storage::AppConfig,
+    vault: &V,
+) -> Arc<dyn LlmClient> {
+    if config
+        .act_followup_provider
+        .trim()
+        .eq_ignore_ascii_case("cerebras")
+    {
+        let key = resolve_cerebras_config_secret(config, vault).unwrap_or_default();
+        if !key.trim().is_empty() {
+            tracing::info!(
+                model = CEREBRAS_FOLLOWUP_MODEL,
+                "Act follow-up calls routed to Cerebras"
+            );
+            return Arc::new(CerebrasLlmClient::new(
+                client,
+                key.trim().to_string(),
+                CEREBRAS_FOLLOWUP_MODEL.to_string(),
+            ));
+        }
+        tracing::warn!(
+            "Act follow-up provider is Cerebras but no Cerebras key is configured; using Gemini"
+        );
+    }
+    let api_key = act_gemini_key(config, vault);
+    let model = model_for_tier(&config.act_model_tier).to_string();
+    tracing::info!(model = %model, "Act follow-up calls routed to Gemini");
+    Arc::new(GeminiLlmClient::new(client, api_key, model))
+}
+
 /// The Conductor's capability gate. Opening apps, settings pages, and URLs is the
 /// whole point of a voice assistant the user explicitly armed, so `AppLaunch` and
 /// `NetNavigate` are granted (frictionless open). Shell execution stays Confirm
@@ -116,9 +157,7 @@ fn build_conductor(
     config: &storage::AppConfig,
     kill: KillSwitch,
 ) -> Conductor {
-    let api_key = act_gemini_key(config, &SystemCredentialVault);
-    let model = model_for_tier(&config.act_model_tier).to_string();
-    let llm = Arc::new(GeminiLlmClient::new(client, api_key, model));
+    let llm: Arc<dyn LlmClient> = build_followup_llm(client, config, &SystemCredentialVault);
     let backend = act::create_backend();
     let gate = conductor_gate();
 

@@ -355,6 +355,14 @@ pub struct AppConfig {
     pub act_enabled: bool,
     /// Act planner model tier: "fast" (default) or "precise".
     pub act_model_tier: String,
+    /// Provider for Act's text-only FOLLOW-UP calls (selection routing, planner,
+    /// answer): "gemini" (default) or "cerebras". The first/audio call always
+    /// stays on Gemini.
+    pub act_followup_provider: String,
+    /// Legacy plaintext Cerebras API key. Migrated into the OS credential vault on
+    /// load (namespace "llm", provider "cerebras") and cleared, exactly like the
+    /// other API keys.
+    pub cerebras_api_key: String,
     pub llm_provider: String,
     pub llm_api_key: String,
     pub llm_model: String,
@@ -415,6 +423,8 @@ impl Default for AppConfig {
                 .to_string(),
             act_enabled: false,
             act_model_tier: "fast".to_string(),
+            act_followup_provider: "gemini".to_string(),
+            cerebras_api_key: String::new(),
             llm_provider: "gemini".to_string(),
             llm_api_key: String::new(),
             llm_model: "gemini-3.1-flash-lite".to_string(),
