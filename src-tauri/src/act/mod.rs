@@ -8,6 +8,7 @@
 //! `docs/flowrad-act-architecture.md`.
 
 pub mod action;
+pub mod answer;
 pub mod audit;
 pub mod backend;
 pub mod blackboard;

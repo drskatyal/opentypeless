@@ -33,6 +33,9 @@ pub enum ActEvent {
         prompt: String,
         options: Vec<AskOption>,
     },
+    /// A spoken/displayed answer to a question — talk-back mode, where the user
+    /// asked something ("what's on my screen?") rather than commanding an action.
+    Say { text: String },
     /// A plan finished (ok = fully completed).
     Result { ok: bool, summary: String },
     /// A recoverable error (bad plan, timeout, unsupported platform, …).

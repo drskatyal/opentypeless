@@ -34,6 +34,9 @@ use super::session::ActMode;
 /// Slot name -> value, as filled by the selection layer.
 type SlotMap = HashMap<String, String>;
 
+/// Cap on control names listed in a talk-back screen summary.
+const SCREEN_SUMMARY_CAP: usize = 24;
+
 /// Where the Conductor is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConductorState {
@@ -179,14 +182,24 @@ impl Conductor {
     }
 
     /// Handle one final transcript end to end. Returns the events to emit.
+    ///
+    /// Barge-in: a new command while the Conductor is *paused* for the user
+    /// (awaiting a confirm / pick) abandons that pause and runs the new command —
+    /// the user changed their mind. A command while actively `Working` is
+    /// rejected as `Busy` (the caller trips the kill switch via [`Self::abort`]
+    /// to interrupt in-flight execution).
     pub async fn on_transcript(
         &mut self,
         transcript: String,
     ) -> Result<Vec<ActEvent>, ConductorError> {
         match self.state {
             ConductorState::Armed => {}
+            ConductorState::AwaitingConfirm | ConductorState::AwaitingChoice => {
+                // Drop the suspended queue; the paused flow isn't executing.
+                self.pending = None;
+            }
             ConductorState::Idle => return Err(ConductorError::NotArmed),
-            _ => return Err(ConductorError::Busy),
+            ConductorState::Working => return Err(ConductorError::Busy),
         }
 
         // Fresh kill switches for a new command.
@@ -251,6 +264,37 @@ impl Conductor {
         Ok(events)
     }
 
+    /// Undo the last edit — send the focused app's own Undo (Ctrl+Z). This is the
+    /// honest, universally-reversible meaning of "undo": it reverses the last
+    /// typing/edit in whatever surface has focus. Actions with no app-level undo
+    /// (an opened URL, a launched app) are simply not reversed by it.
+    pub async fn undo(&mut self) -> Result<Vec<ActEvent>, ConductorError> {
+        if !self.is_armed() {
+            return Err(ConductorError::NotArmed);
+        }
+        if matches!(self.state, ConductorState::Working) {
+            return Err(ConductorError::Busy);
+        }
+        // Barge past a pause: undo is itself the user's new intent.
+        self.pending = None;
+        self.executor.kill_switch().reset();
+
+        let mut events = Vec::new();
+        let ok = self.backend.key_combo("ctrl+z").await.is_ok();
+        self.board.record("undo (ctrl+z)");
+        events.push(ActEvent::Result {
+            ok,
+            summary: if ok {
+                "Undid the last edit".into()
+            } else {
+                "Couldn't send undo".into()
+            },
+        });
+        self.state = self.baseline();
+        events.push(self.state_event());
+        Ok(events)
+    }
+
     /// Run missions until the queue drains or one pauses / aborts.
     async fn drive_queue(&mut self, mut queue: VecDeque<Mission>, events: &mut Vec<ActEvent>) {
         while let Some(mission) = queue.pop_front() {
@@ -292,6 +336,46 @@ impl Conductor {
         match mission {
             Mission::OpenFlow { id, slots } => self.run_flow(&id, slots, events).await,
             Mission::Novel { goal } => self.run_novel(goal, events).await,
+            Mission::Answer { question } => self.run_answer(question, events).await,
+        }
+    }
+
+    /// Answer a question from the current state (talk-back), without acting.
+    async fn run_answer(&mut self, question: String, events: &mut Vec<ActEvent>) -> Step {
+        let screen = self.screen_summary().await;
+        let context = self.board.context_summary();
+        let text = super::answer::answer(self.llm.as_ref(), &question, &context, &screen).await;
+        self.board
+            .record(format!("answered: {}", short_goal(&question)));
+        events.push(ActEvent::Say { text });
+        Step::Next
+    }
+
+    /// A compact, fenced list of on-screen control names for a talk-back answer.
+    /// PHI-free (names/labels only, capped), and empty when the screen can't be read.
+    async fn screen_summary(&self) -> String {
+        let Ok(snapshot) = self.backend.snapshot().await else {
+            return String::new();
+        };
+        let mut names: Vec<&str> = snapshot
+            .interactive()
+            .map(|e| e.name.as_str())
+            .filter(|n| !n.is_empty())
+            .take(SCREEN_SUMMARY_CAP)
+            .collect();
+        names.dedup();
+        if names.is_empty() {
+            format!(
+                "SCREEN: {} — {} (no named controls)",
+                snapshot.app, snapshot.window_title
+            )
+        } else {
+            format!(
+                "SCREEN: {} — {}; controls: {}",
+                snapshot.app,
+                snapshot.window_title,
+                names.join(", ")
+            )
         }
     }
 
@@ -832,6 +916,88 @@ mod tests {
         assert!(after
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+    }
+
+    #[tokio::test]
+    async fn answer_mission_replies_without_acting() {
+        let backend = Arc::new(MockBackend::new(snap(vec![el(
+            "#/1",
+            Role::Button,
+            "Play",
+        )])));
+        // First LLM turn routes to an Answer; the second is the talk-back reply.
+        let selection = r#"{"missions":[{"type":"answer","question":"what can I click?"}]}"#;
+        let reply = r#"{"answer":"You can click Play."}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(reply.into())],
+            backend.clone(),
+        );
+        c.arm();
+        let events = c.on_transcript("what can I click?".into()).await.unwrap();
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Say { text } if text.contains("Play"))));
+        // Talk-back never acts.
+        assert!(backend.keys().is_empty());
+        assert!(backend.invoked().is_empty());
+        assert!(matches!(c.state(), ConductorState::Idle));
+    }
+
+    #[tokio::test]
+    async fn barge_in_abandons_a_pause_and_runs_the_new_command() {
+        let mut launch = open_gmail_flow();
+        launch.id = "launch_spotify".into();
+        launch.steps[0].action = "launch".into();
+        launch.steps[0].value = Some("Spotify".into());
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let registry = FlowRegistry::from_files([launch, open_gmail_flow()]);
+        let first = r#"{"missions":[{"type":"open_flow","id":"launch_spotify","slots":{}}]}"#;
+        let second = r#"{"missions":[{"type":"open_flow","id":"open_gmail","slots":{}}]}"#;
+        let mut c = conductor(
+            registry,
+            vec![Ok(first.into()), Ok(second.into())],
+            backend.clone(),
+        );
+        c.arm();
+
+        // First command pauses on the launch confirm.
+        c.on_transcript("launch spotify".into()).await.unwrap();
+        assert!(matches!(c.state(), ConductorState::AwaitingConfirm));
+
+        // The user barges in with a different command instead of answering.
+        let events = c
+            .on_transcript("actually, open gmail".into())
+            .await
+            .unwrap();
+        assert!(
+            backend.launched().is_empty(),
+            "the abandoned launch never ran"
+        );
+        assert_eq!(backend.opened_uris(), vec!["https://mail.google.com"]);
+        assert!(matches!(c.state(), ConductorState::Idle));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+    }
+
+    #[tokio::test]
+    async fn undo_sends_the_focused_app_undo() {
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let mut c = conductor(FlowRegistry::new(), vec![], backend.clone());
+        c.arm();
+        let events = c.undo().await.unwrap();
+        assert_eq!(backend.keys(), vec!["ctrl+z".to_string()]);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+    }
+
+    #[tokio::test]
+    async fn undo_before_arming_is_rejected() {
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let mut c = conductor(FlowRegistry::new(), vec![], backend);
+        assert_eq!(c.undo().await, Err(ConductorError::NotArmed));
     }
 
     #[tokio::test]
