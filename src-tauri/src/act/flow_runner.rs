@@ -45,6 +45,11 @@ const STABLE_WAIT: Duration = Duration::from_millis(150);
 /// The upper bound on any single wait/verify, so a bad predicate can't hang a run.
 const MAX_WAIT: Duration = Duration::from_secs(15);
 
+/// Defensive cap on `element_ref` / `within_ref` resolution recursion. Real
+/// chains are 1–2 deep (bindings never reference other bindings); this only
+/// backstops a malformed cyclic binding so it fails cleanly, never overflows.
+const MAX_REF_DEPTH: usize = 8;
+
 /// The terminal result of replaying one file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FlowOutcome {
@@ -437,6 +442,19 @@ impl FlowRunner {
             .as_deref()
             .map(|v| substitute_value(v, slots, filters));
 
+        // Fail closed on an unfilled slot: never launch, navigate to, or type a
+        // literal `{slot}` into the OS (typing `{password}` or opening a URL with
+        // `{q}` in it). A missing required slot should have been caught upstream;
+        // this is the last-line guard.
+        if let Some(v) = &value {
+            if let Some(tok) = first_unresolved_slot(v) {
+                return Ok(Attempt::Failed(format!(
+                    "unfilled slot {{{tok}}} in step {}",
+                    step.id
+                )));
+            }
+        }
+
         macro_rules! guarded {
             ($fut:expr) => {
                 tokio::select! {
@@ -624,17 +642,61 @@ impl FlowRunner {
         slots: &HashMap<String, String>,
         binds: &HashMap<String, Selector>,
     ) -> Option<ElementPath> {
-        // `element_ref`: act on a previously chosen element — re-resolve its bound
-        // identity now. (Bound identities never carry refs, so no recursion loop.)
-        if let Some(name) = &sel.element_ref {
-            let bound = binds.get(name)?;
-            return self.resolve_selector(snapshot, bound, slots, binds);
+        // A step's own target may pick the earliest of equally-good matches (the
+        // recipe authored the selector); a *bound identity*, re-resolved below,
+        // must be unambiguous or fail — see `resolve_binding`.
+        self.resolve_selector_at(snapshot, sel, slots, binds, 0, false)
+    }
+
+    /// Re-resolve a *bound* identity to exactly one element, failing (`None`) on a
+    /// top-score tie. So a binding to one of several duplicate rows never silently
+    /// retargets a later step to a different duplicate — it fails closed instead.
+    fn resolve_binding(
+        &self,
+        snapshot: &Snapshot,
+        sel: &Selector,
+        slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
+        depth: usize,
+    ) -> Option<ElementPath> {
+        self.resolve_selector_at(snapshot, sel, slots, binds, depth, true)
+    }
+
+    /// Depth-guarded resolution. Synthesized bindings never carry refs, so real
+    /// recursion is shallow (1–2); the cap is a defensive backstop that fails a
+    /// pathological `a→b→a` binding cleanly instead of overflowing the stack.
+    ///
+    /// `require_unique` rejects a top-score tie (used when re-resolving a bound
+    /// identity, where two equal matches mean "which duplicate?" — never guess).
+    fn resolve_selector_at(
+        &self,
+        snapshot: &Snapshot,
+        sel: &Selector,
+        slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
+        depth: usize,
+        require_unique: bool,
+    ) -> Option<ElementPath> {
+        if depth > MAX_REF_DEPTH {
+            return None;
         }
 
-        // `within_ref`: scope the search under a bound element's subtree, found by
-        // re-resolving its identity in this snapshot.
+        // `element_ref`: act on a previously chosen element — re-resolve its bound
+        // identity now (unambiguously). Outer search fields are intentionally not
+        // combined: `element_ref` names one specific element; use `within_ref` to
+        // search inside it.
+        if let Some(name) = &sel.element_ref {
+            let bound = binds.get(name)?;
+            return self.resolve_binding(snapshot, bound, slots, binds, depth + 1);
+        }
+
+        // `within_ref`: scope the search *strictly inside* a bound element's
+        // subtree (the container itself is excluded), found by re-resolving its
+        // identity in this snapshot — unambiguously, or the scope fails.
         let scope_prefix = match &sel.within_ref {
-            Some(name) => Some(self.resolve_selector(snapshot, binds.get(name)?, slots, binds)?),
+            Some(name) => {
+                Some(self.resolve_binding(snapshot, binds.get(name)?, slots, binds, depth + 1)?)
+            }
             None => None,
         };
 
@@ -643,14 +705,22 @@ impl FlowRunner {
             .as_ref()
             .map(|c| substitute(c, slots).to_lowercase());
 
-        // Collect every acceptable candidate with its score, in tree order.
+        // Collect every acceptable candidate with its score, in tree order. Role,
+        // when specified, is a hard constraint (not a soft score bump) — a saved
+        // selector's control type should never be beaten by a same-named control
+        // of the wrong role.
         let mut hits: Vec<(i32, &UiElement)> = Vec::new();
         for element in &snapshot.elements {
             if is_unusable(element) || !state_gate_passes(element, &sel.state) {
                 continue;
             }
+            if let Some(role) = &sel.role {
+                if !role_matches(role, element.role) {
+                    continue;
+                }
+            }
             if let Some(prefix) = &scope_prefix {
-                if !path_under(&element.path, prefix) {
+                if !path_strictly_under(&element.path, prefix) {
                     continue;
                 }
             }
@@ -661,6 +731,19 @@ impl FlowRunner {
         }
         if hits.is_empty() {
             return None;
+        }
+
+        // Fail an ambiguous *bound* re-resolution: more than one element sharing
+        // the top score means we cannot tell the duplicates apart.
+        if require_unique && sel.nth.is_none() {
+            let top = hits
+                .iter()
+                .map(|(s, _)| *s)
+                .max()
+                .unwrap_or(RESOLVE_THRESHOLD);
+            if hits.iter().filter(|(s, _)| *s == top).count() > 1 {
+                return None;
+            }
         }
 
         // `nth`: disambiguate among the *best-scoring* matches by tree order —
@@ -710,14 +793,15 @@ impl FlowRunner {
         slots: &HashMap<String, String>,
         binds: &HashMap<String, Selector>,
     ) -> Choice {
-        // Optional subtree scoping via a bound container.
+        // Optional subtree scoping via a bound container (re-resolved
+        // unambiguously — a duplicate container fails rather than mis-scopes).
         let scope_prefix = match &sel.within_ref {
             Some(name) => match binds
                 .get(name)
-                .and_then(|b| self.resolve_selector(snapshot, b, slots, binds))
+                .and_then(|b| self.resolve_binding(snapshot, b, slots, binds, 1))
             {
                 Some(p) => Some(p),
-                // The bound container is gone — no candidates to choose among.
+                // The bound container is gone or ambiguous — nothing to choose.
                 None => return Choice::None { best: None },
             },
             None => None,
@@ -749,12 +833,12 @@ impl FlowRunner {
                 }
             }
             if let Some(prefix) = &scope_prefix {
-                if !path_under(&element.path, prefix) {
+                if !path_strictly_under(&element.path, prefix) {
                     continue;
                 }
             }
             let name_lc = element.name.to_lowercase();
-            if negatives.iter().any(|n| name_lc.contains(n)) {
+            if negatives.iter().any(|n| contains_word(&name_lc, n)) {
                 continue;
             }
             scored.push((pick_score(&name_lc, &terms), element));
@@ -828,15 +912,37 @@ enum Choice {
     Ambiguous { candidates: Vec<ElementPath> },
 }
 
-/// Fraction (0.0–1.0) of `terms` whose text appears in a candidate's (lowercased)
-/// name. No terms → `0.0`, so a pick with nothing to match on never clears a
-/// positive `min_score` and falls through to its `if_none` handling.
+/// Fraction (0.0–1.0) of `terms` matched as whole words in a candidate's
+/// (lowercased) name. No terms → `0.0`, so a pick with nothing to match on never
+/// clears a positive `min_score` and falls through to its `if_none` handling.
+///
+/// Whole-word (not raw substring) so a term like `app` doesn't score against
+/// `happy` and an ad row can't win by embedding query tokens inside longer words.
 fn pick_score(name_lc: &str, terms: &[String]) -> f32 {
     if terms.is_empty() {
         return 0.0;
     }
-    let hits = terms.iter().filter(|t| name_lc.contains(*t)).count();
+    let hits = terms.iter().filter(|t| contains_word(name_lc, t)).count();
     hits as f32 / terms.len() as f32
+}
+
+/// Whether `needle` occurs in `haystack` bounded by non-alphanumerics (i.e. as a
+/// whole word/phrase, not embedded in a longer word). Both are expected already
+/// lowercased. An empty needle never matches.
+fn contains_word(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return false;
+    }
+    let bytes = haystack.as_bytes();
+    // `match_indices` yields char-boundary byte offsets, so the neighbour byte
+    // checks never slice mid-char. A UTF-8 continuation byte isn't ASCII
+    // alphanumeric, so a Unicode letter neighbour counts as a word boundary.
+    haystack.match_indices(needle).any(|(start, _)| {
+        let end = start + needle.len();
+        let before_ok = start == 0 || !bytes[start - 1].is_ascii_alphanumeric();
+        let after_ok = end == bytes.len() || !bytes[end].is_ascii_alphanumeric();
+        before_ok && after_ok
+    })
 }
 
 /// Whether `path` is `prefix` itself or a descendant of it (subtree membership),
@@ -848,10 +954,22 @@ fn path_under(path: &str, prefix: &str) -> bool {
             .is_some_and(|r| r.starts_with('/'))
 }
 
+/// Whether `path` is a *strict* descendant of `prefix` (excludes the container
+/// itself) — the meaning of `within_ref` ("act on something inside X, not X").
+fn path_strictly_under(path: &str, prefix: &str) -> bool {
+    path != prefix && path_under(path, prefix)
+}
+
 /// Build a re-resolvable identity for a chosen element, to be stored as a binding.
-/// Uses the element's role plus its exact accessible name — stable enough to
-/// re-find the same control in a later fresh snapshot, and never a cached path.
-/// `None` when the element has neither a name nor a mappable role to anchor on.
+///
+/// Anchors on the two stable *text* handles the element model carries — its
+/// accessible name (as `name_any`) and its description (as `automation_id_any`,
+/// which the resolver scores highest, `+6`) — plus its role for control typing.
+/// Re-resolves the same control in a later fresh snapshot without a cached path.
+///
+/// Fails closed (`None`) when the element has neither name nor description: a
+/// role-only identity would re-resolve to any peer of that role, so we refuse to
+/// bind it rather than risk silently retargeting a later step.
 fn synthesize_binding(snapshot: &Snapshot, path: &str) -> Option<Selector> {
     let el = snapshot.get(path)?;
     let name_any = if el.name.is_empty() {
@@ -859,14 +977,18 @@ fn synthesize_binding(snapshot: &Snapshot, path: &str) -> Option<Selector> {
     } else {
         vec![el.name.clone()]
     };
-    let role = role_canonical(el.role);
-    // Nothing to anchor on would re-resolve to anything — refuse to bind it.
-    if name_any.is_empty() && role.is_none() {
+    let automation_id_any = if el.description.is_empty() {
+        Vec::new()
+    } else {
+        vec![el.description.clone()]
+    };
+    if name_any.is_empty() && automation_id_any.is_empty() {
         return None;
     }
     Some(Selector {
-        role: role.map(str::to_string),
+        role: role_canonical(el.role).map(str::to_string),
         name_any,
+        automation_id_any,
         ..Default::default()
     })
 }
@@ -1000,6 +1122,29 @@ fn parse_filter(name: &str) -> Option<SlotFilter> {
     }
 }
 
+/// The name of the first still-unfilled `{slot}` token in a rendered value, if
+/// any. [`substitute`] leaves an unknown token as a bare `{name}` (identifier
+/// chars only); a residual one in an *executed* value means a slot went unfilled.
+fn first_unresolved_slot(rendered: &str) -> Option<&str> {
+    let mut rest = rendered;
+    while let Some(open) = rest.find('{') {
+        let after = &rest[open + 1..];
+        let Some(close) = after.find('}') else {
+            break;
+        };
+        let inner = &after[..close];
+        if !inner.is_empty()
+            && inner
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Some(inner);
+        }
+        rest = &after[close + 1..];
+    }
+    None
+}
+
 /// Whether an element must never be resolved as a target.
 fn is_unusable(element: &UiElement) -> bool {
     element.has_state(ElementState::Disabled)
@@ -1010,13 +1155,32 @@ fn is_unusable(element: &UiElement) -> bool {
 /// Whether a candidate satisfies a selector's explicit toggle-state gates. A
 /// `None` gate is "don't care"; a `Some` gate is asserted. Enabled + on-screen
 /// are not gated here — [`is_unusable`] already requires them unconditionally.
+///
+/// A `Some(false)` gate also requires the control to *support* that state, so
+/// e.g. `checked:false` matches an unchecked checkbox but never a plain button
+/// (which reports "not checked" only because it can't be checked at all).
 fn state_gate_passes(element: &UiElement, gate: &StateGate) -> bool {
-    let assert = |want: Option<bool>, state: ElementState| -> bool {
-        want.map(|w| element.has_state(state) == w).unwrap_or(true)
+    let assert = |want: Option<bool>, state: ElementState, supported: bool| -> bool {
+        match want {
+            None => true,
+            Some(w) => supported && element.has_state(state) == w,
+        }
     };
-    assert(gate.checked, ElementState::Checked)
-        && assert(gate.selected, ElementState::Selected)
-        && assert(gate.expanded, ElementState::Expanded)
+    let checkable = matches!(
+        element.role,
+        Role::CheckBox | Role::RadioButton | Role::MenuItem | Role::TreeItem
+    ) || element.patterns.contains(&ActionPattern::Toggle);
+    let selectable = matches!(
+        element.role,
+        Role::ListItem | Role::Tab | Role::TabItem | Role::TreeItem | Role::MenuItem | Role::Row
+    ) || element.patterns.contains(&ActionPattern::Select);
+    let expandable = matches!(
+        element.role,
+        Role::ComboBox | Role::TreeItem | Role::MenuItem
+    ) || element.patterns.contains(&ActionPattern::Expand);
+    assert(gate.checked, ElementState::Checked, checkable)
+        && assert(gate.selected, ElementState::Selected, selectable)
+        && assert(gate.expanded, ElementState::Expanded, expandable)
 }
 
 /// The element model carries no secret flag, so a password field is recognized
@@ -1588,6 +1752,104 @@ mod tests {
         assert_eq!(outcome, FlowOutcome::Done { verified: true });
         // The Reply under Andreas's row, not Bob's.
         assert_eq!(backend.invoked(), vec!["#/2/1".to_string()]);
+    }
+
+    #[test]
+    fn contains_word_matches_only_whole_words() {
+        assert!(contains_word(
+            "hotel california — eagles",
+            "hotel california"
+        ));
+        assert!(contains_word("sponsored — deal", "sponsored"));
+        assert!(!contains_word("happy mapping", "app")); // not a partial-word hit
+        assert!(!contains_word("badge of honor", "ad")); // negative doesn't over-suppress
+        assert!(!contains_word("anything", ""));
+    }
+
+    #[test]
+    fn first_unresolved_slot_finds_bare_tokens_only() {
+        assert_eq!(first_unresolved_slot("ms-settings:bluetooth"), None);
+        assert_eq!(first_unresolved_slot("play {song}"), Some("song"));
+        assert_eq!(first_unresolved_slot("a {b c} d"), None); // spaces -> not a slot
+        assert_eq!(first_unresolved_slot("{q1}"), Some("q1"));
+    }
+
+    #[tokio::test]
+    async fn unfilled_slot_fails_the_step_instead_of_typing_a_literal() {
+        let backend = Arc::new(MockBackend::new(snapshot(vec![])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut s = step("s1", "uri");
+        s.value = Some("https://example.com/s?q={song}".into()); // {song} never provided
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        match outcome {
+            FlowOutcome::Failed { error, .. } => assert!(error.contains("unfilled slot")),
+            other => panic!("expected Failed, got {other:?}"),
+        }
+        assert!(backend.opened_uris().is_empty(), "nothing navigated");
+    }
+
+    #[tokio::test]
+    async fn role_is_a_hard_constraint_not_a_soft_score() {
+        // A same-named text field must not win over the button the selector names.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::Text, "Save"),
+            el("#/2", Role::Button, "Save"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut s = step("s1", "invoke");
+        s.target = Some(Selector {
+            role: Some("button".into()),
+            name_any: vec!["Save".into()],
+            ..Default::default()
+        });
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn ambiguous_binding_fails_closed_rather_than_retarget() {
+        // Two identically-named rows, each with a Reply. Binding the row then
+        // scoping within it is ambiguous -> the within step fails, never guesses.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::ListItem, "Andreas"),
+            el("#/1/1", Role::Button, "Reply"),
+            el("#/2", Role::ListItem, "Andreas"),
+            el("#/2/1", Role::Button, "Reply"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut choose = step("s1", "choose");
+        choose.target = Some(Selector {
+            role: Some("list_item".into()),
+            name_contains: Some("Andreas".into()),
+            ..Default::default()
+        });
+        choose.bind = Some("row".into());
+        let mut reply = step("s2", "invoke");
+        reply.target = Some(Selector {
+            role: Some("button".into()),
+            name_any: vec!["Reply".into()],
+            within_ref: Some("row".into()),
+            ..Default::default()
+        });
+        file.steps = vec![choose, reply];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        assert!(
+            matches!(outcome, FlowOutcome::Failed { .. }),
+            "ambiguous bound container must fail closed, got {outcome:?}"
+        );
+        assert!(backend.invoked().is_empty(), "nothing clicked on ambiguity");
     }
 
     #[tokio::test]
