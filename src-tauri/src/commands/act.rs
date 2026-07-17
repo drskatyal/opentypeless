@@ -152,7 +152,9 @@ pub async fn rehydrate_if_enabled(state: &ActState, config: &storage::AppConfig)
         return;
     }
     if act_gemini_key(config).is_empty() {
-        tracing::warn!("Act is enabled but no Gemini API key is configured; not arming on startup.");
+        tracing::warn!(
+            "Act is enabled but no Gemini API key is configured; not arming on startup."
+        );
         return;
     }
     arm_into(state, config).await;
