@@ -55,7 +55,13 @@ export function SttPane() {
   const supportsAppleSpeech = platformCapabilities
     ? platformCapabilities.os === 'macos'
     : isMacPlatform()
-  const visibleSttProviders = STT_PROVIDERS.filter(
+  // Groq (whisper-large-v3-turbo) is served by the generic Whisper-compatible
+  // backend; expose it in the picker without duplicating if it is ever added to
+  // the shared STT_PROVIDERS list.
+  const sttProviderOptions = STT_PROVIDERS.some((provider) => provider.value === 'groq-whisper')
+    ? STT_PROVIDERS
+    : [...STT_PROVIDERS, { value: 'groq-whisper', labelKey: 'providers.stt.groqWhisper' }]
+  const visibleSttProviders = sttProviderOptions.filter(
     (provider) => provider.value !== APPLE_SPEECH_PROVIDER || supportsAppleSpeech,
   )
   const appleSpeechReady = sttDiagnostics?.ready === true
