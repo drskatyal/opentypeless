@@ -12,6 +12,7 @@ pub mod audit;
 pub mod backend;
 pub mod blackboard;
 pub mod capability;
+pub mod conductor;
 pub mod destructive;
 pub mod element;
 pub mod events;
