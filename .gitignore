@@ -56,3 +56,6 @@ docs/superpowers/
 
 # Local isolated worktrees
 .worktrees/
+
+# Claude Code agent worktrees / local tooling scratch
+.claude/
