@@ -198,21 +198,33 @@ impl Conductor {
         &mut self,
         transcript: String,
     ) -> Result<Vec<ActEvent>, ConductorError> {
-        match self.state {
-            ConductorState::Armed => {}
+        // Barge-in: a new command abandons any paused mission. Capture its card id
+        // so we can close the card out below — a card must never hang on "running".
+        let superseded = match self.state {
+            ConductorState::Armed => None,
             ConductorState::AwaitingConfirm | ConductorState::AwaitingChoice => {
-                // Drop the suspended queue; the paused flow isn't executing.
-                self.pending = None;
+                self.pending.take().map(|p| p.task_id)
             }
             ConductorState::Idle => return Err(ConductorError::NotArmed),
             ConductorState::Working => return Err(ConductorError::Busy),
-        }
+        };
 
         // Fresh kill switches for a new command.
         self.runner.kill_switch().reset();
         self.executor.kill_switch().reset();
 
         let mut events = Vec::new();
+        // Emit a terminal result for the abandoned card (don't rely on the UI's
+        // own reset), then clear the tracked task so a later branch can't
+        // misattribute a result to it.
+        if let Some(id) = superseded.filter(|s| !s.is_empty()) {
+            events.push(ActEvent::TaskResult {
+                id,
+                ok: false,
+                summary: "Superseded by a new command".into(),
+            });
+        }
+        self.current_task = None;
         self.state = ConductorState::Working;
         events.push(self.state_event());
 

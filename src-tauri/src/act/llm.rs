@@ -237,16 +237,29 @@ impl LlmClient for CerebrasLlmClient {
 
         let v: serde_json::Value =
             serde_json::from_str(&raw).map_err(|e| AppError::Config(e.to_string()))?;
-        let text = v["choices"][0]["message"]["content"]
+        let content = v["choices"][0]["message"]["content"]
             .as_str()
-            .unwrap_or_default()
-            .trim()
-            .to_string();
+            .unwrap_or_default();
+        // Some OpenAI-compatible models still wrap JSON in a ```json fence despite
+        // json_object mode; strip it so the downstream parser gets bare JSON.
+        let text = strip_json_fence(content).to_string();
         if text.is_empty() {
             return Err(AppError::Config("Act follow-up returned no content".into()));
         }
         Ok(text)
     }
+}
+
+/// Strip a leading ```json / ``` fence and trailing ``` from a model response,
+/// returning the bare inner text. A no-op when there is no fence.
+fn strip_json_fence(s: &str) -> &str {
+    let t = s.trim();
+    let t = t
+        .strip_prefix("```json")
+        .or_else(|| t.strip_prefix("```"))
+        .unwrap_or(t);
+    let t = t.strip_suffix("```").unwrap_or(t);
+    t.trim()
 }
 
 /// Gemini's `responseSchema` accepts only a restricted OpenAPI 3.0 subset and
@@ -307,6 +320,15 @@ mod cerebras_tests {
 #[cfg(test)]
 mod schema_tests {
     use super::sanitize_gemini_schema;
+
+    #[test]
+    fn strip_json_fence_handles_fenced_and_bare() {
+        use super::strip_json_fence;
+        assert_eq!(strip_json_fence("{\"a\":1}"), "{\"a\":1}");
+        assert_eq!(strip_json_fence("```json\n{\"a\":1}\n```"), "{\"a\":1}");
+        assert_eq!(strip_json_fence("```\n{\"a\":1}\n```"), "{\"a\":1}");
+        assert_eq!(strip_json_fence("  {\"a\":1}  "), "{\"a\":1}");
+    }
 
     #[test]
     fn strips_additional_properties_recursively() {
