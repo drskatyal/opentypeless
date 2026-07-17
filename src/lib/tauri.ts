@@ -192,6 +192,7 @@ export type HotkeyRole =
   | 'editSelection'
   | 'switchScene'
   | 'openApp'
+  | 'act'
 
 export interface HotkeyStatusError {
   code: string

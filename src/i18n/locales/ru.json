@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act следует вашему режиму диктовки (удерживать для разговора или свободные руки).",
     "actTier": "Планировщик",
     "actTierFast": "Быстрый",
-    "actTierPrecise": "Точный"
+    "actTierPrecise": "Точный",
+    "actHotkey": "Горячая клавиша Act"
   },
   "act": {
     "armed": "Act готов",
     "confirmTitle": "Подтвердить действие",
     "allow": "Разрешить",
     "deny": "Отклонить",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "working": "Выполняется…",
+    "dismiss": "Закрыть"
   },
   "contextFamilies": {
     "email": "Email",

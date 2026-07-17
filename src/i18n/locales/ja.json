@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act は音声入力モード（押して話す／ハンズフリー）に従います。",
     "actTier": "プランナー",
     "actTierFast": "高速",
-    "actTierPrecise": "高精度"
+    "actTierPrecise": "高精度",
+    "actHotkey": "Actホットキー"
   },
   "act": {
     "armed": "Act 待機中",
     "confirmTitle": "操作の確認",
     "allow": "許可",
     "deny": "拒否",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "working": "実行中…",
+    "dismiss": "閉じる"
   },
   "contextFamilies": {
     "email": "Email",

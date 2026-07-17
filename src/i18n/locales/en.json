@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act follows your dictation mode (hold-to-talk or hands-free).",
     "actTier": "Planner",
     "actTierFast": "Fast",
-    "actTierPrecise": "Precise"
+    "actTierPrecise": "Precise",
+    "actHotkey": "Act hotkey"
   },
   "act": {
     "armed": "Act armed",
     "confirmTitle": "Confirm action",
     "allow": "Allow",
     "deny": "Deny",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "working": "Working…",
+    "dismiss": "Dismiss"
   },
   "contextFamilies": {
     "email": "Email",

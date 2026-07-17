@@ -84,6 +84,8 @@ export interface HotkeyConfig {
   editSelection: ShortcutBinding | null
   switchScene: ShortcutBinding | null
   openApp: ShortcutBinding | null
+  /** Act / Task hotkey: hold to drive the voice Conductor instead of transcribing. */
+  act: ShortcutBinding | null
   dictationMode: HotkeyMode
 }
 
@@ -555,6 +557,7 @@ function normalizeHotkeyConfig(config: AppConfig, hotkeysValue: HotkeyConfig): H
     editSelection: normalizeBinding(hotkeys.editSelection),
     switchScene: normalizeBinding(hotkeys.switchScene),
     openApp: normalizeBinding(hotkeys.openApp),
+    act: normalizeBinding(hotkeys.act),
     dictationMode:
       hotkeys.dictationMode === 'toggle'
         ? 'toggle'
@@ -591,6 +594,7 @@ function hotkeyConfigFromLegacy(config: AppConfig): HotkeyConfig {
     editSelection: config.hotkeys?.editSelection ?? null,
     switchScene: config.hotkeys?.switchScene ?? null,
     openApp: config.hotkeys?.openApp ?? null,
+    act: config.hotkeys?.act ?? null,
     dictationMode:
       config.hotkey_mode === 'toggle'
         ? 'toggle'
@@ -765,6 +769,7 @@ const defaultConfig: AppConfig = {
     editSelection: null,
     switchScene: null,
     openApp: null,
+    act: null,
     dictationMode: defaultDictationHotkeyMode(),
   },
   output_mode: 'keyboard',

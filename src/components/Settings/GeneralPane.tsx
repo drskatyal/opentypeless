@@ -116,19 +116,21 @@ export function GeneralPane() {
   const askBindings = config.hotkeys.askBindings ?? (config.hotkeys.ask ? [config.hotkeys.ask] : [])
   const translateBindings =
     config.hotkeys.translateBindings ?? (config.hotkeys.translate ? [config.hotkeys.translate] : [])
-  const secondaryBindings = [
+  const actBindings = config.hotkeys.act ? [config.hotkeys.act] : []
+  const otherSecondaryBindings = [
     config.hotkeys.editSelection,
     config.hotkeys.switchScene,
     config.hotkeys.openApp,
   ].filter((binding): binding is ShortcutBinding => Boolean(binding))
-  const otherBindingsFor = (role: 'dictation' | 'ask' | 'translate') => [
+  const otherBindingsFor = (role: 'dictation' | 'ask' | 'translate' | 'act') => [
     ...(role === 'dictation' ? [] : dictationBindings),
     ...(role === 'ask' ? [] : askBindings),
     ...(role === 'translate' ? [] : translateBindings),
-    ...secondaryBindings,
+    ...(role === 'act' ? [] : actBindings),
+    ...otherSecondaryBindings,
   ]
   const updateCoreBindings = (
-    role: 'dictation' | 'ask' | 'translate',
+    role: 'dictation' | 'ask' | 'translate' | 'act',
     bindings: ShortcutBinding[],
   ) => {
     const nextHotkeys = { ...config.hotkeys }
@@ -139,9 +141,12 @@ export function GeneralPane() {
     } else if (role === 'ask') {
       nextHotkeys.askBindings = bindings
       nextHotkeys.ask = bindings[0] ?? null
-    } else {
+    } else if (role === 'translate') {
       nextHotkeys.translateBindings = bindings
       nextHotkeys.translate = bindings[0] ?? null
+    } else {
+      // Act is a single optional binding (like the other secondary roles).
+      nextHotkeys.act = bindings[0] ?? null
     }
     updateConfig({ hotkeys: nextHotkeys })
   }
@@ -187,6 +192,15 @@ export function GeneralPane() {
             required={false}
             specialOptions={translateSpecialOptions}
             onChange={(bindings) => updateCoreBindings('translate', bindings)}
+          />
+          <ShortcutBindingList
+            role="act"
+            label={t('settings.actHotkey')}
+            bindings={actBindings}
+            otherBindings={otherBindingsFor('act')}
+            required={false}
+            specialOptions={[]}
+            onChange={(bindings) => updateCoreBindings('act', bindings)}
           />
         </div>
         {platformCapabilities && !platformCapabilities.globalHotkeyReliable && (

@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act folgt deinem Diktatmodus (Zum Sprechen halten oder freihändig).",
     "actTier": "Planer",
     "actTierFast": "Schnell",
-    "actTierPrecise": "Präzise"
+    "actTierPrecise": "Präzise",
+    "actHotkey": "Act-Tastenkürzel"
   },
   "act": {
     "armed": "Act bereit",
     "confirmTitle": "Aktion bestätigen",
     "allow": "Zulassen",
     "deny": "Ablehnen",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "working": "Arbeitet…",
+    "dismiss": "Schließen"
   },
   "contextFamilies": {
     "email": "Email",

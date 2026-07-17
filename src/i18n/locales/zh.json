@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act 会遵循你的听写模式（按住说话或免提）。",
     "actTier": "规划器",
     "actTierFast": "快速",
-    "actTierPrecise": "精确"
+    "actTierPrecise": "精确",
+    "actHotkey": "Act 快捷键"
   },
   "act": {
     "armed": "Act 已就绪",
     "confirmTitle": "确认操作",
     "allow": "允许",
     "deny": "拒绝",
-    "cancel": "取消"
+    "cancel": "取消",
+    "working": "处理中…",
+    "dismiss": "关闭"
   },
   "contextFamilies": {
     "email": "邮件",

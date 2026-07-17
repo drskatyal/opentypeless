@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act segue la tua modalità di dettatura (tieni premuto per parlare o mani libere).",
     "actTier": "Pianificatore",
     "actTierFast": "Veloce",
-    "actTierPrecise": "Preciso"
+    "actTierPrecise": "Preciso",
+    "actHotkey": "Scorciatoia Act"
   },
   "act": {
     "armed": "Act pronto",
     "confirmTitle": "Conferma azione",
     "allow": "Consenti",
     "deny": "Rifiuta",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "working": "In corso…",
+    "dismiss": "Chiudi"
   },
   "contextFamilies": {
     "email": "Email",

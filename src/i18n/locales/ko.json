@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act는 받아쓰기 모드(눌러서 말하기 또는 핸즈프리)를 따릅니다.",
     "actTier": "플래너",
     "actTierFast": "빠름",
-    "actTierPrecise": "정밀"
+    "actTierPrecise": "정밀",
+    "actHotkey": "Act 단축키"
   },
   "act": {
     "armed": "Act 준비됨",
     "confirmTitle": "작업 확인",
     "allow": "허용",
     "deny": "거부",
-    "cancel": "취소"
+    "cancel": "취소",
+    "working": "처리 중…",
+    "dismiss": "닫기"
   },
   "contextFamilies": {
     "email": "Email",

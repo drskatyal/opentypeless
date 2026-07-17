@@ -482,14 +482,17 @@
     "actFollowsDictationMode": "Act sigue tu modo de dictado (mantén para hablar o manos libres).",
     "actTier": "Planificador",
     "actTierFast": "Rápido",
-    "actTierPrecise": "Preciso"
+    "actTierPrecise": "Preciso",
+    "actHotkey": "Atajo de Act"
   },
   "act": {
     "armed": "Act activado",
     "confirmTitle": "Confirmar acción",
     "allow": "Permitir",
     "deny": "Denegar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "working": "Trabajando…",
+    "dismiss": "Descartar"
   },
   "contextFamilies": {
     "email": "Email",
