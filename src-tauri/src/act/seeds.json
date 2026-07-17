@@ -1,0 +1,299 @@
+[
+  {
+    "id": "open_app",
+    "name": "Open an app",
+    "description": "open or launch any application by name (e.g. Spotify, Outlook, Notepad)",
+    "aliases": ["open {app}", "launch {app}", "start {app}", "run {app}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "app", "kind": "app", "required": true, "examples": ["Spotify", "Notepad", "Google Chrome", "Outlook", "Calculator"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "launch the app", "action": "launch", "value": "{app}", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "switch_to_app",
+    "name": "Switch to an app",
+    "description": "bring an already-open application to the front",
+    "aliases": ["switch to {app}", "go to {app}", "focus {app}", "bring up {app}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "app", "kind": "app", "required": true, "examples": ["Chrome", "Spotify", "Word"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "focus the app", "action": "focus_app", "value": "{app}", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+
+  { "id": "copy", "name": "Copy", "description": "copy the selected text or item", "aliases": ["copy that", "copy this", "copy selection"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "copy", "action": "key", "value": "ctrl+c" } ], "status": "smoke", "version": 1 },
+  { "id": "paste", "name": "Paste", "description": "paste from the clipboard", "aliases": ["paste that", "paste here"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "paste", "action": "key", "value": "ctrl+v" } ], "status": "smoke", "version": 1 },
+  { "id": "cut", "name": "Cut", "description": "cut the selected text or item", "aliases": ["cut that"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "cut", "action": "key", "value": "ctrl+x" } ], "status": "smoke", "version": 1 },
+  { "id": "select_all", "name": "Select all", "description": "select everything in the current view", "aliases": ["select everything", "highlight all"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "select all", "action": "key", "value": "ctrl+a" } ], "status": "smoke", "version": 1 },
+  { "id": "save", "name": "Save", "description": "save the current document or file", "aliases": ["save this", "save it", "save the file"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "save", "action": "key", "value": "ctrl+s" } ], "status": "smoke", "version": 1 },
+  { "id": "save_as", "name": "Save as", "description": "save the current document under a new name", "aliases": ["save as", "save a copy"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "save as", "action": "key", "value": "ctrl+shift+s" } ], "status": "smoke", "version": 1 },
+  { "id": "undo", "name": "Undo", "description": "undo the last edit", "aliases": ["undo that", "undo this"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "undo", "action": "key", "value": "ctrl+z" } ], "status": "smoke", "version": 1 },
+  { "id": "redo", "name": "Redo", "description": "redo the last undone edit", "aliases": ["redo that"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "redo", "action": "key", "value": "ctrl+y" } ], "status": "smoke", "version": 1 },
+  { "id": "find", "name": "Find", "description": "open find / search in the current app", "aliases": ["find", "search in page", "find on page"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "find", "action": "key", "value": "ctrl+f" } ], "status": "smoke", "version": 1 },
+  { "id": "print", "name": "Print", "description": "print the current document or page", "aliases": ["print this", "print it"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "print", "action": "key", "value": "ctrl+p" } ], "status": "smoke", "version": 1 },
+  { "id": "new_document", "name": "New", "description": "create a new document / item in the current app", "aliases": ["new document", "new file"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "new", "action": "key", "value": "ctrl+n" } ], "status": "smoke", "version": 1 },
+  { "id": "open_file", "name": "Open file", "description": "open the file picker in the current app", "aliases": ["open a file", "open file dialog"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "open", "action": "key", "value": "ctrl+o" } ], "status": "smoke", "version": 1 },
+  { "id": "bold", "name": "Bold", "description": "toggle bold on the selected text", "aliases": ["make it bold", "bold this"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "bold", "action": "key", "value": "ctrl+b" } ], "status": "smoke", "version": 1 },
+  { "id": "italic", "name": "Italic", "description": "toggle italic on the selected text", "aliases": ["make it italic", "italicize"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "italic", "action": "key", "value": "ctrl+i" } ], "status": "smoke", "version": 1 },
+  { "id": "underline", "name": "Underline", "description": "toggle underline on the selected text", "aliases": ["underline this"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "underline", "action": "key", "value": "ctrl+u" } ], "status": "smoke", "version": 1 },
+  { "id": "refresh", "name": "Refresh", "description": "reload the current page or view", "aliases": ["reload", "refresh page"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "refresh", "action": "key", "value": "f5" } ], "status": "smoke", "version": 1 },
+  { "id": "new_tab", "name": "New tab", "description": "open a new browser tab", "aliases": ["open a new tab"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "new tab", "action": "key", "value": "ctrl+t" } ], "status": "smoke", "version": 1 },
+  { "id": "close_tab", "name": "Close tab", "description": "close the current browser tab", "aliases": ["close this tab"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "close tab", "action": "key", "value": "ctrl+w" } ], "status": "smoke", "version": 1 },
+  { "id": "reopen_tab", "name": "Reopen closed tab", "description": "reopen the most recently closed browser tab", "aliases": ["reopen tab", "undo close tab"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "reopen tab", "action": "key", "value": "ctrl+shift+t" } ], "status": "smoke", "version": 1 },
+  { "id": "close_window", "name": "Close window", "description": "close the current window", "aliases": ["close this window", "close it"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "close window", "action": "key", "value": "alt+f4" } ], "status": "smoke", "version": 1 },
+  { "id": "screenshot", "name": "Screenshot", "description": "take a screenshot of a region of the screen", "aliases": ["take a screenshot", "snip", "capture the screen", "grab a screenshot"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "screenshot", "action": "key", "value": "win+shift+s" } ], "status": "smoke", "version": 1 },
+  { "id": "lock_pc", "name": "Lock the PC", "description": "lock the computer", "aliases": ["lock the computer", "lock screen", "lock it"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "lock", "action": "key", "value": "win+l" } ], "status": "smoke", "version": 1 },
+  { "id": "task_manager", "name": "Task Manager", "description": "open Task Manager", "aliases": ["open task manager"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "task manager", "action": "key", "value": "ctrl+shift+esc" } ], "status": "smoke", "version": 1 },
+  { "id": "file_explorer", "name": "File Explorer", "description": "open File Explorer", "aliases": ["open file explorer", "open files", "open my files"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "file explorer", "action": "key", "value": "win+e" } ], "status": "smoke", "version": 1 },
+  { "id": "run_dialog", "name": "Run dialog", "description": "open the Run dialog", "aliases": ["open run"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "run", "action": "key", "value": "win+r" } ], "status": "smoke", "version": 1 },
+  { "id": "windows_search", "name": "Windows Search", "description": "open the Start search box", "aliases": ["open search", "open start", "windows search"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "search", "action": "key", "value": "win+s" } ], "status": "smoke", "version": 1 },
+  { "id": "open_settings", "name": "Settings", "description": "open Windows Settings", "aliases": ["open settings", "open windows settings"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "settings", "action": "key", "value": "win+i" } ], "status": "smoke", "version": 1 },
+  { "id": "quick_settings", "name": "Quick Settings", "description": "open the Quick Settings panel (wifi, volume, brightness)", "aliases": ["quick settings", "open control center"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "quick settings", "action": "key", "value": "win+a" } ], "status": "smoke", "version": 1 },
+  { "id": "notifications", "name": "Notifications", "description": "open the notification center / calendar", "aliases": ["open notifications", "show notifications"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "notifications", "action": "key", "value": "win+n" } ], "status": "smoke", "version": 1 },
+  { "id": "show_desktop", "name": "Show desktop", "description": "minimize everything and show the desktop", "aliases": ["show desktop", "minimize all"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "show desktop", "action": "key", "value": "win+d" } ], "status": "smoke", "version": 1 },
+  { "id": "snap_left", "name": "Snap window left", "description": "snap the current window to the left half of the screen", "aliases": ["snap left", "move window left"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "snap left", "action": "key", "value": "win+left" } ], "status": "smoke", "version": 1 },
+  { "id": "snap_right", "name": "Snap window right", "description": "snap the current window to the right half of the screen", "aliases": ["snap right", "move window right"], "kind": "leaf", "steps": [ { "id": "s1", "intent": "snap right", "action": "key", "value": "win+right" } ], "status": "smoke", "version": 1 },
+
+  {
+    "id": "google_search",
+    "name": "Google search",
+    "description": "search Google for something in the browser",
+    "aliases": ["search google for {query}", "google {query}", "look up {query}"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["best pizza near me", "rust lifetimes"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open a google search", "action": "uri", "value": "https://www.google.com/search?q={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "youtube_search",
+    "name": "YouTube search",
+    "description": "search YouTube for videos",
+    "aliases": ["search youtube for {query}", "find {query} on youtube"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["lofi beats", "how to tie a tie"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open a youtube search", "action": "uri", "value": "https://www.youtube.com/results?search_query={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "maps_search",
+    "name": "Google Maps",
+    "description": "search or find a place on Google Maps",
+    "aliases": ["find {query} on maps", "maps {query}", "directions to {query}"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["coffee near me", "Central Park"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open maps", "action": "uri", "value": "https://www.google.com/maps/search/?api=1&query={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "wikipedia_search",
+    "name": "Wikipedia",
+    "description": "look something up on Wikipedia",
+    "aliases": ["wikipedia {query}", "look up {query} on wikipedia"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["Alan Turing"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open wikipedia", "action": "uri", "value": "https://en.wikipedia.org/wiki/Special:Search?search={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "image_search",
+    "name": "Image search",
+    "description": "search Google Images",
+    "aliases": ["find images of {query}", "image search {query}"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["golden retriever puppies"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open image search", "action": "uri", "value": "https://www.google.com/search?tbm=isch&q={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "github_search",
+    "name": "GitHub search",
+    "description": "search GitHub for repositories or code",
+    "aliases": ["search github for {query}", "github {query}"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["tauri voice"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open github search", "action": "uri", "value": "https://github.com/search?q={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "translate",
+    "name": "Translate",
+    "description": "open Google Translate for some text",
+    "aliases": ["translate {query}"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["good morning"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open translate", "action": "uri", "value": "https://translate.google.com/?sl=auto&tl=en&op=translate&text={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "amazon_search",
+    "name": "Amazon search",
+    "description": "search Amazon for a product",
+    "aliases": ["search amazon for {query}", "buy {query} on amazon"],
+    "kind": "leaf",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["usb c cable"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open amazon search", "action": "uri", "value": "https://www.amazon.com/s?k={query}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "new_google_doc",
+    "name": "New Google Doc",
+    "description": "create a new blank Google Doc",
+    "aliases": ["new doc", "new google doc", "create a document"],
+    "kind": "leaf",
+    "steps": [ { "id": "s1", "intent": "new doc", "action": "uri", "value": "https://docs.new" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "new_google_sheet",
+    "name": "New Google Sheet",
+    "description": "create a new blank Google Sheet",
+    "aliases": ["new sheet", "new spreadsheet"],
+    "kind": "leaf",
+    "steps": [ { "id": "s1", "intent": "new sheet", "action": "uri", "value": "https://sheets.new" } ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "open_website",
+    "name": "Open a website",
+    "description": "open a website by its address",
+    "aliases": ["open the website {url}", "go to {url}"],
+    "kind": "leaf",
+    "slots": [ { "name": "url", "kind": "url", "required": true, "examples": ["https://news.ycombinator.com", "https://github.com"] } ],
+    "steps": [ { "id": "s1", "intent": "open the site", "action": "uri", "value": "{url}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+
+  {
+    "id": "play_song",
+    "name": "Play a song",
+    "description": "play a specific song or artist on Spotify",
+    "aliases": ["play {song}", "play the song {song}", "put on {song}"],
+    "kind": "branch",
+    "slots": [ { "name": "song", "kind": "query", "required": true, "examples": ["Hotel California", "some lo-fi"] } ],
+    "branch_context": "Open Spotify, search for {song}, and play the top result.",
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "play_video",
+    "name": "Play a video",
+    "description": "find and play a video on YouTube",
+    "aliases": ["play the video {query}", "watch {query} on youtube"],
+    "kind": "branch",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["relaxing rain sounds"] } ],
+    "branch_context": "Open YouTube in the browser, search for {query}, and play the first video result.",
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "email_someone",
+    "name": "Email someone",
+    "description": "compose an email to a person about a topic (left as a draft)",
+    "aliases": ["email {recipient} about {topic}", "write an email to {recipient}"],
+    "kind": "branch",
+    "slots": [
+      { "name": "recipient", "kind": "person", "required": true, "examples": ["Andreas", "the team"] },
+      { "name": "topic", "kind": "string", "required": false, "examples": ["the Q3 report"], "default": "" }
+    ],
+    "branch_context": "Open the mail app and compose a new email to {recipient} about {topic}. Write a short appropriate message and leave it as a draft — do NOT send it.",
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "reply_to_email",
+    "name": "Reply to this email",
+    "description": "reply to the currently open email (left as a draft)",
+    "aliases": ["reply saying {message}", "reply to this email"],
+    "kind": "branch",
+    "slots": [ { "name": "message", "kind": "string", "required": true, "examples": ["I'll call you tomorrow"] } ],
+    "branch_context": "In the email that is currently open, start a reply and write a short message conveying: {message}. Leave it as a draft — do NOT send it.",
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "take_a_note",
+    "name": "Take a note",
+    "description": "open Notepad and jot down a note",
+    "aliases": ["take a note {text}", "note that {text}", "write down {text}"],
+    "kind": "branch",
+    "slots": [ { "name": "text", "kind": "string", "required": true, "examples": ["buy milk"] } ],
+    "branch_context": "Open Notepad and type the following note: {text}",
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "search_pc",
+    "name": "Search the PC",
+    "description": "search the computer for an app, file, or setting and open the top result",
+    "aliases": ["search my pc for {query}", "find {query} on my computer"],
+    "kind": "branch",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["budget.xlsx", "device manager"] } ],
+    "branch_context": "Open Windows Search (the Start search box), type {query}, and open the top result.",
+    "status": "smoke",
+    "version": 1
+  },
+
+  { "id": "settings_bluetooth", "name": "Bluetooth settings", "description": "open Bluetooth settings", "aliases": ["open bluetooth", "bluetooth settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:bluetooth" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_wifi", "name": "Wi-Fi settings", "description": "open Wi-Fi settings", "aliases": ["open wifi", "wifi settings", "connect to wifi"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:network-wifi" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_network", "name": "Network status", "description": "open network status settings", "aliases": ["network settings", "internet settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:network-status" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_display", "name": "Display settings", "description": "open display settings (resolution, scale, brightness)", "aliases": ["open display settings", "screen settings", "change brightness"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:display" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_night_light", "name": "Night light", "description": "open night light settings", "aliases": ["night light", "night mode settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:nightlight" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_sound", "name": "Sound settings", "description": "open sound / volume settings", "aliases": ["sound settings", "audio settings", "volume settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:sound" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_notifications", "name": "Notification settings", "description": "open notification settings", "aliases": ["notification settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:notifications" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_battery", "name": "Battery settings", "description": "open battery / battery saver settings", "aliases": ["battery settings", "battery saver"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:batterysaver" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_power", "name": "Power & sleep", "description": "open power and sleep settings", "aliases": ["power settings", "sleep settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:powersleep" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_storage", "name": "Storage settings", "description": "open storage settings", "aliases": ["storage settings", "disk space"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:storagesense" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_apps", "name": "Installed apps", "description": "open the installed apps list (uninstall / manage)", "aliases": ["installed apps", "uninstall an app", "manage apps"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:appsfeatures" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_default_apps", "name": "Default apps", "description": "open default apps settings", "aliases": ["default apps", "change default browser"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:defaultapps" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_windows_update", "name": "Windows Update", "description": "open Windows Update", "aliases": ["check for updates", "windows update"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:windowsupdate" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_background", "name": "Wallpaper", "description": "open personalization background (wallpaper) settings", "aliases": ["change wallpaper", "desktop background", "change background"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:personalization-background" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_about", "name": "About this PC", "description": "open About / system info", "aliases": ["about this pc", "system info", "pc specs"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:about" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_mic_privacy", "name": "Microphone privacy", "description": "open microphone privacy settings", "aliases": ["microphone privacy", "mic permissions"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:privacy-microphone" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_camera_privacy", "name": "Camera privacy", "description": "open camera privacy settings", "aliases": ["camera privacy", "webcam permissions"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:privacy-webcam" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_datetime", "name": "Date & time", "description": "open date and time settings", "aliases": ["date and time", "change the time", "timezone settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:dateandtime" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_mouse", "name": "Mouse settings", "description": "open mouse settings", "aliases": ["mouse settings"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:mousetouchpad" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_printers", "name": "Printers & scanners", "description": "open printers and scanners settings", "aliases": ["printer settings", "add a printer"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:printers" } ], "status": "smoke", "version": 1 },
+  { "id": "settings_devices", "name": "Devices", "description": "open connected devices (Bluetooth & devices)", "aliases": ["connected devices", "add a device"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "ms-settings:connecteddevices" } ], "status": "smoke", "version": 1 },
+
+  { "id": "open_downloads", "name": "Downloads folder", "description": "open the Downloads folder", "aliases": ["open downloads", "show my downloads"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:Downloads" } ], "status": "smoke", "version": 1 },
+  { "id": "open_documents", "name": "Documents folder", "description": "open the Documents folder", "aliases": ["open documents", "my documents"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:Personal" } ], "status": "smoke", "version": 1 },
+  { "id": "open_pictures", "name": "Pictures folder", "description": "open the Pictures folder", "aliases": ["open pictures", "my pictures"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:My Pictures" } ], "status": "smoke", "version": 1 },
+  { "id": "open_desktop_folder", "name": "Desktop folder", "description": "open the Desktop folder", "aliases": ["open desktop folder"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:Desktop" } ], "status": "smoke", "version": 1 },
+  { "id": "open_music_folder", "name": "Music folder", "description": "open the Music folder", "aliases": ["open music folder", "my music"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:My Music" } ], "status": "smoke", "version": 1 },
+  { "id": "open_videos_folder", "name": "Videos folder", "description": "open the Videos folder", "aliases": ["open videos folder", "my videos"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:My Video" } ], "status": "smoke", "version": 1 },
+  { "id": "open_recycle_bin", "name": "Recycle Bin", "description": "open the Recycle Bin", "aliases": ["open recycle bin", "open trash"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:RecycleBinFolder" } ], "status": "smoke", "version": 1 },
+  { "id": "open_this_pc", "name": "This PC", "description": "open This PC (drives and devices)", "aliases": ["open this pc", "open my computer", "show my drives"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:MyComputerFolder" } ], "status": "smoke", "version": 1 },
+  { "id": "open_startup_folder", "name": "Startup folder", "description": "open the Startup folder (apps that run at login)", "aliases": ["startup folder", "startup apps folder"], "kind": "leaf", "steps": [ { "id": "s1", "action": "uri", "value": "shell:Startup" } ], "status": "smoke", "version": 1 },
+
+  {
+    "id": "compose_gmail",
+    "name": "Compose a Gmail",
+    "description": "open a new Gmail compose window addressed to someone",
+    "aliases": ["email {to} in gmail", "compose a gmail to {to}"],
+    "kind": "leaf",
+    "slots": [ { "name": "to", "kind": "string", "required": false, "examples": ["alex@example.com"], "filters": ["urlencode"], "default": "" } ],
+    "steps": [ { "id": "s1", "intent": "open gmail compose", "action": "uri", "value": "https://mail.google.com/mail/?view=cm&fs=1&to={to}" } ],
+    "status": "smoke",
+    "version": 1
+  }
+]

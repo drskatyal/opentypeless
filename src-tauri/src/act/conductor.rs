@@ -380,13 +380,22 @@ impl Conductor {
     }
 
     /// Open a saved recipe and replay it (a branch hands its context to the planner).
-    async fn run_flow(&mut self, id: &str, slots: SlotMap, events: &mut Vec<ActEvent>) -> Step {
+    async fn run_flow(&mut self, id: &str, mut slots: SlotMap, events: &mut Vec<ActEvent>) -> Step {
         let Some(file) = self.registry.open(id).cloned() else {
             events.push(ActEvent::Error {
                 message: format!("that saved task is unavailable ({id})"),
             });
             return Step::Next;
         };
+        // Fill any declared slot that the model left unset with its default, so an
+        // optional slot referenced in a value never renders as a literal `{token}`.
+        for slot in &file.slots {
+            if !slots.contains_key(&slot.name) {
+                if let Some(default) = &slot.default {
+                    slots.insert(slot.name.clone(), default.clone());
+                }
+            }
+        }
         let local = RefCell::new(Vec::new());
         let outcome = {
             let emit = |e: ActEvent| local.borrow_mut().push(e);
@@ -998,6 +1007,25 @@ mod tests {
         let backend = Arc::new(MockBackend::new(snap(vec![])));
         let mut c = conductor(FlowRegistry::new(), vec![], backend);
         assert_eq!(c.undo().await, Err(ConductorError::NotArmed));
+    }
+
+    #[tokio::test]
+    async fn seed_flow_with_optional_default_slot_runs_clean() {
+        // A real seed (compose_gmail) selected with no `to`: the slot default ""
+        // fills it, so the URL renders without an unresolved-slot failure.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let registry = FlowRegistry::from_files(crate::act::seed::builtin_flows());
+        let selection = r#"{"missions":[{"type":"open_flow","id":"compose_gmail","slots":{}}]}"#;
+        let mut c = conductor(registry, vec![Ok(selection.into())], backend.clone());
+        c.arm();
+        let events = c.on_transcript("compose a gmail".into()).await.unwrap();
+        assert_eq!(
+            backend.opened_uris(),
+            vec!["https://mail.google.com/mail/?view=cm&fs=1&to="]
+        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
     }
 
     #[tokio::test]
