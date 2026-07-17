@@ -815,4 +815,27 @@ mod tests {
     fn backend_name_is_stable() {
         assert_eq!(WindowsUiaBackend::new().name(), "windows-terminator");
     }
+
+    /// Every `key` step in the built-in seed drawer must translate to a valid
+    /// Windows send-keys sequence — validated here against the REAL translator on
+    /// the Windows CI runner, so a shipped seed can never carry an unpressable
+    /// combo. (Runs only on Windows, where this module compiles.)
+    #[test]
+    fn every_seed_key_combo_translates_on_windows() {
+        for flow in crate::act::seed::builtin_flows() {
+            for step in &flow.steps {
+                if step.action == "key" {
+                    let combo = step.value.as_deref().unwrap_or_default();
+                    let translated = translate_combo(combo);
+                    assert!(
+                        translated.is_ok(),
+                        "seed {} key combo {:?} is not translatable: {:?}",
+                        flow.id,
+                        combo,
+                        translated.err()
+                    );
+                }
+            }
+        }
+    }
 }

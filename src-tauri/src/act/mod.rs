@@ -15,6 +15,8 @@ pub mod blackboard;
 pub mod capability;
 pub mod conductor;
 pub mod destructive;
+#[cfg(test)]
+mod e2e_sim;
 pub mod element;
 pub mod events;
 pub mod executor;
