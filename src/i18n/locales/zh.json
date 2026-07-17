@@ -483,7 +483,15 @@
     "actTier": "规划器",
     "actTierFast": "快速",
     "actTierPrecise": "精确",
-    "actHotkey": "Act 快捷键"
+    "actHotkey": "Act 快捷键",
+    "actFlowsShow": "查看 Act 能做的一切",
+    "actFlowsCount": "{{count}} 个内置操作",
+    "actFlowsSearch": "搜索操作…",
+    "actFlowsEmpty": "没有匹配的操作。",
+    "actFlowsLoadError": "无法加载操作列表。",
+    "actFlowsExample": "试着说",
+    "actFlowsFills": "你说",
+    "actFlowsBranch": "辅助"
   },
   "act": {
     "armed": "Act 已就绪",

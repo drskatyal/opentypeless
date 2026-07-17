@@ -458,6 +458,24 @@ export async function actGetState(): Promise<string> {
   return invoke('act_get_state')
 }
 
+/** A drawer recipe, as summarized by the backend for the Settings list. */
+export interface ActFlowInfo {
+  id: string
+  name: string
+  description: string
+  /** Example spoken phrases that trigger it. */
+  aliases: string[]
+  /** 'leaf' (deterministic) or 'branch' (planner-assisted). */
+  kind: 'leaf' | 'branch'
+  /** The slots the user fills by voice (e.g. the song, the query). */
+  slots: string[]
+}
+
+/** List the built-in drawer recipes so Settings can show what Act can do. */
+export async function actListFlows(): Promise<ActFlowInfo[]> {
+  return invoke('act_list_flows')
+}
+
 export async function actUserDecision(decision: string, index?: number): Promise<void> {
   return invoke('act_user_decision', { decision, index })
 }

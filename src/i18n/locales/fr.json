@@ -483,7 +483,15 @@
     "actTier": "Planificateur",
     "actTierFast": "Rapide",
     "actTierPrecise": "Précis",
-    "actHotkey": "Raccourci Act"
+    "actHotkey": "Raccourci Act",
+    "actFlowsShow": "Voir tout ce qu'Act peut faire",
+    "actFlowsCount": "{{count}} actions intégrées",
+    "actFlowsSearch": "Rechercher des actions…",
+    "actFlowsEmpty": "Aucune action ne correspond à votre recherche.",
+    "actFlowsLoadError": "Impossible de charger la liste des actions.",
+    "actFlowsExample": "Essayez de dire",
+    "actFlowsFills": "Vous dites",
+    "actFlowsBranch": "Assisté"
   },
   "act": {
     "armed": "Act activé",

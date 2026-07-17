@@ -14,6 +14,7 @@ import type { HotkeyStatus } from '../../lib/tauri'
 import { SegmentedControl } from './shared/SegmentedControl'
 import { Toggle } from './shared/Toggle'
 import { ShortcutBindingList } from './ShortcutBindingList'
+import { ActFlowsList } from './ActFlowsList'
 
 const MAC_ACCESSIBILITY_HOTKEY_ERROR = 'Accessibility permission may be denied'
 
@@ -299,6 +300,7 @@ export function GeneralPane() {
                   onChange={(v) => updateConfig({ act_model_tier: v as ActModelTier })}
                 />
               </div>
+              <ActFlowsList />
             </div>
           )}
         </div>

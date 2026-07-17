@@ -483,7 +483,15 @@
     "actTier": "Планировщик",
     "actTierFast": "Быстрый",
     "actTierPrecise": "Точный",
-    "actHotkey": "Горячая клавиша Act"
+    "actHotkey": "Горячая клавиша Act",
+    "actFlowsShow": "Посмотреть всё, что умеет Act",
+    "actFlowsCount": "Встроенных действий: {{count}}",
+    "actFlowsSearch": "Поиск действий…",
+    "actFlowsEmpty": "Нет действий по вашему запросу.",
+    "actFlowsLoadError": "Не удалось загрузить список действий.",
+    "actFlowsExample": "Попробуйте сказать",
+    "actFlowsFills": "Вы говорите",
+    "actFlowsBranch": "С помощником"
   },
   "act": {
     "armed": "Act готов",

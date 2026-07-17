@@ -483,7 +483,15 @@
     "actTier": "플래너",
     "actTierFast": "빠름",
     "actTierPrecise": "정밀",
-    "actHotkey": "Act 단축키"
+    "actHotkey": "Act 단축키",
+    "actFlowsShow": "Act로 할 수 있는 모든 것 보기",
+    "actFlowsCount": "기본 제공 작업 {{count}}개",
+    "actFlowsSearch": "작업 검색…",
+    "actFlowsEmpty": "검색과 일치하는 작업이 없습니다.",
+    "actFlowsLoadError": "작업 목록을 불러오지 못했습니다.",
+    "actFlowsExample": "이렇게 말해 보세요",
+    "actFlowsFills": "말하기",
+    "actFlowsBranch": "보조"
   },
   "act": {
     "armed": "Act 준비됨",

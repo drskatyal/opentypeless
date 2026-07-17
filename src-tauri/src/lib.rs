@@ -1181,6 +1181,7 @@ pub fn run() {
             commands::config::set_session_token,
             commands::act::act_set_enabled,
             commands::act::act_get_state,
+            commands::act::act_list_flows,
             commands::act::act_user_decision,
             commands::act::act_abort,
             commands::act::act_undo,

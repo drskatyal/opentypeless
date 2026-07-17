@@ -483,7 +483,15 @@
     "actTier": "Planer",
     "actTierFast": "Schnell",
     "actTierPrecise": "Präzise",
-    "actHotkey": "Act-Tastenkürzel"
+    "actHotkey": "Act-Tastenkürzel",
+    "actFlowsShow": "Alles anzeigen, was Act kann",
+    "actFlowsCount": "{{count}} integrierte Aktionen",
+    "actFlowsSearch": "Aktionen suchen…",
+    "actFlowsEmpty": "Keine Aktionen für deine Suche.",
+    "actFlowsLoadError": "Aktionsliste konnte nicht geladen werden.",
+    "actFlowsExample": "Sag zum Beispiel",
+    "actFlowsFills": "Du sagst",
+    "actFlowsBranch": "Unterstützt"
   },
   "act": {
     "armed": "Act bereit",

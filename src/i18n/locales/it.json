@@ -483,7 +483,15 @@
     "actTier": "Pianificatore",
     "actTierFast": "Veloce",
     "actTierPrecise": "Preciso",
-    "actHotkey": "Scorciatoia Act"
+    "actHotkey": "Scorciatoia Act",
+    "actFlowsShow": "Scopri tutto ciò che Act può fare",
+    "actFlowsCount": "{{count}} azioni integrate",
+    "actFlowsSearch": "Cerca azioni…",
+    "actFlowsEmpty": "Nessuna azione corrisponde alla ricerca.",
+    "actFlowsLoadError": "Impossibile caricare l'elenco delle azioni.",
+    "actFlowsExample": "Prova a dire",
+    "actFlowsFills": "Tu dici",
+    "actFlowsBranch": "Assistito"
   },
   "act": {
     "armed": "Act pronto",

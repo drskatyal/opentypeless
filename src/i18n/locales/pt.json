@@ -483,7 +483,15 @@
     "actTier": "Planejador",
     "actTierFast": "Rápido",
     "actTierPrecise": "Preciso",
-    "actHotkey": "Atalho do Act"
+    "actHotkey": "Atalho do Act",
+    "actFlowsShow": "Veja tudo o que o Act pode fazer",
+    "actFlowsCount": "{{count}} ações integradas",
+    "actFlowsSearch": "Buscar ações…",
+    "actFlowsEmpty": "Nenhuma ação corresponde à sua busca.",
+    "actFlowsLoadError": "Não foi possível carregar a lista de ações.",
+    "actFlowsExample": "Experimente dizer",
+    "actFlowsFills": "Você diz",
+    "actFlowsBranch": "Assistido"
   },
   "act": {
     "armed": "Act pronto",

@@ -170,6 +170,43 @@ pub async fn act_get_state(state: State<'_, ActState>) -> Result<String, String>
         .unwrap_or_else(|| "idle".to_string()))
 }
 
+/// A drawer recipe, summarized for the Settings "what Act can do" list.
+#[derive(serde::Serialize)]
+pub struct ActFlowInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    /// Example spoken phrases that trigger it.
+    pub aliases: Vec<String>,
+    /// "leaf" (deterministic) or "branch" (planner-assisted).
+    pub kind: String,
+    /// The slots the user fills by voice (e.g. the song, the query).
+    pub slots: Vec<String>,
+}
+
+/// List the drawer recipes (built-in seed pack) so Settings can show the user
+/// everything Act can do. Reads the same source the Conductor loads.
+#[tauri::command]
+pub async fn act_list_flows() -> Result<Vec<ActFlowInfo>, String> {
+    use crate::act::flow::FlowKind;
+    let flows = seed::builtin_flows()
+        .into_iter()
+        .map(|f| ActFlowInfo {
+            id: f.id,
+            name: f.name,
+            description: f.description,
+            aliases: f.aliases,
+            kind: match f.kind {
+                FlowKind::Leaf => "leaf",
+                FlowKind::Branch => "branch",
+            }
+            .to_string(),
+            slots: f.slots.into_iter().map(|s| s.name).collect(),
+        })
+        .collect();
+    Ok(flows)
+}
+
 /// Forward the user's answer to a Confirm / ask_user pause into the engine and
 /// emit the resulting events.
 #[tauri::command]

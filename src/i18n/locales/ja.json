@@ -483,7 +483,15 @@
     "actTier": "プランナー",
     "actTierFast": "高速",
     "actTierPrecise": "高精度",
-    "actHotkey": "Actホットキー"
+    "actHotkey": "Actホットキー",
+    "actFlowsShow": "Act でできることをすべて見る",
+    "actFlowsCount": "組み込みアクション {{count}} 件",
+    "actFlowsSearch": "アクションを検索…",
+    "actFlowsEmpty": "検索に一致するアクションはありません。",
+    "actFlowsLoadError": "アクション一覧を読み込めませんでした。",
+    "actFlowsExample": "話しかけてみる",
+    "actFlowsFills": "あなたの発話",
+    "actFlowsBranch": "アシスト"
   },
   "act": {
     "armed": "Act 待機中",

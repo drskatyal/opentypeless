@@ -483,7 +483,15 @@
     "actTier": "Planner",
     "actTierFast": "Fast",
     "actTierPrecise": "Precise",
-    "actHotkey": "Act hotkey"
+    "actHotkey": "Act hotkey",
+    "actFlowsShow": "See everything Act can do",
+    "actFlowsCount": "{{count}} built-in actions",
+    "actFlowsSearch": "Search actions…",
+    "actFlowsEmpty": "No actions match your search.",
+    "actFlowsLoadError": "Couldn't load the action list.",
+    "actFlowsExample": "Try saying",
+    "actFlowsFills": "You say",
+    "actFlowsBranch": "Assisted"
   },
   "act": {
     "armed": "Act armed",
