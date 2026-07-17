@@ -50,6 +50,43 @@ Council plan captured; V1 non-negotiables:
   replay; Conductor won't auto-route to a not-yet-enabled learned flow.
 - V1 single-app preferred; multi-app/virtualized-list/selector-repair later.
 
+## Agents task board — the "parallel agents checking tasks off" UX (Hey Clicky-inspired)
+
+North-star reference: Farza (@FarzaTV)'s **Hey Clicky** product demos (heyclicky.com;
+OSS foundation github.com/farzaa/clicky). Its agents surface, reverse-engineered
+from the demo videos (X posts 2048203459976188261, 2055774393243230387,
+2054397864009408889, 2051454940326097220):
+
+- **Agents panel = responsive CARD GRID** (not Kanban columns / lanes / plain
+  checklist). Each card: title, one-line streaming status/result, a thin progress
+  bar while running, a state **badge** (Running / Done), a small preview
+  thumbnail/icon, and an **"Open Agent"** button.
+- **State = color at a glance**: blue = running/active, green/teal = done, (infer
+  gray = pending, red = failed). Whole-card tint or left accent.
+- **Live toasts/overlays**: non-modal floating cards mirroring active agents,
+  stream the agent's *thoughts* in natural language (not a % or step list), thin
+  progress bar, badge. On Done → summary replaces the stream + 2–3 **"suggested
+  next"** action chips (open the result, continue by voice). Hover = "watch it
+  think" (expands the reasoning stream). Multiple toasts coexist = parallelism.
+- **Per-agent state machine**: Pending → Running (stream updates) → Done | Failed.
+  Completion is a calm badge flip + summary + CTAs (no confetti, no strike-through);
+  result artifacts auto-surface (file opens, site opens, ticket created + link).
+- **Parallelism conveyed by**: N cards in the grid + N floating toasts, each with
+  its own independent stream and a distinct accent color; "Open Agent" per card so
+  one deep-dive never blocks the others. No single shared terminal log.
+- **Aesthetic**: dark glass panels, rounded ~12–16px, SF-Pro-like type, vibrant
+  per-agent accent colors, smooth 200–400ms transitions, non-focus-stealing.
+
+Mapping to FlowRad Mic (build plan):
+1. Backend: the Conductor emits a per-task lifecycle over ACT_EVENT with STABLE
+   task ids — TaskSpawned{id,label} → TaskProgress{id,text} → TaskDone{id,ok,
+   summary} / TaskFailed{id,error}. Today missions run sequentially; the board
+   works in that model (queue = live checklist that checks off) and evolves to
+   real parallel missions where independent.
+2. Frontend: an **Agents board** (card grid) in the HUD/a panel + a live toast
+   layer, following the states/colors above, with a check-off animation on Done.
+3. Later: run independent missions concurrently (true parallel agents).
+
 ## Remaining before "done"
 
 - [ ] **Live Windows E2E on real UIA** — the last mile; can't be simulated.
