@@ -210,38 +210,48 @@ function checkAuth(req, res) {
 
 app.get('/health', (_req, res) => res.json({ ok: true, connected: appConnected() }))
 
-const transports = {}
+// Stateless MCP: build a fresh server + transport per request, no session
+// tracking. Remote clients (e.g. claude.ai custom connectors) don't keep the
+// server→client SSE stream open, and a stateful transport tears its session
+// down when that stream closes — so the *next* tool call lands on a dead
+// session ("session expired") and the connector effectively dies after one
+// call. With `sessionIdGenerator: undefined` there is no session to expire:
+// every request is self-contained, which is the robust pattern for this kind
+// of client. See the MCP SDK "stateless" example.
 app.post('/mcp', async (req, res) => {
   if (!checkAuth(req, res)) return
-  const sid = req.headers['mcp-session-id']
-  let transport = sid ? transports[sid] : undefined
-  if (!transport) {
-    transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (id) => {
-        transports[id] = transport
-      },
-    })
-    transport.onclose = () => {
-      if (transport.sessionId) delete transports[transport.sessionId]
+  const server = buildMcpServer()
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+  })
+  res.on('close', () => {
+    transport.close()
+    server.close()
+  })
+  try {
+    await server.connect(transport)
+    await transport.handleRequest(req, res, req.body)
+  } catch (e) {
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: String(e?.message || e) },
+        id: null,
+      })
     }
-    await buildMcpServer().connect(transport)
   }
-  await transport.handleRequest(req, res, req.body)
 })
 
-async function replaySession(req, res) {
-  if (!checkAuth(req, res)) return
-  const sid = req.headers['mcp-session-id']
-  const transport = sid ? transports[sid] : undefined
-  if (!transport) {
-    res.status(400).send('no session')
-    return
-  }
-  await transport.handleRequest(req, res)
-}
-app.get('/mcp', replaySession)
-app.delete('/mcp', replaySession)
+// In stateless mode there is no session to resume, so the SSE GET / session
+// DELETE endpoints don't apply — answer method-not-allowed rather than 404.
+const methodNotAllowed = (_req, res) =>
+  res.status(405).json({
+    jsonrpc: '2.0',
+    error: { code: -32000, message: 'Method not allowed (stateless server).' },
+    id: null,
+  })
+app.get('/mcp', methodNotAllowed)
+app.delete('/mcp', methodNotAllowed)
 
 const httpServer = app.listen(PORT, () => {
   console.log(`devlog-relay listening on :${PORT} (MCP /mcp, WS /agent, health /health)`)
