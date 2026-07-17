@@ -10,6 +10,7 @@
 pub mod action;
 pub mod audit;
 pub mod backend;
+pub mod blackboard;
 pub mod capability;
 pub mod destructive;
 pub mod element;
