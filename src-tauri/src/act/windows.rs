@@ -35,6 +35,7 @@
 
 use std::ffi::c_void;
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
@@ -50,6 +51,7 @@ use windows_sys::Win32::Security::{
 use windows_sys::Win32::System::Threading::{
     GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
 };
+use windows_sys::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
 use crate::error::AppError;
 
@@ -62,12 +64,30 @@ fn to_app_err(err: anyhow::Error) -> AppError {
     AppError::Config(err.to_string())
 }
 
-/// Maximum number of nodes captured in a single snapshot.
-const DEFAULT_NODE_CAP: usize = 200;
+/// Maximum number of *emitted* elements per snapshot. Kept in lock-step with the
+/// grounding budget (`grounding_packet::DEFAULT_MAX_ELEMENTS`) so the walk stops
+/// as soon as it has produced everything the planner will actually see — no work
+/// is spent building elements that grounding would immediately discard.
+const DEFAULT_ELEMENT_CAP: usize = super::grounding_packet::DEFAULT_MAX_ELEMENTS;
+/// Hard ceiling on nodes *visited* (traversed) during a single walk. Structural
+/// containers (Pane/Group/Document) are walked for their descendants but not
+/// emitted, so this bounds the number of `attributes()`/`children()` cross-process
+/// calls independently of how many actionable controls are found.
+const DEFAULT_VISIT_CAP: usize = 600;
 /// Maximum subtree depth walked below the focused window.
-const DEFAULT_MAX_DEPTH: usize = 16;
-/// Cooperative wall-clock budget for a full snapshot walk.
-const DEFAULT_SNAPSHOT_BUDGET: Duration = Duration::from_secs(4);
+const DEFAULT_MAX_DEPTH: usize = 12;
+/// Cooperative wall-clock budget for a full snapshot walk. A single wedged UIA
+/// provider call cannot be preempted cooperatively (only the broker watchdog can),
+/// so this is the budget for a *healthy* walk; the structural changes below keep a
+/// normal walk well under it.
+const DEFAULT_SNAPSHOT_BUDGET: Duration = Duration::from_secs(3);
+
+/// How long a walked snapshot stays reusable for the same foreground window. Two
+/// snapshots of the same HWND within this window (with no intervening mutating op,
+/// which invalidates the cache) are served from the first walk instead of paying a
+/// second slow cross-process read. Kept short so a UI change driven from outside
+/// this backend cannot serve stale grounding for long.
+const SNAPSHOT_CACHE_TTL: Duration = Duration::from_millis(750);
 
 /// Watchdog budget for a single element/action op on the UIA worker. Generous
 /// enough for a slow but healthy provider; anything past this is treated as a
@@ -85,7 +105,10 @@ const SHELL_MAX_OUTPUT_CHARS: usize = 8192;
 /// Terminator-backed Windows implementation of [`AccessibilityBackend`].
 #[derive(Debug, Clone)]
 pub struct WindowsUiaBackend {
-    node_cap: usize,
+    /// Max emitted (actionable) elements — the walk early-stops here.
+    element_cap: usize,
+    /// Max nodes traversed — bounds cross-process calls on chrome-heavy trees.
+    visit_cap: usize,
     max_depth: usize,
     snapshot_budget: Duration,
 }
@@ -93,7 +116,8 @@ pub struct WindowsUiaBackend {
 impl Default for WindowsUiaBackend {
     fn default() -> Self {
         Self {
-            node_cap: DEFAULT_NODE_CAP,
+            element_cap: DEFAULT_ELEMENT_CAP,
+            visit_cap: DEFAULT_VISIT_CAP,
             max_depth: DEFAULT_MAX_DEPTH,
             snapshot_budget: DEFAULT_SNAPSHOT_BUDGET,
         }
@@ -110,7 +134,8 @@ impl WindowsUiaBackend {
 #[async_trait]
 impl AccessibilityBackend for WindowsUiaBackend {
     async fn snapshot(&self) -> std::result::Result<Snapshot, AppError> {
-        let cap = self.node_cap;
+        let element_cap = self.element_cap;
+        let visit_cap = self.visit_cap;
         let max_depth = self.max_depth;
         let budget = self.snapshot_budget;
 
@@ -118,13 +143,16 @@ impl AccessibilityBackend for WindowsUiaBackend {
         // watchdog adds a small margin so a wedged COM call still returns control
         // to the caller (leaving the stuck worker to be recreated).
         run_op(budget + WATCHDOG_MARGIN, "snapshot", move |desktop| {
-            build_snapshot(desktop, cap, max_depth, budget)
+            build_snapshot(desktop, element_cap, visit_cap, max_depth, budget)
         })
         .await
         .map_err(to_app_err)
     }
 
     async fn focus(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
+        // Any op that can change the on-screen UI invalidates the reuse cache so
+        // the next snapshot re-reads the (now changed) foreground window.
+        invalidate_snapshot_cache();
         let path = path.to_string();
         run_op(OP_WATCHDOG, "focus", move |desktop| {
             let element = resolve(desktop, &path)?;
@@ -140,6 +168,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
     }
 
     async fn invoke(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
+        invalidate_snapshot_cache();
         let path = path.to_string();
         run_op(OP_WATCHDOG, "invoke", move |desktop| {
             let element = resolve(desktop, &path)?;
@@ -158,6 +187,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
         path: &ElementPath,
         value: &str,
     ) -> std::result::Result<(), AppError> {
+        invalidate_snapshot_cache();
         let path = path.to_string();
         let value = value.to_string();
         run_op(OP_WATCHDOG, "set_value", move |desktop| {
@@ -176,6 +206,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
     }
 
     async fn type_text(&self, text: &str) -> std::result::Result<(), AppError> {
+        invalidate_snapshot_cache();
         let text = text.to_string();
         run_op(OP_WATCHDOG, "type_text", move |desktop| {
             let focused = desktop.focused_element().map_err(to_anyhow)?;
@@ -186,6 +217,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
     }
 
     async fn key_combo(&self, combo: &str) -> std::result::Result<(), AppError> {
+        invalidate_snapshot_cache();
         let combo = combo.to_string();
         run_op(OP_WATCHDOG, "key_combo", move |desktop| {
             let keys = translate_combo(&combo)?;
@@ -219,6 +251,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
     // reaps the whole child tree on abort is a planned hardening.
 
     async fn launch(&self, target: &str) -> std::result::Result<(), AppError> {
+        invalidate_snapshot_cache();
         let target = target.to_string();
         run_op(OP_WATCHDOG, "launch", move |desktop| {
             desktop.open_application(&target).map_err(to_anyhow)?;
@@ -243,6 +276,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
         command: &str,
         shell: &str,
     ) -> std::result::Result<ShellOutput, AppError> {
+        invalidate_snapshot_cache();
         let command = command.to_string();
         let shell = shell.to_string();
         // The child has its own `SHELL_TIMEOUT`; the broker watchdog sits a
@@ -296,6 +330,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
     }
 
     async fn focus_app(&self, name: &str) -> std::result::Result<bool, AppError> {
+        invalidate_snapshot_cache();
         let name = name.to_string();
         run_op(OP_WATCHDOG, "focus_app", move |desktop| {
             Ok(desktop.activate_application(&name).is_ok())
@@ -375,25 +410,115 @@ where
     f().ok()
 }
 
+/// Process-wide cache of the last successfully walked snapshot, keyed by the
+/// foreground window handle. See [`cached_snapshot_for`] / [`store_snapshot`].
+struct CachedSnapshot {
+    /// Foreground `HWND` (as an `isize` key) the snapshot was taken for.
+    hwnd: isize,
+    /// When the walk that produced it completed.
+    at: Instant,
+    snap: Snapshot,
+}
+
+static SNAPSHOT_CACHE: OnceLock<Mutex<Option<CachedSnapshot>>> = OnceLock::new();
+
+fn snapshot_cache() -> &'static Mutex<Option<CachedSnapshot>> {
+    SNAPSHOT_CACHE.get_or_init(|| Mutex::new(None))
+}
+
+/// The current foreground window handle as an `isize` key, or `0` if none.
+///
+/// `GetForegroundWindow` has no preconditions and is safe to call from any
+/// thread; it is only ever used here as a cheap cache key / change-detector, so a
+/// stale or null value simply forces a fresh walk.
+fn foreground_hwnd() -> isize {
+    // SAFETY: `GetForegroundWindow` takes no arguments and is callable from any
+    // thread with no initialization; a null return is handled by the caller.
+    unsafe { GetForegroundWindow() as isize }
+}
+
+/// Return the cached snapshot iff it is for the same foreground window and still
+/// within [`SNAPSHOT_CACHE_TTL`]. Any mutating op clears the cache (see the
+/// `invalidate_snapshot_cache` calls in the trait impl), so a hit means the UI has
+/// not been touched by this backend since the last walk.
+fn cached_snapshot_for(hwnd: isize) -> Option<Snapshot> {
+    let guard = snapshot_cache().lock().unwrap_or_else(|p| p.into_inner());
+    match guard.as_ref() {
+        Some(c) if c.hwnd == hwnd && c.at.elapsed() < SNAPSHOT_CACHE_TTL => Some(c.snap.clone()),
+        _ => None,
+    }
+}
+
+/// Store a freshly walked snapshot for reuse by [`cached_snapshot_for`].
+fn store_snapshot(hwnd: isize, snap: Snapshot) {
+    let mut guard = snapshot_cache().lock().unwrap_or_else(|p| p.into_inner());
+    *guard = Some(CachedSnapshot {
+        hwnd,
+        at: Instant::now(),
+        snap,
+    });
+}
+
+/// Drop any cached snapshot. Called before every op that can change the on-screen
+/// UI so the next `snapshot()` re-reads the live window rather than serving stale
+/// grounding.
+fn invalidate_snapshot_cache() {
+    *snapshot_cache().lock().unwrap_or_else(|p| p.into_inner()) = None;
+}
+
 /// Walk the FOREGROUND window's subtree into a [`Snapshot`].
 ///
-/// Scoping: we resolve the focused element and climb to its containing window
-/// (`window_root`), then walk only that subtree bounded by `cap` / `max_depth`.
-/// This deliberately avoids a full-desktop walk (every top-level window of every
-/// process) — the foreground window is the only thing the user can act on. If a
-/// future Terminator API exposes the active/foreground window directly (e.g. a
-/// `Desktop`-level accessor), it could replace the `focused_element().window()`
-/// climb below; until then this is the narrowest scope the used API supports.
+/// Latency strategy (the snapshot used to blow past its watchdog on Chrome/
+/// Electron windows, leaving the planner with empty grounding):
+///
+/// * **Foreground scope.** We resolve the focused element and climb to its
+///   containing window (`window_root`), walking only that subtree — never the
+///   full desktop root.
+/// * **Reuse cache.** If the foreground `HWND` is unchanged and no mutating op has
+///   run since the last walk (TTL-bounded), the previous snapshot is returned
+///   without touching UIA at all.
+/// * **Actionable-only emission + early stop.** Structural containers (Pane/Group/
+///   Document) are traversed for their descendants but not emitted; the walk stops
+///   as soon as `element_cap` actionable controls (== the grounding budget) are
+///   collected, and never visits more than `visit_cap` nodes. This is what keeps
+///   the number of cross-process COM calls (and thus the chance of hitting a slow
+///   provider) small.
+/// * **Probe only what we keep.** The expensive per-node state probes
+///   (`is_selected`/`is_toggled`/`is_visible`/`get_value`) run only for emitted
+///   controls, not for the structural nodes we merely walk through.
+///
+/// A future single-call UIA `CacheRequest`/`BuildUpdatedCache` (to bulk-fetch all
+/// properties in one cross-process round trip) would require the `uiautomation`/
+/// `windows` COM crates, which are not direct dependencies today; this keeps to the
+/// `terminator` API already in use.
 ///
 /// `desktop` is the worker's persistent session, so no per-snapshot COM/UIA
 /// bring-up is paid here anymore.
 fn build_snapshot(
     desktop: &Desktop,
-    cap: usize,
+    element_cap: usize,
+    visit_cap: usize,
     max_depth: usize,
     budget: Duration,
 ) -> Result<Snapshot> {
     let walk_start = Instant::now();
+
+    // Fast path: reuse the previous walk for an unchanged foreground window.
+    let fg_hwnd = foreground_hwnd();
+    if fg_hwnd != 0 {
+        if let Some(cached) = cached_snapshot_for(fg_hwnd) {
+            tracing::debug!(
+                target: uia_broker::TIMING_TARGET,
+                op = "snapshot",
+                cache = "hit",
+                nodes = cached.elements.len(),
+                walk_ms = walk_start.elapsed().as_millis() as u64,
+                "uia timing: foreground-window snapshot served from cache"
+            );
+            return Ok(cached);
+        }
+    }
+
     let deadline = walk_start + budget;
 
     let focused = desktop.focused_element().map_err(to_anyhow)?;
@@ -409,13 +534,17 @@ fn build_snapshot(
 
     let mut elements: Vec<UiElement> = Vec::new();
     let mut focused_path: Option<String> = None;
+    let mut visited: usize = 0;
 
     // Iterative depth-first walk carrying the child-index path for each node.
     let mut stack: Vec<(TElement, String, usize)> = vec![(root, "#".to_string(), 0)];
     while let Some((element, path, depth)) = stack.pop() {
-        if elements.len() >= cap || Instant::now() >= deadline {
+        // Early stop: enough actionable elements for grounding, node budget spent,
+        // or wall-clock deadline reached.
+        if elements.len() >= element_cap || visited >= visit_cap || Instant::now() >= deadline {
             break;
         }
+        visited += 1;
 
         // Identity-match the focused element by its stable id (cheap, cached),
         // avoiding a per-node focus probe.
@@ -425,18 +554,25 @@ fn build_snapshot(
             focused_path = Some(path.clone());
         }
 
+        // `attributes()` yields the role/name in one shot; only emit (and pay the
+        // full per-node state probes in `map_element`) for actionable controls and
+        // the focused element. Structural chrome is still traversed below.
         let attributes = element.attributes();
-        elements.push(map_element(
-            deadline,
-            &element,
-            &attributes,
-            &path,
-            is_focused,
-        ));
+        if is_focused || is_interactable_role(attributes.role.as_str()) {
+            elements.push(map_element(
+                deadline,
+                &element,
+                &attributes,
+                &path,
+                is_focused,
+            ));
+        }
 
         if depth < max_depth {
             if let Some(children) = probe(deadline, || element.children()) {
-                // Push in reverse so the 1-based first child is popped first.
+                // Push in reverse so the 1-based first child is popped first. Paths
+                // stay 1-based over the *full* child list so `resolve` can walk them
+                // back even though structural children are not emitted.
                 for (index, child) in children.into_iter().enumerate().rev() {
                     let child_path = format!("{path}/{}", index + 1);
                     stack.push((child, child_path, depth + 1));
@@ -445,20 +581,23 @@ fn build_snapshot(
         }
     }
 
-    // snapshot node count + duration: the headline metric for tuning node_cap /
-    // max_depth against real windows.
+    // snapshot emitted/visited counts + duration: the headline metric for tuning
+    // element_cap / visit_cap / max_depth against real windows.
     tracing::debug!(
         target: uia_broker::TIMING_TARGET,
         op = "snapshot",
+        cache = "miss",
         nodes = elements.len(),
-        node_cap = cap,
+        visited,
+        element_cap,
+        visit_cap,
         max_depth,
         walk_ms = walk_start.elapsed().as_millis() as u64,
-        hit_cap = elements.len() >= cap,
+        hit_cap = elements.len() >= element_cap,
         "uia timing: foreground-window snapshot walk complete"
     );
 
-    Ok(Snapshot {
+    let snapshot = Snapshot {
         app,
         window_title,
         focused: focused_path,
@@ -469,7 +608,40 @@ fn build_snapshot(
         // length is not available from this backend.
         selection_text_len: 0,
         elements,
-    })
+    };
+
+    if fg_hwnd != 0 {
+        store_snapshot(fg_hwnd, snapshot.clone());
+    }
+
+    Ok(snapshot)
+}
+
+/// Whether a Terminator role string (a UI Automation `ControlType` name) is an
+/// actionable control worth emitting into the snapshot. Structural containers
+/// (Pane/Group/Document/Text/etc.) are intentionally excluded — they are walked
+/// for their descendants but never spend an `element_cap` slot. Kept in sync with
+/// the roles/patterns [`UiElement::is_interactive`] recognizes, so every emitted
+/// element lands in grounding's interactive-first bucket.
+fn is_interactable_role(role: &str) -> bool {
+    matches!(
+        role,
+        "Button"
+            | "SplitButton"
+            | "MenuItem"
+            | "Hyperlink"
+            | "Tab"
+            | "TabItem"
+            | "ListItem"
+            | "DataItem"
+            | "CheckBox"
+            | "RadioButton"
+            | "ComboBox"
+            | "Edit"
+            | "Slider"
+            | "Spinner"
+            | "TreeItem"
+    )
 }
 
 /// Map a single Terminator element to our [`UiElement`], guarding every probe.
@@ -898,6 +1070,29 @@ mod tests {
     #[test]
     fn backend_name_is_stable() {
         assert_eq!(WindowsUiaBackend::new().name(), "windows-terminator");
+    }
+
+    #[test]
+    fn interactable_roles_are_actionable_not_structural() {
+        // Actionable controls are emitted; structural containers are only walked.
+        for role in ["Button", "Edit", "Hyperlink", "MenuItem", "CheckBox", "Tab"] {
+            assert!(is_interactable_role(role), "{role} should be interactable");
+        }
+        for role in ["Pane", "Group", "Document", "Text", "TitleBar", "Window"] {
+            assert!(
+                !is_interactable_role(role),
+                "{role} should be structural-only"
+            );
+        }
+    }
+
+    #[test]
+    fn element_cap_tracks_grounding_budget() {
+        // The walk must not stop before it has produced everything grounding shows.
+        assert_eq!(
+            DEFAULT_ELEMENT_CAP,
+            super::super::grounding_packet::DEFAULT_MAX_ELEMENTS
+        );
     }
 
     /// Every `key` step in the built-in seed drawer must translate to a valid
