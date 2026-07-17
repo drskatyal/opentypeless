@@ -23,6 +23,10 @@ use crate::act::killswitch::KillSwitch;
 use crate::act::llm::GeminiLlmClient;
 use crate::act::planner::Planner;
 use crate::act::{self, seed};
+use crate::credentials::{
+    resolve_llm_config_secret, resolve_stt_config_secret, CredentialSecretReader,
+    SystemCredentialVault,
+};
 use crate::storage::{self, ConfigManager};
 
 /// Tauri-managed Act runtime: the live [`Conductor`] (armed lazily on enable)
@@ -57,15 +61,26 @@ impl ActState {
 }
 
 /// The Gemini key Act should use. Act's selection + planner are Gemini calls, so
-/// it reuses whichever Gemini key is configured — the dedicated LLM key if set,
-/// else the STT key (the user often configures just one Gemini key for both).
-fn act_gemini_key(config: &storage::AppConfig) -> String {
-    let llm = config.llm_api_key.trim();
-    if !llm.is_empty() {
-        llm.to_string()
-    } else {
-        config.stt_api_key.trim().to_string()
+/// it reuses whichever Gemini key is configured.
+///
+/// At runtime the plaintext key fields on `AppConfig` are cleared — the real
+/// secrets live in the OS credential vault (see `credentials.rs`), so this must
+/// resolve through the vault exactly like the STT pipeline does, NOT read the
+/// (empty) config fields. Preference: the dedicated LLM key **when the LLM
+/// provider is Gemini**, else the STT key (the common single-Gemini-key setup).
+/// A non-Gemini LLM key (e.g. an OpenAI polish key) would be wrong for Act's
+/// Gemini calls, so it is deliberately skipped in favour of the STT key.
+fn act_gemini_key<V: CredentialSecretReader>(config: &storage::AppConfig, vault: &V) -> String {
+    if config.llm_provider.trim().eq_ignore_ascii_case("gemini") {
+        let llm = resolve_llm_config_secret(config, vault).unwrap_or_default();
+        if !llm.trim().is_empty() {
+            return llm.trim().to_string();
+        }
     }
+    resolve_stt_config_secret(config, vault)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
 }
 
 /// Map the configured planner tier onto a concrete model id. "precise" trades
@@ -101,7 +116,7 @@ fn build_conductor(
     config: &storage::AppConfig,
     kill: KillSwitch,
 ) -> Conductor {
-    let api_key = act_gemini_key(config);
+    let api_key = act_gemini_key(config, &SystemCredentialVault);
     let model = model_for_tier(&config.act_model_tier).to_string();
     let llm = Arc::new(GeminiLlmClient::new(client, api_key, model));
     let backend = act::create_backend();
@@ -151,7 +166,7 @@ pub async fn rehydrate_if_enabled(state: &ActState, config: &storage::AppConfig)
     if !config.act_enabled || !act::act_supported() {
         return;
     }
-    if act_gemini_key(config).is_empty() {
+    if act_gemini_key(config, &SystemCredentialVault).is_empty() {
         tracing::warn!(
             "Act is enabled but no Gemini API key is configured; not arming on startup."
         );
@@ -181,7 +196,7 @@ pub async fn act_set_enabled(
         // Preflight BEFORE touching the session: Act planning needs LLM
         // credentials, so refuse (and store nothing) when none are configured.
         let cfg = config.load().await.map_err(|e| e.to_string())?;
-        let has_key = !act_gemini_key(&cfg).is_empty();
+        let has_key = !act_gemini_key(&cfg, &SystemCredentialVault).is_empty();
         tracing::info!(
             has_gemini_key = has_key,
             act_hotkey_bound = cfg.hotkeys.act.is_some(),
