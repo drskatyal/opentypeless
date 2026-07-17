@@ -3,6 +3,7 @@ pub mod app_detector;
 pub mod audio;
 pub mod commands;
 pub mod credentials;
+pub mod dev_relay;
 pub mod dictionary_io;
 pub mod error;
 pub mod hotkey;
@@ -896,6 +897,11 @@ pub fn run() {
                     &initial_config,
                 ));
             }
+
+            // Dev-loop bridge: in debug builds with the relay env vars set, connect
+            // outbound to the hosted relay so Act can be driven + observed remotely
+            // during development. Inert in release and unless explicitly opted in.
+            dev_relay::start_if_enabled(&app_handle);
 
             // Register global shortcut from config
             let handler = hotkey::build_shortcut_handler(app_handle.clone());
