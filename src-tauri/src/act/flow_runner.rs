@@ -24,9 +24,10 @@ use std::time::{Duration, Instant};
 use super::backend::AccessibilityBackend;
 use super::capability::{Capability, CapabilityGate, Decision};
 use super::element::{ActionPattern, ElementPath, ElementState, Role, Snapshot, UiElement};
-use super::events::ActEvent;
+use super::events::{ActEvent, AskOption};
 use super::flow::{
-    FlowFile, FlowKind, FlowStep, OnFail, Selector, SlotFilter, StateGate, VerifySpec, WaitSpec,
+    FlowFile, FlowKind, FlowStep, OnFail, PickFallback, PickSpec, Selector, SlotFilter, StateGate,
+    VerifySpec, WaitSpec,
 };
 use super::killswitch::KillSwitch;
 
@@ -62,6 +63,13 @@ pub enum FlowOutcome {
     /// A step failed (target gone, backend error, unmet postcondition, or a
     /// `Replan` bail). `step` is the step id; `error` is a PHI-free reason.
     Failed { step: String, error: String },
+    /// A `pick_result`/`choose` could not decide (no match, or a tie) and its
+    /// spec asked to defer to the user. The session offers a numbered pick and
+    /// resumes the flow with the chosen row.
+    NeedsChoice {
+        prompt: String,
+        options: Vec<AskOption>,
+    },
     /// The kill switch tripped mid-run.
     Aborted,
 }
@@ -91,6 +99,11 @@ enum Attempt {
     Ran,
     /// The capability gate ruled `Confirm`; pause for the user.
     Confirm(String),
+    /// A pick deferred to the user; surface a numbered choice and pause.
+    AskChoice {
+        prompt: String,
+        options: Vec<AskOption>,
+    },
     /// The kill switch tripped.
     Aborted,
     /// The step could not run (target gone, denied, backend error, missing value).
@@ -103,6 +116,11 @@ enum StepFlow {
     Next,
     /// Pause the whole flow for a confirmation.
     Confirm(String),
+    /// Pause the whole flow for a numbered user choice.
+    AskChoice {
+        prompt: String,
+        options: Vec<AskOption>,
+    },
     /// Abort the whole flow.
     Aborted,
     /// Stop the flow with a failure.
@@ -165,6 +183,11 @@ impl FlowRunner {
             .map(|s| (s.name.clone(), s.filters.clone()))
             .collect();
 
+        // Cross-step bindings: a step's `bind` records a *re-resolvable identity*
+        // (never a cached path) under a name; a later step's `element_ref` /
+        // `within_ref` re-finds it against that step's own fresh snapshot.
+        let mut binds: HashMap<String, Selector> = HashMap::new();
+
         for step in &file.steps {
             // a. The agent can never steer past a trip.
             if self.kill.is_tripped() {
@@ -182,12 +205,15 @@ impl FlowRunner {
             // c. Wait on the UI condition (never a fixed sleep). A timed-out wait is
             //    not itself fatal — resolution below is the real gate.
             if let Some(wait) = &step.wait_before {
-                self.wait_for(wait, slots).await;
+                self.wait_for(wait, slots, &binds).await;
             }
 
-            match self.run_step(step, slots, &filters).await? {
+            match self.run_step(step, slots, &filters, &mut binds).await? {
                 StepFlow::Next => continue,
                 StepFlow::Confirm(reason) => return Ok(FlowOutcome::NeedsConfirm { reason }),
+                StepFlow::AskChoice { prompt, options } => {
+                    return Ok(FlowOutcome::NeedsChoice { prompt, options })
+                }
                 StepFlow::Aborted => return Ok(FlowOutcome::Aborted),
                 StepFlow::Failed(error) => {
                     return Ok(FlowOutcome::Failed {
@@ -214,11 +240,15 @@ impl FlowRunner {
         step: &FlowStep,
         slots: &HashMap<String, String>,
         filters: &HashMap<String, Vec<SlotFilter>>,
+        binds: &mut HashMap<String, Selector>,
     ) -> Result<StepFlow, FlowRunError> {
         // First attempt.
-        let failure = match self.attempt(step, slots, filters).await? {
-            Attempt::Ran => self.postcondition_failure(step, slots).await,
+        let failure = match self.attempt(step, slots, filters, binds).await? {
+            Attempt::Ran => self.postcondition_failure(step, slots, binds).await,
             Attempt::Confirm(reason) => return Ok(StepFlow::Confirm(reason)),
+            Attempt::AskChoice { prompt, options } => {
+                return Ok(StepFlow::AskChoice { prompt, options })
+            }
             Attempt::Aborted => return Ok(StepFlow::Aborted),
             Attempt::Failed(error) => Some(error),
         };
@@ -237,12 +267,15 @@ impl FlowRunner {
                 if self.sleep_or_abort(STABLE_WAIT).await {
                     return Ok(StepFlow::Aborted);
                 }
-                match self.attempt(step, slots, filters).await? {
-                    Attempt::Ran => match self.postcondition_failure(step, slots).await {
+                match self.attempt(step, slots, filters, binds).await? {
+                    Attempt::Ran => match self.postcondition_failure(step, slots, binds).await {
                         Some(again) => Ok(StepFlow::Failed(again)),
                         None => Ok(StepFlow::Next),
                     },
                     Attempt::Confirm(r) => Ok(StepFlow::Confirm(r)),
+                    Attempt::AskChoice { prompt, options } => {
+                        Ok(StepFlow::AskChoice { prompt, options })
+                    }
                     Attempt::Aborted => Ok(StepFlow::Aborted),
                     Attempt::Failed(again) => Ok(StepFlow::Failed(again)),
                 }
@@ -250,29 +283,102 @@ impl FlowRunner {
         }
     }
 
-    /// One attempt at a step: resolve its target against a fresh snapshot, gate the
-    /// mapped capability, then run the backend primitive (raced against the kill
-    /// switch). Does NOT judge the postcondition.
+    /// One attempt at a step: resolve its target against a fresh snapshot
+    /// (scored, or a `PickSpec`-driven choice for `pick_result`/`choose`), record
+    /// a binding if asked, gate the mapped capability, then run the backend
+    /// primitive (raced against the kill switch). Does NOT judge the postcondition.
     async fn attempt(
         &self,
         step: &FlowStep,
         slots: &HashMap<String, String>,
         filters: &HashMap<String, Vec<SlotFilter>>,
+        binds: &mut HashMap<String, Selector>,
     ) -> Result<Attempt, FlowRunError> {
         let action = step.action.as_str();
+        let is_pick = matches!(action, "pick_result" | "choose");
 
-        // d. Resolve the target for the actions that address a control.
-        let target: Option<ElementPath> = if let Some(sel) = &step.target {
+        // d. Resolve the control this step addresses, if any. `pick_result`/`choose`
+        //    with a `PickSpec` use scored candidate selection; everything else uses
+        //    the additive scored resolver. Keep the snapshot for binding synthesis.
+        let (target, snapshot): (Option<ElementPath>, Option<Snapshot>) = if let Some(sel) =
+            &step.target
+        {
             let snapshot = self.snapshot().await?;
-            match self.resolve_selector(&snapshot, sel, slots) {
-                Some(path) => Some(path),
-                None => {
-                    return Ok(Attempt::Failed(format!("no target for step {}", step.id)));
+            let path = if let (true, Some(pick)) = (is_pick, &step.pick) {
+                match self.choose_candidate(&snapshot, sel, pick, slots, binds) {
+                    Choice::One(path) => path,
+                    Choice::None { best } => match pick.if_none {
+                        PickFallback::Fail => {
+                            return Ok(Attempt::Failed(format!(
+                                "pick: no candidate met the match threshold for step {}",
+                                step.id
+                            )))
+                        }
+                        PickFallback::TakeBest => match best {
+                            Some(p) => p,
+                            None => {
+                                return Ok(Attempt::Failed(format!(
+                                    "pick: no candidates at all for step {}",
+                                    step.id
+                                )))
+                            }
+                        },
+                        PickFallback::Ask => {
+                            return Ok(self.ask_choice(
+                                &snapshot,
+                                best.into_iter().collect(),
+                                "Which one did you mean?",
+                            ))
+                        }
+                    },
+                    Choice::Ambiguous { candidates } => match pick.if_ambiguous {
+                        PickFallback::Fail => {
+                            return Ok(Attempt::Failed(format!(
+                                "pick: ambiguous candidates for step {}",
+                                step.id
+                            )))
+                        }
+                        PickFallback::TakeBest => match candidates.into_iter().next() {
+                            Some(p) => p,
+                            None => {
+                                return Ok(Attempt::Failed(format!(
+                                    "pick: ambiguous with no candidate for step {}",
+                                    step.id
+                                )))
+                            }
+                        },
+                        PickFallback::Ask => {
+                            return Ok(self.ask_choice(
+                                &snapshot,
+                                candidates,
+                                "Which one did you mean?",
+                            ))
+                        }
+                    },
                 }
-            }
+            } else {
+                match self.resolve_selector(&snapshot, sel, slots, binds) {
+                    Some(path) => path,
+                    None => return Ok(Attempt::Failed(format!("no target for step {}", step.id))),
+                }
+            };
+            (Some(path), Some(snapshot))
         } else {
-            None
+            (None, None)
         };
+
+        // Record a binding of the resolved element (a re-resolvable identity), so a
+        // later step can address it via `element_ref` / `within_ref`.
+        if let (Some(name), Some(path), Some(snap)) = (&step.bind, &target, &snapshot) {
+            if let Some(identity) = synthesize_binding(snap, path) {
+                binds.insert(name.clone(), identity);
+            }
+        }
+
+        // `choose` is pure selection: it binds a row and does not act on it.
+        if action == "choose" {
+            return Ok(Attempt::Ran);
+        }
 
         // e. Capability gate. Confirm pauses; Deny fails the step.
         match self.gate.evaluate_capability(capability_for(action)) {
@@ -288,6 +394,32 @@ impl FlowRunner {
 
         // f. Execute, racing the kill switch on every backend await.
         self.execute(step, target.as_deref(), slots, filters).await
+    }
+
+    /// Build an [`Attempt::AskChoice`] from candidate paths, labelling each option
+    /// with the control's accessible name for a numbered user pick.
+    fn ask_choice(
+        &self,
+        snapshot: &Snapshot,
+        candidates: Vec<ElementPath>,
+        prompt: &str,
+    ) -> Attempt {
+        let options = candidates
+            .iter()
+            .enumerate()
+            .map(|(i, path)| AskOption {
+                index: i + 1,
+                label: snapshot
+                    .get(path)
+                    .map(|e| e.name.clone())
+                    .unwrap_or_default(),
+                path: path.clone(),
+            })
+            .collect();
+        Attempt::AskChoice {
+            prompt: prompt.to_string(),
+            options,
+        }
     }
 
     /// Perform the backend primitive for `action`. Slot tokens in `value` are
@@ -375,9 +507,10 @@ impl FlowRunner {
         &self,
         step: &FlowStep,
         slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
     ) -> Option<String> {
         let post = step.postcondition.as_ref()?;
-        if self.wait_for(post, slots).await {
+        if self.wait_for(post, slots, binds).await {
             None
         } else {
             Some(format!("postcondition \"{}\" not met", post.predicate))
@@ -387,7 +520,12 @@ impl FlowRunner {
     /// Poll a wait predicate against fresh snapshots until it holds or its timeout
     /// elapses. Returns whether the predicate held. A tripped kill switch ends the
     /// wait early (returning `false`).
-    async fn wait_for(&self, spec: &WaitSpec, slots: &HashMap<String, String>) -> bool {
+    async fn wait_for(
+        &self,
+        spec: &WaitSpec,
+        slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
+    ) -> bool {
         let budget = Duration::from_millis(spec.timeout_ms as u64).min(MAX_WAIT);
         let deadline = Instant::now() + budget;
         loop {
@@ -397,7 +535,7 @@ impl FlowRunner {
             let Ok(snapshot) = self.snapshot().await else {
                 return false;
             };
-            if self.predicate_holds(&snapshot, spec, slots) {
+            if self.predicate_holds(&snapshot, spec, slots, binds) {
                 return true;
             }
             if Instant::now() >= deadline {
@@ -415,17 +553,18 @@ impl FlowRunner {
         snapshot: &Snapshot,
         spec: &WaitSpec,
         slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
     ) -> bool {
         match spec.predicate.as_str() {
             // The named control exists (and is acceptable) right now.
             "target_exists" | "value_contains" => spec
                 .selector
                 .as_ref()
-                .map(|sel| self.resolve_selector(snapshot, sel, slots).is_some())
+                .map(|sel| self.resolve_selector(snapshot, sel, slots, binds).is_some())
                 .unwrap_or(true),
             // Result rows have appeared: a matching selector, else any list item.
             "results_present" => match &spec.selector {
-                Some(sel) => self.resolve_selector(snapshot, sel, slots).is_some(),
+                Some(sel) => self.resolve_selector(snapshot, sel, slots, binds).is_some(),
                 None => snapshot.elements.iter().any(|e| e.role == Role::ListItem),
             },
             // Unknown predicate: do not block the flow on it.
@@ -474,12 +613,31 @@ impl FlowRunner {
     /// Hard rejects: password-like fields, disabled controls, offscreen controls,
     /// and anything failing an explicit [`StateGate`]. `nth` disambiguates among
     /// the best-scoring matches by tree order.
+    ///
+    /// `element_ref` short-circuits to the bound identity's live resolution;
+    /// `within_ref` restricts the search to a bound element's subtree — both
+    /// re-resolve against *this* snapshot, never a cached path.
     fn resolve_selector(
         &self,
         snapshot: &Snapshot,
         sel: &Selector,
         slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
     ) -> Option<ElementPath> {
+        // `element_ref`: act on a previously chosen element — re-resolve its bound
+        // identity now. (Bound identities never carry refs, so no recursion loop.)
+        if let Some(name) = &sel.element_ref {
+            let bound = binds.get(name)?;
+            return self.resolve_selector(snapshot, bound, slots, binds);
+        }
+
+        // `within_ref`: scope the search under a bound element's subtree, found by
+        // re-resolving its identity in this snapshot.
+        let scope_prefix = match &sel.within_ref {
+            Some(name) => Some(self.resolve_selector(snapshot, binds.get(name)?, slots, binds)?),
+            None => None,
+        };
+
         let needle = sel
             .name_contains
             .as_ref()
@@ -490,6 +648,11 @@ impl FlowRunner {
         for element in &snapshot.elements {
             if is_unusable(element) || !state_gate_passes(element, &sel.state) {
                 continue;
+            }
+            if let Some(prefix) = &scope_prefix {
+                if !path_under(&element.path, prefix) {
+                    continue;
+                }
             }
             let score = score_element(element, sel, needle.as_deref());
             if score >= RESOLVE_THRESHOLD {
@@ -528,6 +691,98 @@ impl FlowRunner {
         }
     }
 
+    /// Choose one candidate row for a `pick_result`/`choose` step per its
+    /// [`PickSpec`]: enumerate elements matching the selector's role (optionally
+    /// scoped by `within_ref`), reject `negative_patterns`, score each by how many
+    /// slot-substituted `match_terms` its name contains, then apply the
+    /// confidence thresholds. Choosing is deliberately separate from acting.
+    ///
+    /// * a single row clearing `min_score` and beating the runner-up by
+    ///   `tie_margin` → [`Choice::One`];
+    /// * nothing clears `min_score` → [`Choice::None`] (carrying the top row so a
+    ///   `TakeBest` fallback can still proceed);
+    /// * the top rows tie within `tie_margin` → [`Choice::Ambiguous`].
+    fn choose_candidate(
+        &self,
+        snapshot: &Snapshot,
+        sel: &Selector,
+        pick: &PickSpec,
+        slots: &HashMap<String, String>,
+        binds: &HashMap<String, Selector>,
+    ) -> Choice {
+        // Optional subtree scoping via a bound container.
+        let scope_prefix = match &sel.within_ref {
+            Some(name) => match binds
+                .get(name)
+                .and_then(|b| self.resolve_selector(snapshot, b, slots, binds))
+            {
+                Some(p) => Some(p),
+                // The bound container is gone — no candidates to choose among.
+                None => return Choice::None { best: None },
+            },
+            None => None,
+        };
+
+        let terms: Vec<String> = pick
+            .match_terms
+            .iter()
+            .map(|t| substitute(t, slots).to_lowercase())
+            .filter(|t| !t.is_empty())
+            .collect();
+        let negatives: Vec<String> = pick
+            .negative_patterns
+            .iter()
+            .map(|n| substitute(n, slots).to_lowercase())
+            .filter(|n| !n.is_empty())
+            .collect();
+
+        // Score every acceptable candidate, in tree order (a stable sort later
+        // keeps that order among equal scores).
+        let mut scored: Vec<(f32, &UiElement)> = Vec::new();
+        for element in &snapshot.elements {
+            if is_unusable(element) || !state_gate_passes(element, &sel.state) {
+                continue;
+            }
+            if let Some(role) = &sel.role {
+                if !role_matches(role, element.role) {
+                    continue;
+                }
+            }
+            if let Some(prefix) = &scope_prefix {
+                if !path_under(&element.path, prefix) {
+                    continue;
+                }
+            }
+            let name_lc = element.name.to_lowercase();
+            if negatives.iter().any(|n| name_lc.contains(n)) {
+                continue;
+            }
+            scored.push((pick_score(&name_lc, &terms), element));
+        }
+
+        // Highest score first; stable, so tree order breaks score ties.
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let Some(&(top, top_el)) = scored.first() else {
+            return Choice::None { best: None };
+        };
+        if top < pick.min_score {
+            return Choice::None {
+                best: Some(top_el.path.clone()),
+            };
+        }
+        let runner_up = scored.get(1).map(|(s, _)| *s).unwrap_or(0.0);
+        if top - runner_up < pick.tie_margin {
+            let candidates = scored
+                .iter()
+                .filter(|(s, _)| *s >= pick.min_score && top - *s < pick.tie_margin)
+                .map(|(_, e)| e.path.clone())
+                .collect();
+            return Choice::Ambiguous { candidates };
+        }
+        Choice::One(top_el.path.clone())
+    }
+
     /// Take a fresh snapshot, mapping a backend failure to a runner error.
     async fn snapshot(&self) -> Result<Snapshot, FlowRunError> {
         self.backend
@@ -556,9 +811,103 @@ fn capability_for(action: &str) -> Capability {
         "focus_app" => Capability::WindowManage,
         "key" => Capability::InputKeyboard,
         "focus" | "invoke" | "pick_result" | "set_value" => Capability::A11yInvoke,
-        // `wait` (and any unmapped verb) is agent-self pacing — always allowed.
+        // `choose` only reads the tree to bind a row — it acts on nothing, so it
+        // is agent-self pacing like `wait` (and any unmapped verb).
         _ => Capability::AgentSelf,
     }
+}
+
+/// The outcome of a scored [`FlowRunner::choose_candidate`] over candidate rows.
+enum Choice {
+    /// A single confident winner.
+    One(ElementPath),
+    /// Nothing cleared `min_score`; `best` is the top row (for a `TakeBest`
+    /// fallback), or `None` when there were no candidates at all.
+    None { best: Option<ElementPath> },
+    /// The top rows tie within `tie_margin`; `candidates` are those in the tie.
+    Ambiguous { candidates: Vec<ElementPath> },
+}
+
+/// Fraction (0.0–1.0) of `terms` whose text appears in a candidate's (lowercased)
+/// name. No terms → `0.0`, so a pick with nothing to match on never clears a
+/// positive `min_score` and falls through to its `if_none` handling.
+fn pick_score(name_lc: &str, terms: &[String]) -> f32 {
+    if terms.is_empty() {
+        return 0.0;
+    }
+    let hits = terms.iter().filter(|t| name_lc.contains(*t)).count();
+    hits as f32 / terms.len() as f32
+}
+
+/// Whether `path` is `prefix` itself or a descendant of it (subtree membership),
+/// e.g. `#/2/1` is under `#/2` but `#/20` is not.
+fn path_under(path: &str, prefix: &str) -> bool {
+    path == prefix
+        || path
+            .strip_prefix(prefix)
+            .is_some_and(|r| r.starts_with('/'))
+}
+
+/// Build a re-resolvable identity for a chosen element, to be stored as a binding.
+/// Uses the element's role plus its exact accessible name — stable enough to
+/// re-find the same control in a later fresh snapshot, and never a cached path.
+/// `None` when the element has neither a name nor a mappable role to anchor on.
+fn synthesize_binding(snapshot: &Snapshot, path: &str) -> Option<Selector> {
+    let el = snapshot.get(path)?;
+    let name_any = if el.name.is_empty() {
+        Vec::new()
+    } else {
+        vec![el.name.clone()]
+    };
+    let role = role_canonical(el.role);
+    // Nothing to anchor on would re-resolve to anything — refuse to bind it.
+    if name_any.is_empty() && role.is_none() {
+        return None;
+    }
+    Some(Selector {
+        role: role.map(str::to_string),
+        name_any,
+        ..Default::default()
+    })
+}
+
+/// The canonical selector role string for a [`Role`] (inverse of the alias table
+/// in [`role_matches`]). `None` for [`Role::Unknown`], which can't be anchored on.
+fn role_canonical(role: Role) -> Option<&'static str> {
+    Some(match role {
+        Role::Button => "button",
+        Role::TextField => "edit",
+        Role::CheckBox => "check_box",
+        Role::RadioButton => "radio_button",
+        Role::ComboBox => "combo_box",
+        Role::List => "list",
+        Role::ListItem => "list_item",
+        Role::Menu => "menu",
+        Role::MenuBar => "menu_bar",
+        Role::MenuItem => "menu_item",
+        Role::Tab => "tab",
+        Role::TabItem => "tab_item",
+        Role::Link => "link",
+        Role::Window => "window",
+        Role::Pane => "pane",
+        Role::Group => "group",
+        Role::Text => "text",
+        Role::Image => "image",
+        Role::Slider => "slider",
+        Role::Spinner => "spinner",
+        Role::ProgressBar => "progress_bar",
+        Role::ScrollBar => "scroll_bar",
+        Role::Toolbar => "toolbar",
+        Role::TitleBar => "title_bar",
+        Role::Separator => "separator",
+        Role::Tree => "tree",
+        Role::TreeItem => "tree_item",
+        Role::Table => "table",
+        Role::Row => "row",
+        Role::Cell => "cell",
+        Role::Document => "document",
+        Role::Unknown => return None,
+    })
 }
 
 /// Replace every `{slot}` token with its value; leave unknown tokens intact.
@@ -904,6 +1253,22 @@ mod tests {
         HashMap::new()
     }
 
+    fn no_binds() -> HashMap<String, Selector> {
+        HashMap::new()
+    }
+
+    /// A PickSpec with the serde defaults, for tests that override a field or two.
+    fn pick_defaults() -> PickSpec {
+        PickSpec {
+            match_terms: vec![],
+            negative_patterns: vec![],
+            min_score: 0.5,
+            tie_margin: 0.15,
+            if_none: PickFallback::Fail,
+            if_ambiguous: PickFallback::Fail,
+        }
+    }
+
     fn noop_emit(_: ActEvent) {}
 
     #[test]
@@ -1092,6 +1457,140 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pick_result_scores_terms_and_rejects_negatives() {
+        // A sponsored row also contains the song text; the negative pattern must
+        // exclude it so the genuine result wins.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::ListItem, "Sponsored — Hotel California cover"),
+            el("#/2", Role::ListItem, "Hotel California — Eagles"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut slots = HashMap::new();
+        slots.insert("song".to_string(), "Hotel California".to_string());
+
+        let mut file = base_file();
+        let mut s = step("s1", "pick_result");
+        s.target = Some(Selector {
+            role: Some("list_item".into()),
+            ..Default::default()
+        });
+        s.pick = Some(PickSpec {
+            match_terms: vec!["{song}".into()],
+            negative_patterns: vec!["Sponsored".into()],
+            ..pick_defaults()
+        });
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &slots, &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn pick_result_ties_defer_to_the_user_when_asked() {
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::ListItem, "Hotel California — Eagles"),
+            el("#/2", Role::ListItem, "Hotel California — Eagles"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut slots = HashMap::new();
+        slots.insert("song".to_string(), "Hotel California".to_string());
+
+        let mut file = base_file();
+        let mut s = step("s1", "pick_result");
+        s.target = Some(Selector {
+            role: Some("list_item".into()),
+            ..Default::default()
+        });
+        s.pick = Some(PickSpec {
+            match_terms: vec!["{song}".into()],
+            if_ambiguous: PickFallback::Ask,
+            ..pick_defaults()
+        });
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &slots, &noop_emit).await.unwrap();
+        match outcome {
+            FlowOutcome::NeedsChoice { options, .. } => {
+                assert_eq!(options.len(), 2);
+                assert_eq!(options[0].path, "#/1");
+                assert_eq!(options[1].path, "#/2");
+            }
+            other => panic!("expected NeedsChoice, got {other:?}"),
+        }
+        assert!(
+            backend.invoked().is_empty(),
+            "nothing acted on while asking"
+        );
+    }
+
+    #[tokio::test]
+    async fn pick_result_take_best_falls_through_below_threshold() {
+        // No row matches the term, but if_none=TakeBest takes the top (first) row.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::ListItem, "Take It Easy — Eagles"),
+            el("#/2", Role::ListItem, "Desperado — Eagles"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut s = step("s1", "pick_result");
+        s.target = Some(Selector {
+            role: Some("list_item".into()),
+            ..Default::default()
+        });
+        s.pick = Some(PickSpec {
+            match_terms: vec!["Nonexistent Song".into()],
+            if_none: PickFallback::TakeBest,
+            ..pick_defaults()
+        });
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.invoked(), vec!["#/1".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn choose_binds_a_row_then_invoke_acts_within_it() {
+        // A message row with a "Reply" button nested under it. `choose` binds the
+        // row; the next step invokes Reply scoped to that row's subtree — proving
+        // both rows' Reply buttons don't collide.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::ListItem, "Bob — Lunch?"),
+            el("#/1/1", Role::Button, "Reply"),
+            el("#/2", Role::ListItem, "Andreas — Meeting notes"),
+            el("#/2/1", Role::Button, "Reply"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut choose = step("s1", "choose");
+        choose.target = Some(Selector {
+            role: Some("list_item".into()),
+            name_contains: Some("Andreas".into()),
+            ..Default::default()
+        });
+        choose.bind = Some("row".into());
+
+        let mut reply = step("s2", "invoke");
+        reply.target = Some(Selector {
+            role: Some("button".into()),
+            name_any: vec!["Reply".into()],
+            within_ref: Some("row".into()),
+            ..Default::default()
+        });
+        file.steps = vec![choose, reply];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        // The Reply under Andreas's row, not Bob's.
+        assert_eq!(backend.invoked(), vec!["#/2/1".to_string()]);
+    }
+
+    #[tokio::test]
     async fn verify_failure_reports_unverified_done() {
         // The term never appears in the snapshot, so the objective verify fails.
         let backend = Arc::new(MockBackend::new(snapshot(vec![el(
@@ -1201,7 +1700,7 @@ mod tests {
             name_any: vec!["Search".into()],
             ..Default::default()
         };
-        let path = runner.resolve_selector(&snap, &sel, &no_slots());
+        let path = runner.resolve_selector(&snap, &sel, &no_slots(), &no_binds());
         assert_eq!(path.as_deref(), Some("#/2"), "disabled control is rejected");
     }
 
@@ -1217,7 +1716,9 @@ mod tests {
             ..Default::default()
         };
         assert!(
-            runner.resolve_selector(&snap, &sel, &no_slots()).is_none(),
+            runner
+                .resolve_selector(&snap, &sel, &no_slots(), &no_binds())
+                .is_none(),
             "a password field must never resolve as a target"
         );
     }
