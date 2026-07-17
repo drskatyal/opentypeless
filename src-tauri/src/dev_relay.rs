@@ -59,6 +59,22 @@ pub fn start_if_enabled(app: &AppHandle) {
     });
 }
 
+/// Map the configured http(s) relay base to a WebSocket base. The relay base is
+/// stored as an http(s) URL (it doubles as the MCP base), but a WebSocket
+/// connect needs a ws(s):// scheme — tokio-tungstenite rejects http(s):// with
+/// "URL scheme not supported". A trailing slash is trimmed; an already-ws(s)
+/// base (or anything else) is passed through untouched.
+fn ws_base(base: &str) -> String {
+    let trimmed = base.trim_end_matches('/');
+    if let Some(rest) = trimmed.strip_prefix("https://") {
+        format!("wss://{rest}")
+    } else if let Some(rest) = trimmed.strip_prefix("http://") {
+        format!("ws://{rest}")
+    } else {
+        trimmed.to_string()
+    }
+}
+
 /// Percent-encode the token for use in the `?token=` query. Tokens are strong
 /// shared secrets, but they may contain reserved characters (`&`, `?`, `#`, `+`,
 /// `/`, `=`), which would otherwise corrupt the URL or split the query.
@@ -79,11 +95,7 @@ async fn run_once(app: &AppHandle, base: &str, token: &str) -> Result<(), String
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::Message;
 
-    let url = format!(
-        "{}/agent?token={}",
-        base.trim_end_matches('/'),
-        encode_token(token)
-    );
+    let url = format!("{}/agent?token={}", ws_base(base), encode_token(token));
     // Bound the handshake so a blackholed relay / stalled TLS cannot wedge the
     // reconnect loop forever — on timeout we return and the caller backs off.
     let connect = tokio_tungstenite::connect_async(&url);
@@ -252,6 +264,16 @@ mod tests {
             message: "boom".into(),
         }];
         assert_eq!(summarize(&events), (false, "boom".to_string()));
+    }
+
+    #[test]
+    fn ws_base_maps_scheme_and_trims_slash() {
+        assert_eq!(
+            ws_base("https://relay.example.com/"),
+            "wss://relay.example.com"
+        );
+        assert_eq!(ws_base("http://localhost:8787"), "ws://localhost:8787");
+        assert_eq!(ws_base("wss://already.ws"), "wss://already.ws");
     }
 
     #[test]
