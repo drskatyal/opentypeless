@@ -794,7 +794,7 @@ impl FlowRunner {
         binds: &HashMap<String, Selector>,
     ) -> Choice {
         // Optional subtree scoping via a bound container (re-resolved
-        // unambiguously — a duplicate container fails rather than mis-scopes).
+        // unambiguously — a duplicate container fails rather than scoping wrong).
         let scope_prefix = match &sel.within_ref {
             Some(name) => match binds
                 .get(name)
