@@ -160,6 +160,12 @@ impl Planner {
         let schema = response_schema();
         let mut user = build_user_message(&req);
         let mut attempt: u8 = 0;
+        // A single extra attempt reserved for a transient transport timeout. This
+        // is independent of the schema-repair budget above: the first LLM call can
+        // legitimately run right up against the follow-up timeout, so one slow hit
+        // should not fail the whole command outright. Only spent on PlanError::
+        // Timeout, and only once.
+        let mut timeout_retry_left = true;
         loop {
             let raw = match self
                 .llm
@@ -167,7 +173,15 @@ impl Planner {
                 .await
             {
                 Ok(raw) => raw,
-                Err(e) => return Err(map_transport(e)),
+                Err(e) => {
+                    let err = map_transport(e);
+                    if matches!(err, PlanError::Timeout) && timeout_retry_left {
+                        timeout_retry_left = false;
+                        tracing::warn!("act planner LLM call timed out; retrying once");
+                        continue;
+                    }
+                    return Err(err);
+                }
             };
 
             match parse_and_validate(&raw, &req) {

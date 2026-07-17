@@ -5,9 +5,20 @@
 //! `generateContent` transport as native STT, provider kept proprietary in
 //! user-facing strings); tests inject a fixture client that returns canned JSON.
 
+use std::time::Duration;
+
 use async_trait::async_trait;
 
 use crate::error::AppError;
+
+/// The per-request timeout for Act's follow-up LLM calls (selection routing,
+/// planner, answer) on both the Gemini and Cerebras transports.
+///
+/// The multi-step planner call can legitimately run 12-13s on a slow first hit,
+/// so a 12s cap turned transient slowness into a hard "planner timed out" failure.
+/// Raised to 25s to give a slow-but-succeeding call room to finish; the planner
+/// still gets one timeout retry on top of this (see `planner.rs`).
+pub const FOLLOWUP_LLM_TIMEOUT: Duration = Duration::from_secs(25);
 
 /// Turns a (system, user) prompt pair into a JSON string response. The `schema`
 /// is an optional JSON Schema the transport may pass through to constrain output.
@@ -36,7 +47,7 @@ impl GeminiLlmClient {
             client,
             api_key,
             model,
-            timeout: std::time::Duration::from_secs(12),
+            timeout: FOLLOWUP_LLM_TIMEOUT,
         }
     }
 
@@ -155,7 +166,7 @@ impl CerebrasLlmClient {
             api_key,
             model,
             base_url: Self::DEFAULT_BASE_URL.to_string(),
-            timeout: std::time::Duration::from_secs(12),
+            timeout: FOLLOWUP_LLM_TIMEOUT,
         }
     }
 
