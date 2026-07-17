@@ -9,10 +9,19 @@
 //!
 //! Design notes:
 //!
-//! * All Terminator work happens inside `spawn_blocking` closures. A `Desktop`
-//!   and its element handles wrap COM interfaces; constructing the `Desktop`
-//!   inside the closure and returning only plain owned data keeps the
-//!   `async_trait` futures `Send` without moving COM objects across an `.await`.
+//! * All Terminator work happens on ONE persistent UIA worker thread, owned by
+//!   [`super::uia_broker`]. A `Desktop` and its element handles wrap COM
+//!   interfaces with **thread affinity**, so the `Desktop` is constructed once
+//!   and every op is dispatched to that thread as a `FnOnce(&Desktop)` closure
+//!   that returns only plain owned data. This replaces the previous
+//!   "`Desktop::new_default()` per action" (one COM/UIA bring-up per op) while
+//!   still keeping the `async_trait` futures `Send` — no COM object is ever
+//!   moved across a thread boundary or held across an `.await`. See
+//!   [`super::uia_broker`] for the dispatch/watchdog/recovery design.
+//! * Every op is bounded by a watchdog (see [`run_op`]); if a synchronous UIA
+//!   call wedges the worker, the broker abandons it and the next op transparently
+//!   spawns a fresh thread + `Desktop`, so "persistent" never means
+//!   "unrecoverable".
 //! * The raw text value of a control is never retained. Where a length is
 //!   needed, the value is read locally, its `char` count is taken, and the
 //!   string is dropped immediately (PHI safety).
@@ -46,6 +55,7 @@ use crate::error::AppError;
 
 use super::backend::{AccessibilityBackend, ShellOutput};
 use super::element::{ActionPattern, Bounds, ElementPath, ElementState, Role, Snapshot, UiElement};
+use super::uia_broker;
 
 /// Map an internal `anyhow` error to the crate's `AppError` at the trait boundary.
 fn to_app_err(err: anyhow::Error) -> AppError {
@@ -58,6 +68,19 @@ const DEFAULT_NODE_CAP: usize = 200;
 const DEFAULT_MAX_DEPTH: usize = 16;
 /// Cooperative wall-clock budget for a full snapshot walk.
 const DEFAULT_SNAPSHOT_BUDGET: Duration = Duration::from_secs(4);
+
+/// Watchdog budget for a single element/action op on the UIA worker. Generous
+/// enough for a slow but healthy provider; anything past this is treated as a
+/// wedged worker and triggers recreation (see [`super::uia_broker`]).
+const OP_WATCHDOG: Duration = Duration::from_secs(10);
+/// Extra margin added on top of an op's own internal timeout before the broker
+/// watchdog fires, so a legitimately long op (e.g. `run_shell`) is never killed
+/// by the watchdog first.
+const WATCHDOG_MARGIN: Duration = Duration::from_secs(3);
+/// Internal wall-clock timeout for `run_shell`'s child command.
+const SHELL_TIMEOUT: Duration = Duration::from_secs(15);
+/// Max captured shell output, in `char`s.
+const SHELL_MAX_OUTPUT_CHARS: usize = 8192;
 
 /// Terminator-backed Windows implementation of [`AccessibilityBackend`].
 #[derive(Debug, Clone)]
@@ -91,24 +114,20 @@ impl AccessibilityBackend for WindowsUiaBackend {
         let max_depth = self.max_depth;
         let budget = self.snapshot_budget;
 
-        let handle = tokio::task::spawn_blocking(move || build_snapshot(cap, max_depth, budget));
-
-        match tokio::time::timeout(budget + Duration::from_millis(500), handle).await {
-            Ok(Ok(result)) => result.map_err(to_app_err),
-            Ok(Err(join_err)) => Err(AppError::Config(format!(
-                "snapshot task failed: {join_err}"
-            ))),
-            Err(_elapsed) => Err(AppError::Config(format!(
-                "snapshot timed out after {budget:?}"
-            ))),
-        }
+        // The build itself is cooperatively bounded by `budget`; the broker
+        // watchdog adds a small margin so a wedged COM call still returns control
+        // to the caller (leaving the stuck worker to be recreated).
+        run_op(budget + WATCHDOG_MARGIN, "snapshot", move |desktop| {
+            build_snapshot(desktop, cap, max_depth, budget)
+        })
+        .await
+        .map_err(to_app_err)
     }
 
     async fn focus(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
         let path = path.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
-            let element = resolve(&desktop, &path)?;
+        run_op(OP_WATCHDOG, "focus", move |desktop| {
+            let element = resolve(desktop, &path)?;
             // Prefer programmatic focus; fall back to a click when the control
             // cannot be focused directly.
             element
@@ -122,9 +141,8 @@ impl AccessibilityBackend for WindowsUiaBackend {
 
     async fn invoke(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
         let path = path.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
-            let element = resolve(&desktop, &path)?;
+        run_op(OP_WATCHDOG, "invoke", move |desktop| {
+            let element = resolve(desktop, &path)?;
             // Prefer the Invoke pattern; fall back to a click when unsupported.
             element
                 .invoke()
@@ -142,9 +160,8 @@ impl AccessibilityBackend for WindowsUiaBackend {
     ) -> std::result::Result<(), AppError> {
         let path = path.to_string();
         let value = value.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
-            let element = resolve(&desktop, &path)?;
+        run_op(OP_WATCHDOG, "set_value", move |desktop| {
+            let element = resolve(desktop, &path)?;
             match element.set_value(&value) {
                 Ok(()) => Ok(()),
                 Err(_) => {
@@ -160,8 +177,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
 
     async fn type_text(&self, text: &str) -> std::result::Result<(), AppError> {
         let text = text.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+        run_op(OP_WATCHDOG, "type_text", move |desktop| {
             let focused = desktop.focused_element().map_err(to_anyhow)?;
             focused.type_text(&text, false).map_err(to_anyhow)
         })
@@ -171,9 +187,8 @@ impl AccessibilityBackend for WindowsUiaBackend {
 
     async fn key_combo(&self, combo: &str) -> std::result::Result<(), AppError> {
         let combo = combo.to_string();
-        run_blocking(move || {
+        run_op(OP_WATCHDOG, "key_combo", move |desktop| {
             let keys = translate_combo(&combo)?;
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
             let focused = desktop.focused_element().map_err(to_anyhow)?;
             focused.press_key(&keys).map_err(to_anyhow)
         })
@@ -184,9 +199,11 @@ impl AccessibilityBackend for WindowsUiaBackend {
     async fn focused_app_is_elevated(&self) -> std::result::Result<bool, AppError> {
         // Any failure is a soft "not elevated": this is only a detect-and-decline
         // hint, never a security boundary.
-        run_blocking(|| Ok(foreground_is_elevated()))
-            .await
-            .map_err(to_app_err)
+        run_op(OP_WATCHDOG, "focused_app_is_elevated", |desktop| {
+            Ok(foreground_is_elevated(desktop))
+        })
+        .await
+        .map_err(to_app_err)
     }
 
     // Script primitives. These delegate to Terminator (launch / activate / open
@@ -203,8 +220,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
 
     async fn launch(&self, target: &str) -> std::result::Result<(), AppError> {
         let target = target.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+        run_op(OP_WATCHDOG, "launch", move |desktop| {
             desktop.open_application(&target).map_err(to_anyhow)?;
             Ok(())
         })
@@ -214,8 +230,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
 
     async fn open_uri(&self, uri: &str) -> std::result::Result<(), AppError> {
         let uri = uri.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+        run_op(OP_WATCHDOG, "open_uri", move |desktop| {
             desktop.open_url(&uri, None).map_err(to_anyhow)?;
             Ok(())
         })
@@ -228,49 +243,61 @@ impl AccessibilityBackend for WindowsUiaBackend {
         command: &str,
         shell: &str,
     ) -> std::result::Result<ShellOutput, AppError> {
-        const TIMEOUT: Duration = Duration::from_secs(15);
-        const MAX_OUTPUT_CHARS: usize = 8192;
         let command = command.to_string();
         let shell = shell.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
-            // Terminator's `run` is async; drive it on a private current-thread
-            // runtime so the non-Send Desktop / COM handles never cross an await in
-            // the async-trait future.
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| anyhow!("act.run_shell runtime: {e}"))?;
-            let out = rt
-                .block_on(async {
-                    tokio::time::timeout(TIMEOUT, desktop.run(&command, Some(&shell), None)).await
-                })
-                .map_err(|_| anyhow!("shell command timed out after {}s", TIMEOUT.as_secs()))?
-                .map_err(to_anyhow)?;
-            let mut stdout = out.stdout;
-            if !out.stderr.trim().is_empty() {
-                if !stdout.is_empty() {
-                    stdout.push('\n');
+        // The child has its own `SHELL_TIMEOUT`; the broker watchdog sits a
+        // margin above it so the watchdog never pre-empts a healthy command.
+        run_op(
+            SHELL_TIMEOUT + WATCHDOG_MARGIN,
+            "run_shell",
+            move |desktop| {
+                // Terminator's `run` is async; drive it on a private current-thread
+                // runtime so the non-Send Desktop / COM handles never cross an await.
+                // (The UIA worker is a plain OS thread with no ambient tokio runtime,
+                // so `block_on` here is safe.)
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| anyhow!("act.run_shell runtime: {e}"))?;
+                let out = rt
+                    .block_on(async {
+                        tokio::time::timeout(
+                            SHELL_TIMEOUT,
+                            desktop.run(&command, Some(&shell), None),
+                        )
+                        .await
+                    })
+                    .map_err(|_| {
+                        anyhow!("shell command timed out after {}s", SHELL_TIMEOUT.as_secs())
+                    })?
+                    .map_err(to_anyhow)?;
+                let mut stdout = out.stdout;
+                if !out.stderr.trim().is_empty() {
+                    if !stdout.is_empty() {
+                        stdout.push('\n');
+                    }
+                    stdout.push_str(&out.stderr);
                 }
-                stdout.push_str(&out.stderr);
-            }
-            if stdout.chars().count() > MAX_OUTPUT_CHARS {
-                stdout = stdout.chars().take(MAX_OUTPUT_CHARS).collect::<String>()
-                    + "…[output truncated]";
-            }
-            Ok(ShellOutput {
-                exit_code: out.exit_status.unwrap_or(-1),
-                stdout,
-            })
-        })
+                if stdout.chars().count() > SHELL_MAX_OUTPUT_CHARS {
+                    stdout = stdout
+                        .chars()
+                        .take(SHELL_MAX_OUTPUT_CHARS)
+                        .collect::<String>()
+                        + "…[output truncated]";
+                }
+                Ok(ShellOutput {
+                    exit_code: out.exit_status.unwrap_or(-1),
+                    stdout,
+                })
+            },
+        )
         .await
         .map_err(to_app_err)
     }
 
     async fn focus_app(&self, name: &str) -> std::result::Result<bool, AppError> {
         let name = name.to_string();
-        run_blocking(move || {
-            let desktop = Desktop::new_default().map_err(to_anyhow)?;
+        run_op(OP_WATCHDOG, "focus_app", move |desktop| {
             Ok(desktop.activate_application(&name).is_ok())
         })
         .await
@@ -278,7 +305,11 @@ impl AccessibilityBackend for WindowsUiaBackend {
     }
 
     async fn clipboard_get(&self) -> std::result::Result<String, AppError> {
-        run_blocking(|| {
+        // Clipboard ops don't touch the `Desktop`, but they still run on the UIA
+        // worker so every OS interaction is serialized on one stable thread
+        // (arboard opens/closes the clipboard per call; a consistent thread and
+        // apartment avoids cross-thread clipboard ownership surprises).
+        run_op(OP_WATCHDOG, "clipboard_get", |_desktop| {
             let mut clipboard =
                 arboard::Clipboard::new().map_err(|e| anyhow!("clipboard open: {e}"))?;
             clipboard
@@ -291,7 +322,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
 
     async fn clipboard_set(&self, text: &str) -> std::result::Result<(), AppError> {
         let text = text.to_string();
-        run_blocking(move || {
+        run_op(OP_WATCHDOG, "clipboard_set", move |_desktop| {
             let mut clipboard =
                 arboard::Clipboard::new().map_err(|e| anyhow!("clipboard open: {e}"))?;
             clipboard
@@ -308,15 +339,22 @@ impl AccessibilityBackend for WindowsUiaBackend {
     }
 }
 
-/// Run a blocking closure on the blocking thread pool and flatten the join error.
-async fn run_blocking<T, F>(f: F) -> Result<T>
+/// Dispatch one op to the persistent UIA worker thread (see
+/// [`super::uia_broker`]) and flatten the transport error into the op's own
+/// `Result`.
+///
+/// `f` receives the worker's long-lived `&Desktop` and returns the op's
+/// `Result<T>`; the whole call is bounded by `watchdog`. A broker-level failure
+/// (watchdog timeout, dead worker) surfaces as an `Err` here, and the worker is
+/// recreated on the next op.
+async fn run_op<T, F>(watchdog: Duration, op: &'static str, f: F) -> Result<T>
 where
-    F: FnOnce() -> Result<T> + Send + 'static,
+    F: FnOnce(&Desktop) -> Result<T> + Send + 'static,
     T: Send + 'static,
 {
-    match tokio::task::spawn_blocking(f).await {
-        Ok(result) => result,
-        Err(join_err) => Err(anyhow!("blocking task failed: {join_err}")),
+    match uia_broker::execute(watchdog, op, f).await {
+        Ok(inner) => inner,
+        Err(broker_err) => Err(anyhow!("uia broker [{op}]: {broker_err}")),
     }
 }
 
@@ -337,11 +375,27 @@ where
     f().ok()
 }
 
-/// Walk the focused window's subtree into a [`Snapshot`].
-fn build_snapshot(cap: usize, max_depth: usize, budget: Duration) -> Result<Snapshot> {
-    let deadline = Instant::now() + budget;
+/// Walk the FOREGROUND window's subtree into a [`Snapshot`].
+///
+/// Scoping: we resolve the focused element and climb to its containing window
+/// (`window_root`), then walk only that subtree bounded by `cap` / `max_depth`.
+/// This deliberately avoids a full-desktop walk (every top-level window of every
+/// process) — the foreground window is the only thing the user can act on. If a
+/// future Terminator API exposes the active/foreground window directly (e.g. a
+/// `Desktop`-level accessor), it could replace the `focused_element().window()`
+/// climb below; until then this is the narrowest scope the used API supports.
+///
+/// `desktop` is the worker's persistent session, so no per-snapshot COM/UIA
+/// bring-up is paid here anymore.
+fn build_snapshot(
+    desktop: &Desktop,
+    cap: usize,
+    max_depth: usize,
+    budget: Duration,
+) -> Result<Snapshot> {
+    let walk_start = Instant::now();
+    let deadline = walk_start + budget;
 
-    let desktop = Desktop::new_default().map_err(to_anyhow)?;
     let focused = desktop.focused_element().map_err(to_anyhow)?;
     let focused_id = focused.id();
     let root = window_root(&focused);
@@ -390,6 +444,19 @@ fn build_snapshot(cap: usize, max_depth: usize, budget: Duration) -> Result<Snap
             }
         }
     }
+
+    // snapshot node count + duration: the headline metric for tuning node_cap /
+    // max_depth against real windows.
+    tracing::debug!(
+        target: uia_broker::TIMING_TARGET,
+        op = "snapshot",
+        nodes = elements.len(),
+        node_cap = cap,
+        max_depth,
+        walk_ms = walk_start.elapsed().as_millis() as u64,
+        hit_cap = elements.len() >= cap,
+        "uia timing: foreground-window snapshot walk complete"
+    );
 
     Ok(Snapshot {
         app,
@@ -586,6 +653,7 @@ fn window_root(focused: &TElement) -> TElement {
 /// Resolve a `#/1/4/2`-style path back to a live element under the focused
 /// window.
 fn resolve(desktop: &Desktop, path: &str) -> Result<TElement> {
+    let resolve_start = Instant::now();
     let focused = desktop.focused_element().map_err(to_anyhow)?;
     let mut current = window_root(&focused);
 
@@ -595,6 +663,7 @@ fn resolve(desktop: &Desktop, path: &str) -> Result<TElement> {
         _ => return Err(anyhow!("invalid path root in '{path}'")),
     }
 
+    let mut depth = 0usize;
     for token in parts {
         if token.is_empty() {
             continue;
@@ -610,7 +679,18 @@ fn resolve(desktop: &Desktop, path: &str) -> Result<TElement> {
             .into_iter()
             .nth(index - 1)
             .ok_or_else(|| anyhow!("child index {index} out of range in '{path}'"))?;
+        depth += 1;
     }
+
+    // element-resolve: time to walk from the foreground window down to the target
+    // element. Retained on the worker; the element itself never leaves the thread.
+    tracing::debug!(
+        target: uia_broker::TIMING_TARGET,
+        op = "element-resolve",
+        depth,
+        resolve_ms = resolve_start.elapsed().as_millis() as u64,
+        "uia timing: element-resolve"
+    );
 
     Ok(current)
 }
@@ -697,9 +777,13 @@ fn key_token(key: &str) -> String {
 
 /// Whether the focused application's process runs at a higher integrity level
 /// than this process. Any failure resolves to `false`.
-fn foreground_is_elevated() -> bool {
-    let pid = match Desktop::new_default()
-        .and_then(|desktop| desktop.focused_element())
+///
+/// Uses the worker's persistent `desktop` (COM affinity) to read the foreground
+/// PID; the token/SID integrity comparison below is plain Win32 and
+/// thread-agnostic.
+fn foreground_is_elevated(desktop: &Desktop) -> bool {
+    let pid = match desktop
+        .focused_element()
         .and_then(|element| element.process_id())
     {
         Ok(pid) if pid > 0 => pid,

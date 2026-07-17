@@ -37,6 +37,8 @@ pub mod session;
 pub mod shell_policy;
 
 #[cfg(windows)]
+mod uia_broker;
+#[cfg(windows)]
 pub mod windows;
 
 use std::sync::Arc;
