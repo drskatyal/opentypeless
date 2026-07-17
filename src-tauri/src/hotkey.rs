@@ -1273,8 +1273,20 @@ mod tests {
 
     #[test]
     fn act_hotkey_registers_as_its_own_role() {
-        let mut config = storage::HotkeyConfig::default();
-        config.act = storage::ShortcutBinding::from_hotkey("Ctrl+Alt+A");
+        let dictation = storage::ShortcutBinding::from_hotkey("Ctrl+Alt+D").unwrap();
+        let config = storage::HotkeyConfig {
+            dictation_bindings: vec![dictation.clone()],
+            ask_bindings: vec![],
+            translate_bindings: vec![],
+            dictation,
+            ask: None,
+            translate: None,
+            edit_selection: None,
+            switch_scene: None,
+            open_app: None,
+            act: storage::ShortcutBinding::from_hotkey("Ctrl+Alt+A"),
+            dictation_mode: "hold".to_string(),
+        };
         let plan = hotkey_registration_plan_from_config_for_platform(&config, "windows").unwrap();
         assert!(
             plan.global.iter().any(|e| e.role == HotkeyRole::Act)
