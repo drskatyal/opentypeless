@@ -28,7 +28,6 @@ use super::grounding_packet::{GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX
 use super::llm::LlmClient;
 use super::planner::{PlanRequest, Planner};
 use super::selection::{self, Mission, SelectionError};
-use super::session::ActMode;
 
 /// Slot name -> value, as filled by the selection layer.
 type SlotMap = HashMap<String, String>;
@@ -104,7 +103,6 @@ pub struct Conductor {
     executor: Executor,
     backend: Arc<dyn AccessibilityBackend>,
     board: Blackboard,
-    mode: ActMode,
     state: ConductorState,
     pending: Option<Pending>,
 }
@@ -128,7 +126,6 @@ impl Conductor {
         planner: Planner,
         executor: Executor,
         backend: Arc<dyn AccessibilityBackend>,
-        mode: ActMode,
     ) -> Self {
         Self {
             registry,
@@ -138,7 +135,6 @@ impl Conductor {
             executor,
             backend,
             board: Blackboard::new(),
-            mode,
             state: ConductorState::Idle,
             pending: None,
         }
@@ -173,11 +169,13 @@ impl Conductor {
         self.state = self.baseline();
     }
 
+    /// The state to return to after a command / abort. The Conductor stays
+    /// *armed* (ready for the next command) until explicitly disarmed on disable —
+    /// so a persistent voice assistant, and the dedicated Act hotkey, always find
+    /// it ready. (The STT hold-to-talk vs hands-free distinction lives in the
+    /// recording layer, not here.)
     fn baseline(&self) -> ConductorState {
-        match self.mode {
-            ActMode::Batch => ConductorState::Idle,
-            ActMode::Vad => ConductorState::Armed,
-        }
+        ConductorState::Armed
     }
 
     /// Handle one final transcript end to end. Returns the events to emit.
@@ -794,7 +792,6 @@ mod tests {
             planner,
             executor,
             backend as Arc<dyn AccessibilityBackend>,
-            ActMode::Batch,
         )
     }
 
@@ -821,7 +818,7 @@ mod tests {
         assert!(events
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
-        assert!(matches!(c.state(), ConductorState::Idle));
+        assert!(matches!(c.state(), ConductorState::Armed));
     }
 
     #[tokio::test]
@@ -920,7 +917,7 @@ mod tests {
         let after = c.decide(UserDecision::ConfirmAllow).await.unwrap();
         assert_eq!(backend.launched(), vec!["Spotify".to_string()]);
         assert_eq!(backend.opened_uris(), vec!["https://mail.google.com"]);
-        assert!(matches!(c.state(), ConductorState::Idle));
+        assert!(matches!(c.state(), ConductorState::Armed));
         assert!(after
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
@@ -949,7 +946,7 @@ mod tests {
         // Talk-back never acts.
         assert!(backend.keys().is_empty());
         assert!(backend.invoked().is_empty());
-        assert!(matches!(c.state(), ConductorState::Idle));
+        assert!(matches!(c.state(), ConductorState::Armed));
     }
 
     #[tokio::test]
@@ -983,7 +980,7 @@ mod tests {
             "the abandoned launch never ran"
         );
         assert_eq!(backend.opened_uris(), vec!["https://mail.google.com"]);
-        assert!(matches!(c.state(), ConductorState::Idle));
+        assert!(matches!(c.state(), ConductorState::Armed));
         assert!(events
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
@@ -1006,6 +1003,54 @@ mod tests {
         let backend = Arc::new(MockBackend::new(snap(vec![])));
         let mut c = conductor(FlowRegistry::new(), vec![], backend);
         assert_eq!(c.undo().await, Err(ConductorError::NotArmed));
+    }
+
+    #[tokio::test]
+    async fn multi_turn_conversation_over_the_real_seed_drawer() {
+        // A smoke test of the assembled system: three dictations in a row, routed
+        // over the real built-in drawer, each driven by a canned selection call.
+        // Turn 1 opens a settings deep-link (leaf uri); turn 2 copies (leaf key);
+        // turn 3 asks a question (talk-back answer). The blackboard persists across
+        // turns and nothing throws end to end.
+        let backend = Arc::new(MockBackend::new(snap(vec![el(
+            "#/1",
+            Role::Button,
+            "Send",
+        )])));
+        let registry = FlowRegistry::from_files(crate::act::seed::builtin_flows());
+        let responses = vec![
+            Ok(
+                r#"{"missions":[{"type":"open_flow","id":"settings_bluetooth","slots":{}}]}"#
+                    .into(),
+            ),
+            Ok(r#"{"missions":[{"type":"open_flow","id":"copy","slots":{}}]}"#.into()),
+            Ok(r#"{"missions":[{"type":"answer","question":"what can I click?"}]}"#.into()),
+            Ok(r#"{"answer":"You can click Send."}"#.into()),
+        ];
+        let mut c = conductor(registry, responses, backend.clone());
+        c.arm();
+
+        let e1 = c
+            .on_transcript("open bluetooth settings".into())
+            .await
+            .unwrap();
+        assert_eq!(backend.opened_uris(), vec!["ms-settings:bluetooth"]);
+        assert!(e1
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+        assert!(matches!(c.state(), ConductorState::Armed));
+
+        let e2 = c.on_transcript("copy that".into()).await.unwrap();
+        assert_eq!(backend.keys(), vec!["ctrl+c".to_string()]);
+        assert!(e2
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+
+        let e3 = c.on_transcript("what can I click?".into()).await.unwrap();
+        assert!(e3
+            .iter()
+            .any(|e| matches!(e, ActEvent::Say { text } if text.contains("Send"))));
+        assert!(matches!(c.state(), ConductorState::Armed));
     }
 
     #[tokio::test]
@@ -1035,6 +1080,6 @@ mod tests {
         c.arm();
         let events = c.on_transcript("do something".into()).await.unwrap();
         assert!(events.iter().any(|e| matches!(e, ActEvent::Error { .. })));
-        assert!(matches!(c.state(), ConductorState::Idle));
+        assert!(matches!(c.state(), ConductorState::Armed));
     }
 }

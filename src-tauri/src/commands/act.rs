@@ -1,10 +1,11 @@
 //! Tauri command surface for Act mode.
 //!
 //! The Act engine (`crate::act`) is platform- and transport-agnostic; this module
-//! is the thin glue that owns a single [`ActSession`] as Tauri-managed state,
-//! (re)builds it from the live config when the user toggles Act on, and forwards
-//! the UI's confirm / pick / abort decisions into the engine, emitting the
-//! resulting [`ActEvent`]s back over the [`ACT_EVENT`] channel.
+//! is the thin glue that owns a single [`Conductor`] as Tauri-managed state,
+//! (re)builds it (with the seed drawer) from the live config when the user
+//! toggles Act on, and forwards the UI's confirm / pick / abort / undo decisions
+//! into the engine, emitting the resulting `ActEvent`s back over the ACT_EVENT
+//! channel.
 //!
 //! The dictation pipeline forks into the armed session in `pipeline.rs`; see the
 //! "Act fork" there.
@@ -21,7 +22,6 @@ use crate::act::flow_runner::FlowRunner;
 use crate::act::killswitch::KillSwitch;
 use crate::act::llm::GeminiLlmClient;
 use crate::act::planner::Planner;
-use crate::act::session::ActMode;
 use crate::act::{self, seed};
 use crate::storage::{self, ConfigManager};
 
@@ -94,8 +94,7 @@ fn build_conductor(
     let runner = FlowRunner::new(backend.clone(), gate.clone(), kill.clone());
     let planner = Planner::new(llm.clone(), config.act_model_tier.clone());
     let executor = Executor::new(backend.clone(), gate, None, kill);
-    let mode = ActMode::from_stt_mode(&config.stt_mode);
-    Conductor::new(registry, llm, runner, planner, executor, backend, mode)
+    Conductor::new(registry, llm, runner, planner, executor, backend)
 }
 
 /// Turn Act on (build + arm a session) or off (disarm + drop it).
