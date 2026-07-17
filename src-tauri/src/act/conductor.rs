@@ -13,7 +13,6 @@
 //! safety discipline (capability gate, kill switch, injection fences), plus the
 //! drawer and the cross-dictation loop.
 
-use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
@@ -396,12 +395,12 @@ impl Conductor {
                 }
             }
         }
-        let local = RefCell::new(Vec::new());
+        let local = std::sync::Mutex::new(Vec::new());
         let outcome = {
-            let emit = |e: ActEvent| local.borrow_mut().push(e);
+            let emit = |e: ActEvent| local.lock().unwrap().push(e);
             self.runner.run(&file, &slots, &emit).await
         };
-        events.extend(local.into_inner());
+        events.extend(local.into_inner().unwrap());
         self.absorb_flow(file, slots, outcome, events).await
     }
 
@@ -614,12 +613,12 @@ impl Conductor {
                 options,
             } => {
                 let rd = flow_decision(&decision, &options);
-                let local = RefCell::new(Vec::new());
+                let local = std::sync::Mutex::new(Vec::new());
                 let outcome = {
-                    let emit = |e: ActEvent| local.borrow_mut().push(e);
+                    let emit = |e: ActEvent| local.lock().unwrap().push(e);
                     self.runner.resume(&file, &slots, resume, rd, &emit).await
                 };
-                events.extend(local.into_inner());
+                events.extend(local.into_inner().unwrap());
                 self.absorb_flow(*file, slots, outcome, events).await
             }
             PendingKind::Novel { remaining } => {

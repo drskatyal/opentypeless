@@ -1817,7 +1817,7 @@ impl PipelineHandle {
                         let result = act_guard
                             .as_mut()
                             .expect("armed implies Some")
-                            .on_final_transcript(raw_text.clone())
+                            .on_transcript(raw_text.clone())
                             .await;
                         drop(act_guard);
 

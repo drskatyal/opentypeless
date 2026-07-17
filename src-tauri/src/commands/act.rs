@@ -13,28 +13,31 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
 
-use crate::act::capability::CapabilityGate;
+use crate::act::capability::{Capability, CapabilityGate};
+use crate::act::conductor::Conductor;
 use crate::act::executor::{Executor, UserDecision};
+use crate::act::flow_registry::FlowRegistry;
+use crate::act::flow_runner::FlowRunner;
 use crate::act::killswitch::KillSwitch;
 use crate::act::llm::GeminiLlmClient;
 use crate::act::planner::Planner;
-use crate::act::session::{ActMode, ActSession};
-use crate::act::{self};
+use crate::act::session::ActMode;
+use crate::act::{self, seed};
 use crate::storage::{self, ConfigManager};
 
-/// Tauri-managed Act runtime: the live session (armed lazily on enable) plus the
-/// shared HTTP client used to (re)build its planner transport.
+/// Tauri-managed Act runtime: the live [`Conductor`] (armed lazily on enable)
+/// plus the shared HTTP client used to (re)build its LLM transport.
 pub struct ActState {
-    /// The current session, or `None` when Act is off. Behind an async mutex so a
-    /// command can hold it across the awaits inside the engine.
-    pub session: tokio::sync::Mutex<Option<ActSession>>,
+    /// The current Conductor, or `None` when Act is off. Behind an async mutex so
+    /// a command can hold it across the awaits inside the engine.
+    pub session: tokio::sync::Mutex<Option<Conductor>>,
     /// A clone of the current command's [`KillSwitch`], shared with the live
-    /// session's `Executor`. Held behind a *std* (non-async) mutex, OUTSIDE the
-    /// session lock, so `act_abort` can trip an in-flight command mid-execution
-    /// without first acquiring the (long-held) session lock. Replaced on every
-    /// enable with the switch threaded into the freshly built session.
+    /// Conductor's runner AND executor (one switch drives both). Held behind a
+    /// *std* (non-async) mutex, OUTSIDE the session lock, so `act_abort` can trip
+    /// an in-flight command mid-execution without first acquiring the (long-held)
+    /// session lock. Replaced on every enable with the freshly built switch.
     pub kill: std::sync::Mutex<KillSwitch>,
-    /// The shared HTTP client, reused for the planner's cloud transport.
+    /// The shared HTTP client, reused for the LLM cloud transport.
     pub client: reqwest::Client,
 }
 
@@ -58,27 +61,41 @@ fn model_for_tier(tier: &str) -> &'static str {
     }
 }
 
-/// Build a fresh [`ActSession`] from the current config. Act planning is an LLM
-/// task, so it reuses the LLM credentials (`llm_api_key`).
+/// The Conductor's capability gate. Opening apps, settings pages, and URLs is the
+/// whole point of a voice assistant the user explicitly armed, so `AppLaunch` and
+/// `NetNavigate` are granted (frictionless open). Shell execution stays Confirm
+/// (never granted here) and destructive/system-power capabilities stay Deny.
+fn conductor_gate() -> CapabilityGate {
+    let mut gate = CapabilityGate::new();
+    gate.grant(Capability::AppLaunch);
+    gate.grant(Capability::NetNavigate);
+    gate
+}
+
+/// Build a fresh [`Conductor`] from the current config, loaded with the built-in
+/// seed drawer so it works out of the box. Selection + planning are LLM tasks, so
+/// it reuses the LLM credentials (`llm_api_key`).
 ///
-/// The caller-supplied `kill` is threaded straight into the session's `Executor`
-/// so a clone stored in [`ActState`] can trip the exact switch this session's
-/// commands race against — the basis for lock-free abort.
-fn build_session(
+/// The caller-supplied `kill` is threaded into BOTH the flow runner and the
+/// executor (one switch drives both), so the clone stored in [`ActState`] trips
+/// the exact switch every in-flight command races against — lock-free abort.
+fn build_conductor(
     client: reqwest::Client,
     config: &storage::AppConfig,
     kill: KillSwitch,
-) -> ActSession {
+) -> Conductor {
     let api_key = config.llm_api_key.clone();
     let model = model_for_tier(&config.act_model_tier).to_string();
-    let planner = Planner::new(
-        Arc::new(GeminiLlmClient::new(client, api_key, model)),
-        config.act_model_tier.clone(),
-    );
+    let llm = Arc::new(GeminiLlmClient::new(client, api_key, model));
     let backend = act::create_backend();
-    let executor = Executor::new(backend.clone(), CapabilityGate::new(), None, kill);
+    let gate = conductor_gate();
+
+    let registry = FlowRegistry::from_files(seed::builtin_flows());
+    let runner = FlowRunner::new(backend.clone(), gate.clone(), kill.clone());
+    let planner = Planner::new(llm.clone(), config.act_model_tier.clone());
+    let executor = Executor::new(backend.clone(), gate, None, kill);
     let mode = ActMode::from_stt_mode(&config.stt_mode);
-    ActSession::new(planner, executor, backend, mode)
+    Conductor::new(registry, llm, runner, planner, executor, backend, mode)
 }
 
 /// Turn Act on (build + arm a session) or off (disarm + drop it).
@@ -104,12 +121,12 @@ pub async fn act_set_enabled(
         }
 
         // Fresh kill switch per enable; its clone in ActState lets act_abort trip
-        // the exact switch this session's Executor races against.
+        // the exact switch this Conductor's runner + executor race against.
         let kill = KillSwitch::new();
-        let mut session = build_session(state.client.clone(), &cfg, kill.clone());
-        session.arm();
+        let mut conductor = build_conductor(state.client.clone(), &cfg, kill.clone());
+        conductor.arm();
         *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
-        *state.session.lock().await = Some(session);
+        *state.session.lock().await = Some(conductor);
     } else {
         // Trip FIRST (no session lock) so a live executor is cancelled at its next
         // await rather than silently dropped, then disarm and drop the session.
@@ -153,13 +170,28 @@ pub async fn act_user_decision(
     };
 
     let mut guard = state.session.lock().await;
-    let session = guard
+    let conductor = guard
         .as_mut()
         .ok_or_else(|| "Act session is not active".to_string())?;
-    let events = session
-        .on_user_decision(user_decision)
+    let events = conductor
+        .decide(user_decision)
         .await
         .map_err(|e| e.to_string())?;
+    for event in &events {
+        let _ = app.emit(act::events::ACT_EVENT, event);
+    }
+    Ok(())
+}
+
+/// Undo the last edit — the focused app's own Ctrl+Z. Surfaced as its own command
+/// so a dedicated "undo" hotkey / button can reach it without a dictation round.
+#[tauri::command]
+pub async fn act_undo(app: AppHandle, state: State<'_, ActState>) -> Result<(), String> {
+    let mut guard = state.session.lock().await;
+    let conductor = guard
+        .as_mut()
+        .ok_or_else(|| "Act session is not active".to_string())?;
+    let events = conductor.undo().await.map_err(|e| e.to_string())?;
     for event in &events {
         let _ = app.emit(act::events::ACT_EVENT, event);
     }

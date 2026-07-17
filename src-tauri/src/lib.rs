@@ -1183,6 +1183,7 @@ pub fn run() {
             commands::act::act_get_state,
             commands::act::act_user_decision,
             commands::act::act_abort,
+            commands::act::act_undo,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
