@@ -21,9 +21,11 @@ use super::backend::AccessibilityBackend;
 use super::blackboard::Blackboard;
 use super::events::{ActEvent, AskOption};
 use super::executor::{ExecError, ExecResult, Executor, StepOutcome, UserDecision};
-use super::flow::FlowFile;
+use super::flow::{FlowFile, SlotFilter};
 use super::flow_registry::FlowRegistry;
-use super::flow_runner::{FlowOutcome, FlowRunError, FlowRunner, Resume, ResumeDecision};
+use super::flow_runner::{
+    substitute_value, FlowOutcome, FlowRunError, FlowRunner, Resume, ResumeDecision,
+};
 use super::grounding_packet::{GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS};
 use super::llm::LlmClient;
 use super::planner::{PlanRequest, Planner};
@@ -588,10 +590,17 @@ impl Conductor {
                 })
             }
             Ok(FlowOutcome::Branch { context, slots }) => {
-                // A branch recipe reasons via the planner over its context.
+                // A branch recipe reasons via the planner over its context. The
+                // raw `branch_context` still carries `{slot}` placeholders — bake
+                // the carried slot *values* in (same filter chain the leaf steps
+                // use) so the planner sees "take a note pineapple 1234 test", not
+                // the literal "{text}". Any leftover token (a missing required
+                // slot) is stripped so a `{name}` never leaks to the planner.
                 self.board.record(format!("branch {}", file.id));
-                self.run_novel_with(context, Some(slot_context(&slots)), events)
-                    .await
+                let filters = branch_slot_filters(&file);
+                let goal =
+                    strip_unresolved_tokens(&substitute_value(&context, &slots, &filters));
+                self.run_novel_with(goal, slot_context(&slots), events).await
             }
             Ok(FlowOutcome::Aborted) => {
                 self.finish_task(false, "Stopped", events);
@@ -794,14 +803,50 @@ fn short_goal(goal: &str) -> String {
     }
 }
 
-/// A one-line context note from a branch's carried slots.
-fn slot_context(slots: &SlotMap) -> String {
+/// A trusted `key=value` context note from a branch's carried slots, handed to
+/// the planner alongside the substituted goal so it can reason over the actual
+/// values (not just their names). `None` when there are no slots.
+fn slot_context(slots: &SlotMap) -> Option<String> {
     if slots.is_empty() {
-        return String::new();
+        return None;
     }
-    let mut names: Vec<&str> = slots.keys().map(String::as_str).collect();
-    names.sort_unstable();
-    format!("carried: {}", names.join(", "))
+    let mut pairs: Vec<(&String, &String)> = slots.iter().collect();
+    pairs.sort_unstable_by(|a, b| a.0.cmp(b.0));
+    let rendered: Vec<String> = pairs.iter().map(|(k, v)| format!("{k}={v}")).collect();
+    Some(format!("carried slots: {}", rendered.join(", ")))
+}
+
+/// The slot-filter default map for a branch file, mirroring the leaf runner's
+/// `slot_filter_defaults` so a value baked into `branch_context` is transformed
+/// exactly as it would be inside a leaf step.
+fn branch_slot_filters(file: &FlowFile) -> HashMap<String, Vec<SlotFilter>> {
+    file.slots
+        .iter()
+        .filter(|s| !s.filters.is_empty())
+        .map(|s| (s.name.clone(), s.filters.clone()))
+        .collect()
+}
+
+/// Drop any leftover `{token}` placeholder — a slot that was neither provided
+/// nor defaulted — so a missing required slot degrades to a gap rather than a
+/// literal `{name}` echoed to the planner (and ultimately typed into an app).
+fn strip_unresolved_tokens(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        match after.find('}') {
+            Some(close) => rest = &after[close + 1..],
+            // No closing brace — the remainder is literal text, keep it.
+            None => {
+                out.push_str(&rest[open..]);
+                return out;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn summarize_novel(result: &ExecResult) -> (bool, String) {
@@ -1201,6 +1246,47 @@ mod tests {
         assert!(events
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+    }
+
+    #[test]
+    fn branch_context_substitutes_slot_values_not_names() {
+        // The core of B1: a branch's `branch_context` template gets the carried slot
+        // *value* baked in (via the same substitute path leaf steps use), so the
+        // planner sees the actual text — never the literal `{text}` placeholder.
+        let mut slots = SlotMap::new();
+        slots.insert("text".into(), "pineapple 1234 test".into());
+        let filters = branch_slot_filters(&FlowFile {
+            slots: vec![],
+            ..open_gmail_flow()
+        });
+        let resolved =
+            strip_unresolved_tokens(&substitute_value("take a note {text}", &slots, &filters));
+        assert_eq!(resolved, "take a note pineapple 1234 test");
+    }
+
+    #[test]
+    fn missing_slot_does_not_leak_a_literal_token() {
+        // A required slot the model never filled must not surface as `{name}`.
+        let slots = SlotMap::new();
+        let resolved = strip_unresolved_tokens(&substitute_value(
+            "type {text} now",
+            &slots,
+            &HashMap::new(),
+        ));
+        assert_eq!(resolved, "type  now");
+        assert!(!resolved.contains('{'));
+    }
+
+    #[test]
+    fn slot_context_is_trusted_key_value() {
+        let mut slots = SlotMap::new();
+        slots.insert("song".into(), "yesterday".into());
+        slots.insert("text".into(), "hello".into());
+        assert_eq!(
+            slot_context(&slots).as_deref(),
+            Some("carried slots: song=yesterday, text=hello")
+        );
+        assert_eq!(slot_context(&SlotMap::new()), None);
     }
 
     #[tokio::test]

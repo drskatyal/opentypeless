@@ -40,7 +40,7 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use terminator::{AutomationError, Desktop, UIElement as TElement, UIElementAttributes};
+use terminator::{AutomationError, Browser, Desktop, UIElement as TElement, UIElementAttributes};
 
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 use windows_sys::Win32::Security::{
@@ -50,6 +50,8 @@ use windows_sys::Win32::Security::{
 use windows_sys::Win32::System::Threading::{
     GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
 };
+use windows_sys::Win32::UI::Shell::ShellExecuteW;
+use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 use crate::error::AppError;
 
@@ -231,8 +233,34 @@ impl AccessibilityBackend for WindowsUiaBackend {
     async fn open_uri(&self, uri: &str) -> std::result::Result<(), AppError> {
         let uri = uri.to_string();
         run_op(OP_WATCHDOG, "open_uri", move |desktop| {
-            desktop.open_url(&uri, None).map_err(to_anyhow)?;
-            Ok(())
+            let lower = uri.to_ascii_lowercase();
+            let is_web = lower.starts_with("http://") || lower.starts_with("https://");
+
+            if !is_web {
+                // Non-web schemes (`shell:`, `ms-settings:`, `file:`, `mailto:`, …)
+                // open no browser window. terminator's `open_url` hands the URI to
+                // ShellExecuteW and then *searches for a browser window with the
+                // page title* — which never appears for a folder/settings URI, so it
+                // spins to the watchdog (or mis-matches an unrelated browser window).
+                // Hand off directly to the shell instead: it returns as soon as the
+                // registered handler is launched. (B5)
+                return shell_open(&uri);
+            }
+
+            // Web URL. Try the OS default browser first; if there is no default
+            // association (ShellExecuteW error 2) fall back to Chrome then Edge,
+            // which ShellExecuteW resolves via the App Paths registry. Each miss
+            // returns fast — the ShellExecuteW call fails *before* any window hunt —
+            // so http opens robustly regardless of default-browser config. (B3)
+            let attempts = [None, Some(Browser::Chrome), Some(Browser::Edge)];
+            let mut last_err: Option<AutomationError> = None;
+            for browser in attempts {
+                match desktop.open_url(&uri, browser) {
+                    Ok(_) => return Ok(()),
+                    Err(e) => last_err = Some(e),
+                }
+            }
+            Err(to_anyhow(last_err.expect("attempts is non-empty")))
         })
         .await
         .map_err(to_app_err)
@@ -695,12 +723,52 @@ fn resolve(desktop: &Desktop, path: &str) -> Result<TElement> {
     Ok(current)
 }
 
+/// Open a non-web URI (`shell:`, `ms-settings:`, `file:`, `mailto:`, …) through
+/// the shell's registered handler and return immediately.
+///
+/// Unlike terminator's `open_url`, this performs no post-launch "find the browser
+/// window" search — so a folder or settings URI, which opens no browser at all,
+/// hands off to Explorer / the Settings app and returns at once instead of
+/// spinning to the op watchdog.
+fn shell_open(uri: &str) -> Result<()> {
+    // NUL-terminated UTF-16 for the ShellExecuteW wide-string parameters.
+    let verb: Vec<u16> = "open\0".encode_utf16().collect();
+    let file: Vec<u16> = uri.encode_utf16().chain(std::iter::once(0)).collect();
+
+    // SAFETY: `verb` and `file` are valid NUL-terminated UTF-16 buffers that
+    // outlive the call; ShellExecuteW borrows them only for its duration and
+    // retains nothing. hwnd / parameters / directory are null (no parent window,
+    // no arguments, default working directory). This runs on the UIA worker,
+    // which is COM (STA) initialized — the apartment ShellExecuteW expects.
+    let hinstance = unsafe {
+        ShellExecuteW(
+            ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            ptr::null(),
+            ptr::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+
+    // ShellExecuteW returns a pseudo-HINSTANCE that is > 32 on success; any value
+    // <= 32 is an error code (e.g. 2 = no association / file not found).
+    if (hinstance as isize) <= 32 {
+        return Err(anyhow!(
+            "ShellExecuteW failed to open '{uri}' (code {})",
+            hinstance as isize
+        ));
+    }
+    Ok(())
+}
+
 /// Translate a combination such as `ctrl+c` or `meta+Enter` into the `send_keys`
 /// grammar Terminator's `press_key` forwards to: modifiers are held over the
 /// primary key, for example `{CTRL}c` or `{WIN}{ENTER}`.
 fn translate_combo(combo: &str) -> Result<String> {
     let mut out = String::new();
     let mut primary: Option<String> = None;
+    let mut modifiers = 0usize;
 
     for raw in combo.split('+') {
         let token = raw.trim();
@@ -708,15 +776,37 @@ fn translate_combo(combo: &str) -> Result<String> {
             continue;
         }
         match token.to_ascii_lowercase().as_str() {
-            "ctrl" | "control" => out.push_str("{CTRL}"),
-            "shift" => out.push_str("{SHIFT}"),
-            "alt" | "option" => out.push_str("{ALT}"),
-            "meta" | "super" | "win" | "windows" | "cmd" | "command" => out.push_str("{WIN}"),
+            "ctrl" | "control" => {
+                out.push_str("{CTRL}");
+                modifiers += 1;
+            }
+            "shift" => {
+                out.push_str("{SHIFT}");
+                modifiers += 1;
+            }
+            "alt" | "option" => {
+                out.push_str("{ALT}");
+                modifiers += 1;
+            }
+            "meta" | "super" | "win" | "windows" | "cmd" | "command" => {
+                out.push_str("{WIN}");
+                modifiers += 1;
+            }
             _ => primary = Some(token.to_string()),
         }
     }
 
-    let key = primary.ok_or_else(|| anyhow!("no primary key in combo '{combo}'"))?;
+    let Some(key) = primary else {
+        // A lone modifier tap — exactly one modifier and no primary key (e.g. `win`
+        // to open Start, or `alt`) — has nothing to be held over, so the single
+        // modifier token (`{WIN}`, `{ALT}`, …) IS the keypress. Send it as-is
+        // instead of rejecting it. Two-or-more modifiers with no key (`ctrl+alt`)
+        // stay an error: there's no meaningful "tap" for a bare chord. (B4)
+        if modifiers == 1 {
+            return Ok(out);
+        }
+        return Err(anyhow!("no primary key in combo '{combo}'"));
+    };
     out.push_str(&key_token(&key));
     Ok(out)
 }
@@ -884,7 +974,15 @@ mod tests {
 
     #[test]
     fn rejects_modifier_only_combo() {
+        // Two-plus modifiers with no primary key is still an error (no meaningful tap).
         assert!(translate_combo("ctrl+alt").is_err());
+    }
+
+    #[test]
+    fn translates_lone_modifier_tap() {
+        // A single lone modifier (e.g. the Windows key to open Start) taps that key.
+        assert_eq!(translate_combo("win").unwrap(), "{WIN}");
+        assert_eq!(translate_combo("alt").unwrap(), "{ALT}");
     }
 
     #[test]
