@@ -493,7 +493,12 @@
     "actFlowsFills": "Vous dites",
     "actFlowsBranch": "Assisté",
     "actFlowsIntro": "Tout ce que vous pouvez dire quand Act est actif. Appuyez sur votre touche Act et parlez naturellement — les mots exacts ne sont pas nécessaires.",
-    "actSeeAllHint": "Consultez la liste complète de ce qu'Act peut faire dans l'onglet Act."
+    "actSeeAllHint": "Consultez la liste complète de ce qu'Act peut faire dans l'onglet Act.",
+    "actFollowupModel": "Modèle de suivi d'Act",
+    "actFollowupGemini": "Gemini (par défaut)",
+    "actFollowupCerebras": "Cerebras — plus rapide",
+    "actFollowupHint": "Le premier appel utilise toujours Gemini (il entend votre voix). Les étapes suivantes peuvent s'exécuter sur un modèle plus rapide.",
+    "cerebrasApiKey": "Clé API Cerebras"
   },
   "act": {
     "armed": "Act activé",

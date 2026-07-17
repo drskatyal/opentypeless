@@ -55,6 +55,7 @@ export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
 export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
 export type SceneSource = 'custom' | 'builtin' | 'cloud'
 export type ActModelTier = 'fast' | 'precise'
+export type ActFollowupProvider = 'gemini' | 'cerebras'
 export type ContextFamily =
   | 'email'
   | 'work_chat'
@@ -244,6 +245,8 @@ export interface AppConfig {
   capsule_auto_hide: boolean
   act_enabled: boolean
   act_model_tier: ActModelTier
+  act_followup_provider: ActFollowupProvider
+  cerebras_api_key: string
 }
 
 export type TestStatus = 'idle' | 'testing' | 'success' | 'error'
@@ -791,6 +794,8 @@ const defaultConfig: AppConfig = {
   capsule_auto_hide: true,
   act_enabled: false,
   act_model_tier: 'fast',
+  act_followup_provider: 'gemini',
+  cerebras_api_key: '',
 }
 
 export const useAppStore = create<AppState>((set) => ({

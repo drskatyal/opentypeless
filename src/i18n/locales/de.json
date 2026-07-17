@@ -493,7 +493,12 @@
     "actFlowsFills": "Du sagst",
     "actFlowsBranch": "Unterstützt",
     "actFlowsIntro": "Alles, was du sagen kannst, wenn Act aktiv ist. Drücke deine Act-Taste und sprich natürlich — die genauen Worte unten sind nicht nötig.",
-    "actSeeAllHint": "Die vollständige Liste, was Act kann, findest du im Act-Tab."
+    "actSeeAllHint": "Die vollständige Liste, was Act kann, findest du im Act-Tab.",
+    "actFollowupModel": "Act-Folgemodell",
+    "actFollowupGemini": "Gemini (Standard)",
+    "actFollowupCerebras": "Cerebras — schneller",
+    "actFollowupHint": "Der erste Aufruf nutzt immer Gemini (es hört deine Stimme). Folgeschritte können auf einem schnelleren Modell laufen.",
+    "cerebrasApiKey": "Cerebras-API-Schlüssel"
   },
   "act": {
     "armed": "Act bereit",

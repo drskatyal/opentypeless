@@ -572,6 +572,8 @@ export function LlmPane() {
         )}
       </div>
 
+      <ActFollowupSettings />
+
       {appStyleDialogOpen && lastContext && (
         <AppStyleMappingDialog
           candidate={editingMapping ? null : mappingCandidate}
@@ -601,6 +603,72 @@ export function LlmPane() {
             setAppStyleDialogOpen(true)
           }}
         />
+      )}
+    </div>
+  )
+}
+
+/**
+ * "Act follow-up model" — Act's first call is always Gemini (it hears the audio),
+ * but its text follow-ups (routing, planning, answers) can run on a faster
+ * provider. Cerebras (gpt-oss-120b) is the first option. The key is stored in the
+ * OS credential vault at ("llm","cerebras"), where the backend reads it.
+ */
+function ActFollowupSettings() {
+  const { t } = useTranslation()
+  const config = useAppStore((s) => s.config)
+  const updateConfig = useAppStore((s) => s.updateConfig)
+  const provider = config.act_followup_provider
+  const [cerebrasKey, setCerebrasKey] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    readCredential('llm', 'cerebras')
+      .then((k) => {
+        if (!cancelled && k) setCerebrasKey(k)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const persistKey = useCallback((value: string) => {
+    setCredential('llm', 'cerebras', value).catch((err) =>
+      console.error('Failed to save Cerebras key:', err),
+    )
+  }, [])
+
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <FormField label={t('settings.actFollowupModel')}>
+        <select
+          value={provider}
+          onChange={(e) =>
+            updateConfig({ act_followup_provider: e.target.value as typeof provider })
+          }
+          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+        >
+          <option value="gemini">{t('settings.actFollowupGemini')}</option>
+          <option value="cerebras">{t('settings.actFollowupCerebras')}</option>
+        </select>
+        <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.actFollowupHint')}</p>
+      </FormField>
+
+      {provider === 'cerebras' && (
+        <FormField label={t('settings.cerebrasApiKey')}>
+          <input
+            type="password"
+            value={cerebrasKey}
+            onChange={(e) => {
+              setCerebrasKey(e.target.value)
+              persistKey(e.target.value)
+            }}
+            onBlur={() => persistKey(cerebrasKey)}
+            placeholder={t('settings.enterApiKey')}
+            className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+          />
+        </FormField>
       )}
     </div>
   )

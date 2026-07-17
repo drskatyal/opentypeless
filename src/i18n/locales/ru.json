@@ -493,7 +493,12 @@
     "actFlowsFills": "Вы говорите",
     "actFlowsBranch": "С помощником",
     "actFlowsIntro": "Всё, что можно сказать, когда Act активен. Нажмите клавишу Act и говорите естественно — точные формулировки ниже не обязательны.",
-    "actSeeAllHint": "Полный список возможностей Act — на вкладке Act."
+    "actSeeAllHint": "Полный список возможностей Act — на вкладке Act.",
+    "actFollowupModel": "Модель дополнительных вызовов Act",
+    "actFollowupGemini": "Gemini (по умолчанию)",
+    "actFollowupCerebras": "Cerebras — быстрее",
+    "actFollowupHint": "Первый вызов всегда использует Gemini (он слышит ваш голос). Последующие шаги могут выполняться на более быстрой модели.",
+    "cerebrasApiKey": "API-ключ Cerebras"
   },
   "act": {
     "armed": "Act готов",

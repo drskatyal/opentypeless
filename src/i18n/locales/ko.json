@@ -493,7 +493,12 @@
     "actFlowsFills": "말하기",
     "actFlowsBranch": "보조",
     "actFlowsIntro": "Act가 켜져 있을 때 말할 수 있는 모든 것입니다. Act 키를 누르고 자연스럽게 말하세요 — 아래 문구를 그대로 말할 필요는 없습니다.",
-    "actSeeAllHint": "Act가 할 수 있는 전체 목록은 Act 탭에서 확인하세요."
+    "actSeeAllHint": "Act가 할 수 있는 전체 목록은 Act 탭에서 확인하세요.",
+    "actFollowupModel": "Act 후속 모델",
+    "actFollowupGemini": "Gemini(기본값)",
+    "actFollowupCerebras": "Cerebras — 더 빠름",
+    "actFollowupHint": "첫 호출은 항상 Gemini를 사용합니다(음성을 듣습니다). 이후 단계는 더 빠른 모델에서 실행할 수 있습니다.",
+    "cerebrasApiKey": "Cerebras API 키"
   },
   "act": {
     "armed": "Act 준비됨",

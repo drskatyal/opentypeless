@@ -493,7 +493,12 @@
     "actFlowsFills": "You say",
     "actFlowsBranch": "Assisted",
     "actFlowsIntro": "Everything you can say when Act is armed. Press your Act key, then speak naturally — you don't need the exact words below.",
-    "actSeeAllHint": "See the full list of what Act can do in the Act tab."
+    "actSeeAllHint": "See the full list of what Act can do in the Act tab.",
+    "actFollowupModel": "Act follow-up model",
+    "actFollowupGemini": "Gemini (default)",
+    "actFollowupCerebras": "Cerebras — faster",
+    "actFollowupHint": "The first call always uses Gemini (it hears your voice). Follow-up steps can run on a faster model.",
+    "cerebrasApiKey": "Cerebras API key"
   },
   "act": {
     "armed": "Act armed",
