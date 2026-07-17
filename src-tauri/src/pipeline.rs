@@ -633,6 +633,9 @@ fn take_matching_stt_error(
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PipelineStartOptions {
     pub force_translate: bool,
+    /// This recording was started by the Act hotkey — route its final transcript
+    /// to the voice Conductor instead of dictating it.
+    pub act: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -689,6 +692,9 @@ pub struct PipelineHandle {
     stt_error: Arc<Mutex<Option<(u64, crate::error::UserError)>>>,
     active_stt_session_id: Arc<AtomicU64>,
     abort_flag: Arc<AtomicBool>,
+    /// True while the current run was started by the Act hotkey (route its final
+    /// transcript to the Conductor). Set per-run in `start_with_options`.
+    act_run: Arc<AtomicBool>,
     preloaded_config: Arc<Mutex<Option<storage::AppConfig>>>,
     preloaded_app_ctx: Arc<Mutex<Option<RecordingContext>>>,
     preloaded_dictionary: Arc<Mutex<Option<Vec<String>>>>,
@@ -898,6 +904,7 @@ impl PipelineHandle {
             stt_error: Arc::new(Mutex::new(None)),
             active_stt_session_id: Arc::new(AtomicU64::new(0)),
             abort_flag: Arc::new(AtomicBool::new(false)),
+            act_run: Arc::new(AtomicBool::new(false)),
             preloaded_config: Arc::new(Mutex::new(None)),
             preloaded_app_ctx: Arc::new(Mutex::new(None)),
             preloaded_dictionary: Arc::new(Mutex::new(None)),
@@ -1061,6 +1068,9 @@ impl PipelineHandle {
 
         // Reset abort flag for new recording
         self.abort_flag.store(false, Ordering::SeqCst);
+        // Tag this run's role: the Act hotkey routes its transcript to the
+        // Conductor; any other start (dictation, translate) does not.
+        self.act_run.store(options.act, Ordering::SeqCst);
 
         // Atomic CAS: only one caller can transition Idle → Preparing. Recording is emitted only
         // after audio capture is ready, so the capsule does not tell users to speak too early.
@@ -1809,7 +1819,12 @@ impl PipelineHandle {
             // terminal cleanup and bail rather than parking the audio thread.
             match act_state.session.try_lock() {
                 Ok(mut act_guard) => {
-                    let armed = act_guard.as_ref().is_some_and(|s| s.is_armed());
+                    // Route to Act only when the Act hotkey started this run AND the
+                    // Conductor is armed/available. A Dictation-hotkey recording
+                    // falls through to normal dictation even when Act is enabled —
+                    // the key you press picks the role.
+                    let armed = self.act_run.load(Ordering::SeqCst)
+                        && act_guard.as_ref().is_some_and(|s| s.is_armed());
                     if armed {
                         // (a) Run the command, capturing the Result. The session
                         // lock is held only for this await; `act_abort` trips the
@@ -1856,10 +1871,10 @@ impl PipelineHandle {
                     // None or disarmed: release the guard and fall through to
                     // normal dictation exactly as before.
                 }
-                Err(_) => {
-                    // Act is busy with a prior command. Clean up this recording
-                    // without blocking and surface a best-effort busy notice; do
-                    // NOT fall through to dictation (Act is armed).
+                Err(_) if self.act_run.load(Ordering::SeqCst) => {
+                    // This was an Act-hotkey recording but Act is busy with a prior
+                    // command. Clean up without blocking and surface a best-effort
+                    // busy notice; do NOT fall through to dictation.
                     self.finish_act_command(&stt_control);
                     let _ = self.app_handle.emit(
                         crate::act::events::ACT_EVENT,
@@ -1868,6 +1883,10 @@ impl PipelineHandle {
                         },
                     );
                     return Ok(());
+                }
+                Err(_) => {
+                    // A dictation recording while Act happens to be busy: don't
+                    // touch Act — fall through to normal dictation.
                 }
             }
         }
@@ -3128,6 +3147,7 @@ mod tests {
             config.clone(),
             PipelineStartOptions {
                 force_translate: true,
+                act: false,
             },
         );
 

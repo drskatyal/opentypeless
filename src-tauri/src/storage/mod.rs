@@ -136,6 +136,10 @@ pub struct HotkeyConfig {
     pub edit_selection: Option<ShortcutBinding>,
     pub switch_scene: Option<ShortcutBinding>,
     pub open_app: Option<ShortcutBinding>,
+    /// The Act / Task hotkey: hold it to drive the voice Conductor (drawer +
+    /// actions) instead of transcribing. Distinct from Dictation so the key you
+    /// press picks the role — no global mode to toggle.
+    pub act: Option<ShortcutBinding>,
     pub dictation_mode: String,
 }
 
@@ -174,6 +178,7 @@ impl HotkeyConfig {
             edit_selection: None,
             switch_scene: None,
             open_app: None,
+            act: None,
             dictation_mode,
         }
     }
