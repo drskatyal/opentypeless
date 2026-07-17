@@ -28,6 +28,7 @@ import { AskPanel } from './components/AskPanel'
 import { FloatingEditor } from './components/FloatingEditor'
 import { ToastContainer } from './components/Toast'
 import { ActHud } from './components/ActHud'
+import { AgentsBoard } from './components/AgentsBoard'
 
 function CapsuleApp() {
   useTauriEvents()
@@ -231,6 +232,7 @@ function MainApp() {
       {route === 'account' && <AccountPage />}
       <ToastContainer />
       <ActHud />
+      <AgentsBoard />
     </MainLayout>
   )
 }
