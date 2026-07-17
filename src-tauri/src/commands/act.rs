@@ -20,7 +20,7 @@ use crate::act::executor::{Executor, UserDecision};
 use crate::act::flow_registry::FlowRegistry;
 use crate::act::flow_runner::FlowRunner;
 use crate::act::killswitch::KillSwitch;
-use crate::act::llm::{CerebrasLlmClient, GeminiLlmClient, LlmClient};
+use crate::act::llm::{CerebrasLlmClient, GeminiLlmClient, LlmClient, FOLLOWUP_LLM_TIMEOUT};
 use crate::act::planner::Planner;
 use crate::act::{self, seed};
 use crate::credentials::{
@@ -115,7 +115,9 @@ fn build_followup_llm<V: CredentialSecretReader>(
         let key = resolve_cerebras_config_secret(config, vault).unwrap_or_default();
         if !key.trim().is_empty() {
             tracing::info!(
+                provider = "cerebras",
                 model = CEREBRAS_FOLLOWUP_MODEL,
+                timeout_secs = FOLLOWUP_LLM_TIMEOUT.as_secs(),
                 "Act follow-up calls routed to Cerebras"
             );
             return Arc::new(CerebrasLlmClient::new(
@@ -130,7 +132,12 @@ fn build_followup_llm<V: CredentialSecretReader>(
     }
     let api_key = act_gemini_key(config, vault);
     let model = model_for_tier(&config.act_model_tier).to_string();
-    tracing::info!(model = %model, "Act follow-up calls routed to Gemini");
+    tracing::info!(
+        provider = "gemini",
+        model = %model,
+        timeout_secs = FOLLOWUP_LLM_TIMEOUT.as_secs(),
+        "Act follow-up calls routed to Gemini"
+    );
     Arc::new(GeminiLlmClient::new(client, api_key, model))
 }
 
