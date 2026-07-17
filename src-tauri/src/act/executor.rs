@@ -14,6 +14,7 @@ use super::capability::{CapabilityGate, Decision};
 use super::destructive::{self, Destructive};
 use super::element::{ElementPath, Snapshot};
 use super::events::AskOption;
+use super::focus_guard;
 use super::grounding::{self, Grounded};
 use super::killswitch::KillSwitch;
 use super::shell_policy::{self, ShellVerdict};
@@ -117,6 +118,12 @@ pub struct Executor {
     /// the one-shot pre-approval to that exact control so a swapped-out control
     /// re-confirms instead of executing.
     confirmed_target: Option<ConfirmedTarget>,
+    /// The app this command deliberately launched or switched to, if any. Set
+    /// when a `Launch` / `FocusApp` action succeeds; consulted by the focus guard
+    /// before any keystroke so `Type` / `Key` can never land in the window that
+    /// was foreground *before* the switch (the "typed into the terminal" bug).
+    /// Reset per command; never derived from the live foreground.
+    expected_app: Option<String>,
 }
 
 impl Executor {
@@ -133,6 +140,7 @@ impl Executor {
             kill,
             transcript: String::new(),
             confirmed_target: None,
+            expected_app: None,
         }
     }
 
@@ -165,6 +173,9 @@ impl Executor {
         // A fresh command clears any pre-approval left over from a prior one.
         self.transcript = transcript.to_string();
         self.confirmed_target = None;
+        // Fresh command: no app has been launched/switched yet, so the focus
+        // guard starts inert and only arms once this command launches one.
+        self.expected_app = None;
         self.run(plan.actions, false).await
     }
 
@@ -353,6 +364,26 @@ impl Executor {
             }
         }
 
+        // 5c. Focus guard. `Type` and `Key` go to whatever window is foreground,
+        // so if this command launched/switched to an app, make sure that app is
+        // actually in front before sending input — focus it or ABORT rather than
+        // typing into the window that was foreground before the switch. Inert when
+        // the command never moved apps (expected_app is None), so a plain
+        // "copy that" against the current window is unaffected.
+        if matches!(action, Action::Type { .. } | Action::Key { .. }) {
+            if let Some(expected) = self.expected_app.clone() {
+                if let Err(reason) =
+                    focus_guard::ensure_target_focused(&self.backend, &self.kill, &expected).await
+                {
+                    self.audit_step(&action, decision, "blocked: focus_guard");
+                    return Ok(Flow::Halt(StepOutcome::Failed {
+                        action,
+                        error: reason,
+                    }));
+                }
+            }
+        }
+
         // 6. Execute, racing the kill switch.
         match self.execute_action(&action).await? {
             Execution::Ok => {
@@ -422,6 +453,17 @@ impl Executor {
 
         match self.execute_script(&action).await? {
             Execution::Ok => {
+                // Arm the focus guard: this command deliberately moved to an app, so
+                // any later keystroke must land there, not in the prior foreground.
+                match &action {
+                    Action::Launch { target, .. } => {
+                        self.expected_app = Some(target.clone());
+                    }
+                    Action::FocusApp { name } => {
+                        self.expected_app = Some(name.clone());
+                    }
+                    _ => {}
+                }
                 // Launch/Uri only get best-effort verification (a window may take
                 // time to appear), so they are Done-but-unverified; Shell/FocusApp
                 // already encoded a concrete success signal (exit 0 / foreground).
@@ -993,6 +1035,118 @@ mod tests {
 
     fn executor(backend: Arc<dyn AccessibilityBackend>) -> Executor {
         Executor::new(backend, CapabilityGate::new(), None, KillSwitch::new())
+    }
+
+    /// An executor whose gate grants AppLaunch (as the live Conductor does), so a
+    /// `Launch` runs instead of pausing on Confirm — needed to exercise the focus
+    /// guard, which only arms after a successful launch/switch.
+    fn launching_executor(backend: Arc<dyn AccessibilityBackend>) -> Executor {
+        use crate::act::capability::Capability;
+        let mut gate = CapabilityGate::new();
+        gate.grant(Capability::AppLaunch);
+        Executor::new(backend, gate, None, KillSwitch::new())
+    }
+
+    fn snapshot_for_app(app: &str) -> Snapshot {
+        Snapshot {
+            app: app.into(),
+            window_title: "w".into(),
+            focused: Some("#/1".into()),
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![el("#/1", Role::TextField, "Message")],
+        }
+    }
+
+    #[tokio::test]
+    async fn focus_guard_aborts_type_when_launched_app_is_not_foreground() {
+        // Foreground stays "Editor" (mock snapshot is static, so focus_app can't
+        // move it) after launching Chrome — exactly the race that typed into the
+        // terminal. The guard must refuse to type.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![
+            Action::Launch {
+                target: "Google Chrome".into(),
+                origin: Origin::TaskIntent,
+            },
+            Action::Type {
+                text: "youtube.com".into(),
+                clear: false,
+            },
+        ]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+
+        assert!(
+            !result.completed,
+            "must not complete: guard aborts the Type"
+        );
+        assert_eq!(backend.launched(), vec!["Google Chrome".to_string()]);
+        assert!(
+            backend.typed().is_empty(),
+            "the guard must never send keystrokes to the wrong window"
+        );
+        assert!(result
+            .outcomes
+            .iter()
+            .any(|o| matches!(o, StepOutcome::Failed { .. })));
+    }
+
+    #[tokio::test]
+    async fn focus_guard_allows_type_when_launched_app_is_foreground() {
+        // Foreground already IS Chrome, so the guard passes and the type lands.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Chrome"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![
+            Action::Launch {
+                target: "Google Chrome".into(),
+                origin: Origin::TaskIntent,
+            },
+            Action::Type {
+                text: "hello".into(),
+                clear: false,
+            },
+        ]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+
+        assert!(
+            result.completed,
+            "guard passes when the target is foreground"
+        );
+        assert_eq!(backend.typed(), vec!["hello".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn focus_guard_inert_without_a_launch() {
+        // No launch/switch in the plan → guard stays inert → a plain type against
+        // the current window works unchanged (a "type this" with the app already up).
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+
+        let plan = ActionPlan::new(vec![Action::Type {
+            text: "hi".into(),
+            clear: false,
+        }]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        assert_eq!(backend.typed(), vec!["hi".to_string()]);
     }
 
     #[tokio::test]
