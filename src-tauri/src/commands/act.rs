@@ -37,6 +37,10 @@ pub struct ActState {
     /// an in-flight command mid-execution without first acquiring the (long-held)
     /// session lock. Replaced on every enable with the freshly built switch.
     pub kill: std::sync::Mutex<KillSwitch>,
+    /// Whether a *dedicated* Act hotkey is bound. When true, only Act-hotkey
+    /// recordings route to Act (the dual-hotkey model); when false, the Act
+    /// toggle routes every armed recording (the simple model). Set on enable.
+    pub has_act_hotkey: std::sync::atomic::AtomicBool,
     /// The shared HTTP client, reused for the LLM cloud transport.
     pub client: reqwest::Client,
 }
@@ -46,8 +50,21 @@ impl ActState {
         Self {
             session: tokio::sync::Mutex::new(None),
             kill: std::sync::Mutex::new(KillSwitch::new()),
+            has_act_hotkey: std::sync::atomic::AtomicBool::new(false),
             client,
         }
+    }
+}
+
+/// The Gemini key Act should use. Act's selection + planner are Gemini calls, so
+/// it reuses whichever Gemini key is configured — the dedicated LLM key if set,
+/// else the STT key (the user often configures just one Gemini key for both).
+fn act_gemini_key(config: &storage::AppConfig) -> String {
+    let llm = config.llm_api_key.trim();
+    if !llm.is_empty() {
+        llm.to_string()
+    } else {
+        config.stt_api_key.trim().to_string()
     }
 }
 
@@ -84,7 +101,7 @@ fn build_conductor(
     config: &storage::AppConfig,
     kill: KillSwitch,
 ) -> Conductor {
-    let api_key = config.llm_api_key.clone();
+    let api_key = act_gemini_key(config);
     let model = model_for_tier(&config.act_model_tier).to_string();
     let llm = Arc::new(GeminiLlmClient::new(client, api_key, model));
     let backend = act::create_backend();
@@ -115,8 +132,8 @@ pub async fn act_set_enabled(
         // Preflight BEFORE touching the session: Act planning needs LLM
         // credentials, so refuse (and store nothing) when none are configured.
         let cfg = config.load().await.map_err(|e| e.to_string())?;
-        if cfg.llm_api_key.trim().is_empty() {
-            return Err("Act mode requires an API key — add one in Settings.".to_string());
+        if act_gemini_key(&cfg).is_empty() {
+            return Err("Act mode requires a Gemini API key — add one in Settings.".to_string());
         }
 
         // Fresh kill switch per enable; its clone in ActState lets act_abort trip
@@ -125,6 +142,10 @@ pub async fn act_set_enabled(
         let mut conductor = build_conductor(state.client.clone(), &cfg, kill.clone());
         conductor.arm();
         *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
+        state.has_act_hotkey.store(
+            cfg.hotkeys.act.is_some(),
+            std::sync::atomic::Ordering::SeqCst,
+        );
         *state.session.lock().await = Some(conductor);
     } else {
         // Trip FIRST (no session lock) so a live executor is cancelled at its next

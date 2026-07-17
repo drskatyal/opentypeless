@@ -1819,12 +1819,23 @@ impl PipelineHandle {
             // terminal cleanup and bail rather than parking the audio thread.
             match act_state.session.try_lock() {
                 Ok(mut act_guard) => {
-                    // Route to Act only when the Act hotkey started this run AND the
-                    // Conductor is armed/available. A Dictation-hotkey recording
-                    // falls through to normal dictation even when Act is enabled —
-                    // the key you press picks the role.
-                    let armed = self.act_run.load(Ordering::SeqCst)
-                        && act_guard.as_ref().is_some_and(|s| s.is_armed());
+                    // Route this transcript to Act when the Conductor is armed AND
+                    // either (a) this run was started by the dedicated Act hotkey, or
+                    // (b) no dedicated Act hotkey is configured — in which case the
+                    // Act toggle routes every armed recording (the simple model). So
+                    // if the user bound a separate Act key it purely picks the role;
+                    // if they didn't, toggling Act on is enough.
+                    let is_armed = act_guard.as_ref().is_some_and(|s| s.is_armed());
+                    let act_run = self.act_run.load(Ordering::SeqCst);
+                    let has_act_hotkey = act_state.has_act_hotkey.load(Ordering::SeqCst);
+                    let armed = is_armed && (act_run || !has_act_hotkey);
+                    tracing::debug!(
+                        is_armed,
+                        act_run,
+                        has_act_hotkey,
+                        route_to_act = armed,
+                        "Act fork routing decision"
+                    );
                     if armed {
                         // (a) Run the command, capturing the Result. The session
                         // lock is held only for this await; `act_abort` trips the
@@ -1871,10 +1882,13 @@ impl PipelineHandle {
                     // None or disarmed: release the guard and fall through to
                     // normal dictation exactly as before.
                 }
-                Err(_) if self.act_run.load(Ordering::SeqCst) => {
-                    // This was an Act-hotkey recording but Act is busy with a prior
-                    // command. Clean up without blocking and surface a best-effort
-                    // busy notice; do NOT fall through to dictation.
+                Err(_)
+                    if self.act_run.load(Ordering::SeqCst)
+                        || !act_state.has_act_hotkey.load(Ordering::SeqCst) =>
+                {
+                    // This transcript would route to Act, but Act is busy with a
+                    // prior command. Clean up without blocking and surface a
+                    // best-effort busy notice; do NOT fall through to dictation.
                     self.finish_act_command(&stt_control);
                     let _ = self.app_handle.emit(
                         crate::act::events::ACT_EVENT,
