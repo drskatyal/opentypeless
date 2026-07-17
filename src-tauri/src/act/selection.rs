@@ -272,6 +272,7 @@ mod tests {
             required: true,
             examples: vec![],
             default: None,
+            filters: vec![],
         }
     }
 

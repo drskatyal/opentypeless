@@ -25,7 +25,9 @@ use super::backend::AccessibilityBackend;
 use super::capability::{Capability, CapabilityGate, Decision};
 use super::element::{ActionPattern, ElementPath, ElementState, Role, Snapshot, UiElement};
 use super::events::ActEvent;
-use super::flow::{FlowFile, FlowKind, FlowStep, OnFail, Selector, VerifySpec, WaitSpec};
+use super::flow::{
+    FlowFile, FlowKind, FlowStep, OnFail, Selector, SlotFilter, StateGate, VerifySpec, WaitSpec,
+};
 use super::killswitch::KillSwitch;
 
 /// The score an element must reach to be accepted as a selector's target. A single
@@ -154,6 +156,15 @@ impl FlowRunner {
             });
         }
 
+        // A slot's declared default filter chain, applied to executed values that
+        // reference it without an inline filter spec. Built once per run.
+        let filters: HashMap<String, Vec<SlotFilter>> = file
+            .slots
+            .iter()
+            .filter(|s| !s.filters.is_empty())
+            .map(|s| (s.name.clone(), s.filters.clone()))
+            .collect();
+
         for step in &file.steps {
             // a. The agent can never steer past a trip.
             if self.kill.is_tripped() {
@@ -174,7 +185,7 @@ impl FlowRunner {
                 self.wait_for(wait, slots).await;
             }
 
-            match self.run_step(step, slots).await? {
+            match self.run_step(step, slots, &filters).await? {
                 StepFlow::Next => continue,
                 StepFlow::Confirm(reason) => return Ok(FlowOutcome::NeedsConfirm { reason }),
                 StepFlow::Aborted => return Ok(FlowOutcome::Aborted),
@@ -202,9 +213,10 @@ impl FlowRunner {
         &self,
         step: &FlowStep,
         slots: &HashMap<String, String>,
+        filters: &HashMap<String, Vec<SlotFilter>>,
     ) -> Result<StepFlow, FlowRunError> {
         // First attempt.
-        let failure = match self.attempt(step, slots).await? {
+        let failure = match self.attempt(step, slots, filters).await? {
             Attempt::Ran => self.postcondition_failure(step, slots).await,
             Attempt::Confirm(reason) => return Ok(StepFlow::Confirm(reason)),
             Attempt::Aborted => return Ok(StepFlow::Aborted),
@@ -225,7 +237,7 @@ impl FlowRunner {
                 if self.sleep_or_abort(STABLE_WAIT).await {
                     return Ok(StepFlow::Aborted);
                 }
-                match self.attempt(step, slots).await? {
+                match self.attempt(step, slots, filters).await? {
                     Attempt::Ran => match self.postcondition_failure(step, slots).await {
                         Some(again) => Ok(StepFlow::Failed(again)),
                         None => Ok(StepFlow::Next),
@@ -245,6 +257,7 @@ impl FlowRunner {
         &self,
         step: &FlowStep,
         slots: &HashMap<String, String>,
+        filters: &HashMap<String, Vec<SlotFilter>>,
     ) -> Result<Attempt, FlowRunError> {
         let action = step.action.as_str();
 
@@ -274,7 +287,7 @@ impl FlowRunner {
         }
 
         // f. Execute, racing the kill switch on every backend await.
-        self.execute(step, target.as_deref(), slots).await
+        self.execute(step, target.as_deref(), slots, filters).await
     }
 
     /// Perform the backend primitive for `action`. Slot tokens in `value` are
@@ -284,9 +297,13 @@ impl FlowRunner {
         step: &FlowStep,
         target: Option<&str>,
         slots: &HashMap<String, String>,
+        filters: &HashMap<String, Vec<SlotFilter>>,
     ) -> Result<Attempt, FlowRunError> {
         let action = step.action.as_str();
-        let value = step.value.as_deref().map(|v| substitute(v, slots));
+        let value = step
+            .value
+            .as_deref()
+            .map(|v| substitute_value(v, slots, filters));
 
         macro_rules! guarded {
             ($fut:expr) => {
@@ -448,12 +465,15 @@ impl FlowRunner {
     ///
     /// Scoring (additive, so the most specific control wins):
     /// * role match: `+3`
+    /// * `automation_id_any` hit (path / description): `+6` (a stable id beats
+    ///   a localized English name, so it wins when both match)
     /// * exact `name_any` (casefold) hit: `+5`
-    /// * `automation_id_any` hit (path / description): `+4`
     /// * slot-substituted `name_contains` substring (casefold): `+4`
     /// * each required pattern the control supports: `+1`
     ///
-    /// Hard rejects: password-like fields, disabled controls, offscreen controls.
+    /// Hard rejects: password-like fields, disabled controls, offscreen controls,
+    /// and anything failing an explicit [`StateGate`]. `nth` disambiguates among
+    /// the best-scoring matches by tree order.
     fn resolve_selector(
         &self,
         snapshot: &Snapshot,
@@ -465,20 +485,47 @@ impl FlowRunner {
             .as_ref()
             .map(|c| substitute(c, slots).to_lowercase());
 
-        let mut best: Option<(i32, &UiElement)> = None;
+        // Collect every acceptable candidate with its score, in tree order.
+        let mut hits: Vec<(i32, &UiElement)> = Vec::new();
         for element in &snapshot.elements {
-            if is_unusable(element) {
+            if is_unusable(element) || !state_gate_passes(element, &sel.state) {
                 continue;
             }
             let score = score_element(element, sel, needle.as_deref());
-            if score < RESOLVE_THRESHOLD {
-                continue;
-            }
-            if best.map(|(b, _)| score > b).unwrap_or(true) {
-                best = Some((score, element));
+            if score >= RESOLVE_THRESHOLD {
+                hits.push((score, element));
             }
         }
-        best.map(|(_, e)| e.path.clone())
+        if hits.is_empty() {
+            return None;
+        }
+
+        // `nth`: disambiguate among the *best-scoring* matches by tree order —
+        // "the 2nd Delete button", not "the 2nd element overall". Without `nth`,
+        // the single highest scorer wins (earliest in tree order on a tie).
+        match sel.nth {
+            Some(n) => {
+                let top = hits
+                    .iter()
+                    .map(|(s, _)| *s)
+                    .max()
+                    .unwrap_or(RESOLVE_THRESHOLD);
+                hits.iter()
+                    .filter(|(s, _)| *s == top)
+                    .nth(n)
+                    .map(|(_, e)| e.path.clone())
+            }
+            // Keep the earliest tree-order element on a score tie (a stable,
+            // predictable target), so `fold` with strict `>` — not `max_by_key`,
+            // which would return the *last* maximum.
+            None => hits
+                .iter()
+                .fold(None::<(i32, &UiElement)>, |best, &(s, e)| match best {
+                    Some((b, _)) if s <= b => best,
+                    _ => Some((s, e)),
+                })
+                .map(|(_, e)| e.path.clone()),
+        }
     }
 
     /// Take a fresh snapshot, mapping a backend failure to a runner error.
@@ -515,7 +562,35 @@ fn capability_for(action: &str) -> Capability {
 }
 
 /// Replace every `{slot}` token with its value; leave unknown tokens intact.
+///
+/// Tokens may carry inline filters (`{query|urlencode}`), but this plain form
+/// ignores them and substitutes the raw value — it's for comparison contexts
+/// (verify terms, `name_contains` needles) that must match the on-screen text,
+/// not an encoded form of it. Use [`substitute_value`] for executed values.
 pub fn substitute(template: &str, slots: &HashMap<String, String>) -> String {
+    substitute_inner(template, slots, None)
+}
+
+/// Substitute for an *executed* value (a `uri` / `set_value` / `key` literal):
+/// honors inline filters (`{q|urlencode}`) and, for a token with no inline
+/// filters, the slot's declared default filter chain. This is why the same
+/// `{q}` slot can be URL-encoded in a `uri` step yet typed verbatim elsewhere.
+pub fn substitute_value(
+    template: &str,
+    slots: &HashMap<String, String>,
+    defaults: &HashMap<String, Vec<SlotFilter>>,
+) -> String {
+    substitute_inner(template, slots, Some(defaults))
+}
+
+/// The shared `{name|f1|f2}` walker. When `defaults` is `Some`, filters are
+/// applied (inline overriding the slot's declared default); when `None`, the raw
+/// value is substituted and any inline filter spec is ignored.
+fn substitute_inner(
+    template: &str,
+    slots: &HashMap<String, String>,
+    defaults: Option<&HashMap<String, Vec<SlotFilter>>>,
+) -> String {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
     while let Some(open) = rest.find('{') {
@@ -523,10 +598,28 @@ pub fn substitute(template: &str, slots: &HashMap<String, String>) -> String {
         let after = &rest[open + 1..];
         match after.find('}') {
             Some(close) => {
-                let key = &after[..close];
+                let token = &after[..close];
+                let mut parts = token.split('|');
+                let key = parts.next().unwrap_or("").trim();
                 match slots.get(key) {
-                    Some(value) => out.push_str(value),
-                    // Unknown token — leave it verbatim.
+                    Some(value) => {
+                        let rendered = match defaults {
+                            None => value.clone(),
+                            Some(defaults) => {
+                                let inline: Vec<SlotFilter> =
+                                    parts.filter_map(parse_filter).collect();
+                                let chain: &[SlotFilter] = if inline.is_empty() {
+                                    defaults.get(key).map(Vec::as_slice).unwrap_or(&[])
+                                } else {
+                                    &inline
+                                };
+                                chain.iter().fold(value.clone(), |acc, f| f.apply(&acc))
+                            }
+                        };
+                        out.push_str(&rendered);
+                    }
+                    // Unknown token — leave it (name only) verbatim so a missing
+                    // slot is visible rather than silently dropped.
                     None => {
                         out.push('{');
                         out.push_str(key);
@@ -546,11 +639,35 @@ pub fn substitute(template: &str, slots: &HashMap<String, String>) -> String {
     out
 }
 
+/// Parse one inline filter name (unknown names are ignored, never an error, so a
+/// typo degrades to "no transform" rather than aborting a saved flow).
+fn parse_filter(name: &str) -> Option<SlotFilter> {
+    match name.trim().to_lowercase().as_str() {
+        "trim" => Some(SlotFilter::Trim),
+        "squish" => Some(SlotFilter::Squish),
+        "lower" => Some(SlotFilter::Lower),
+        "urlencode" => Some(SlotFilter::Urlencode),
+        _ => None,
+    }
+}
+
 /// Whether an element must never be resolved as a target.
 fn is_unusable(element: &UiElement) -> bool {
     element.has_state(ElementState::Disabled)
         || element.has_state(ElementState::Offscreen)
         || looks_like_password(element)
+}
+
+/// Whether a candidate satisfies a selector's explicit toggle-state gates. A
+/// `None` gate is "don't care"; a `Some` gate is asserted. Enabled + on-screen
+/// are not gated here — [`is_unusable`] already requires them unconditionally.
+fn state_gate_passes(element: &UiElement, gate: &StateGate) -> bool {
+    let assert = |want: Option<bool>, state: ElementState| -> bool {
+        want.map(|w| element.has_state(state) == w).unwrap_or(true)
+    };
+    assert(gate.checked, ElementState::Checked)
+        && assert(gate.selected, ElementState::Selected)
+        && assert(gate.expanded, ElementState::Expanded)
 }
 
 /// The element model carries no secret flag, so a password field is recognized
@@ -582,12 +699,14 @@ fn score_element(element: &UiElement, sel: &Selector, needle: Option<&str>) -> i
 
     // The element model has no dedicated automation-id field; match the id against
     // the stable path and the (localization-free) description as a best effort.
+    // Scored *above* an exact name match (+6 > +5): a stable id is a stronger
+    // signal than a localized English label, so it should win when both hit.
     let path_lc = element.path.to_lowercase();
     let desc_lc = element.description.to_lowercase();
     for aid in &sel.automation_id_any {
         let aid_lc = aid.to_lowercase();
         if path_lc == aid_lc || desc_lc == aid_lc {
-            score += 4;
+            score += 6;
             break;
         }
     }
@@ -760,6 +879,8 @@ mod tests {
             action: action.into(),
             target: None,
             value: None,
+            pick: None,
+            bind: None,
             wait_before: None,
             postcondition: None,
             on_fail: OnFail::Abort,
@@ -874,6 +995,100 @@ mod tests {
         let outcome = runner.run(&file, &slots, &noop_emit).await.unwrap();
         assert_eq!(outcome, FlowOutcome::Done { verified: true });
         assert_eq!(backend.invoked(), vec!["#/1".to_string()]);
+    }
+
+    #[test]
+    fn substitute_value_applies_inline_and_default_filters() {
+        let mut slots = HashMap::new();
+        slots.insert("q".to_string(), "A B".to_string());
+        let mut defaults = HashMap::new();
+        defaults.insert("q".to_string(), vec![SlotFilter::Urlencode]);
+
+        // Inline filter wins where present.
+        assert_eq!(substitute_value("{q|lower}", &slots, &defaults), "a b");
+        // No inline filter -> the slot's declared default (urlencode) applies.
+        assert_eq!(substitute_value("{q}", &slots, &defaults), "A%20B");
+        // The plain (comparison) form ignores filters entirely.
+        assert_eq!(substitute("{q}", &slots), "A B");
+        // A filter chain composes left to right.
+        assert_eq!(
+            substitute_value("{q|lower|urlencode}", &slots, &defaults),
+            "a%20b"
+        );
+    }
+
+    #[tokio::test]
+    async fn uri_step_urlencodes_via_inline_filter() {
+        let backend = Arc::new(MockBackend::new(snapshot(vec![])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut slots = HashMap::new();
+        slots.insert("q".to_string(), "hotel california".to_string());
+
+        let mut file = base_file();
+        let mut s = step("s1", "uri");
+        s.value = Some("https://example.com/s?q={q|urlencode}".into());
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &slots, &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        assert_eq!(
+            backend.opened_uris(),
+            vec!["https://example.com/s?q=hotel%20california".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn nth_selects_the_second_best_scoring_match() {
+        // Two equally-scoring "Delete" buttons; nth=1 takes the second.
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            el("#/1", Role::Button, "Delete"),
+            el("#/2", Role::Button, "Delete"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut s = step("s1", "invoke");
+        s.target = Some(Selector {
+            role: Some("button".into()),
+            name_any: vec!["Delete".into()],
+            nth: Some(1),
+            ..Default::default()
+        });
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn state_gate_targets_only_the_unchecked_control() {
+        // Two same-named checkboxes; the gate `checked:false` skips the checked one.
+        let mut checked = el("#/1", Role::CheckBox, "Notify");
+        checked.states = vec![ElementState::Checked];
+        let backend = Arc::new(MockBackend::new(snapshot(vec![
+            checked,
+            el("#/2", Role::CheckBox, "Notify"),
+        ])));
+        let runner = runner(backend.clone(), KillSwitch::new());
+
+        let mut file = base_file();
+        let mut s = step("s1", "invoke");
+        s.target = Some(Selector {
+            role: Some("check_box".into()),
+            name_any: vec!["Notify".into()],
+            state: StateGate {
+                checked: Some(false),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        file.steps = vec![s];
+
+        let outcome = runner.run(&file, &no_slots(), &noop_emit).await.unwrap();
+        assert_eq!(outcome, FlowOutcome::Done { verified: true });
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
     }
 
     #[tokio::test]

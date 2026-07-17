@@ -62,6 +62,54 @@ pub struct Slot {
     pub examples: Vec<String>,
     #[serde(default)]
     pub default: Option<String>,
+    /// Transforms applied, in order, wherever this slot is substituted — so a
+    /// value can be URL-encoded in a `uri` step yet trimmed-plain in a
+    /// `set_value` step. See [`SlotFilter`]. Empty = substitute verbatim.
+    #[serde(default)]
+    pub filters: Vec<SlotFilter>,
+}
+
+/// A value transform applied at substitution time. Kept small and total —
+/// unknown filters would be a schema error, so the set is closed and typed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotFilter {
+    /// Strip leading/trailing whitespace.
+    Trim,
+    /// Collapse internal runs of whitespace to single spaces (implies trim).
+    Squish,
+    /// Lowercase (Unicode-aware).
+    Lower,
+    /// Percent-encode for use inside a URL query/path component.
+    Urlencode,
+}
+
+impl SlotFilter {
+    /// Apply this transform to a substituted value.
+    pub fn apply(self, s: &str) -> String {
+        match self {
+            SlotFilter::Trim => s.trim().to_string(),
+            SlotFilter::Squish => s.split_whitespace().collect::<Vec<_>>().join(" "),
+            SlotFilter::Lower => s.to_lowercase(),
+            SlotFilter::Urlencode => urlencode_component(s),
+        }
+    }
+}
+
+/// Percent-encode a string for safe inclusion in a URL component (RFC 3986
+/// unreserved set stays literal; everything else becomes `%XX`). No external
+/// crate — the rule is small and this keeps the primitive dependency-free.
+fn urlencode_component(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
 }
 
 fn default_slot_type() -> String {
@@ -73,6 +121,9 @@ fn default_true() -> bool {
 
 /// A semantic selector set. Resolution tries these in order of specificity and
 /// re-resolves live at replay, so no single brittle handle decides the target.
+///
+/// Prefer *stable* handles — `automation_id_any` and `class_name_any` survive
+/// localization and copy changes; `name_any` is a fallback, not the anchor.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Selector {
     /// Accessibility control type, e.g. `edit`, `button`, `listitem`.
@@ -84,12 +135,31 @@ pub struct Selector {
     /// The name contains this (slot-templated) substring — for result rows.
     #[serde(default)]
     pub name_contains: Option<String>,
-    /// Any of these stable automation ids matches (most robust when present).
+    /// Any of these stable automation ids matches (most robust when present) —
+    /// scored *above* an English-name match, since ids survive localization and
+    /// copy changes. Prefer these as the anchor; `name_any` is the fallback.
     #[serde(default)]
     pub automation_id_any: Vec<String>,
     /// Accessibility patterns the control must support, e.g. `value`, `invoke`.
     #[serde(default)]
     pub patterns: Vec<String>,
+    /// Required control state gates. A control failing any asserted gate is
+    /// rejected outright (a disabled/offscreen control is never a valid target).
+    #[serde(default)]
+    pub state: StateGate,
+    /// When several controls match equally, take the nth (0-based) in tree
+    /// order. `None` means "must be unique or best-scored", not "first".
+    #[serde(default)]
+    pub nth: Option<usize>,
+    /// Resolve to an element bound by an earlier step (`FlowStep::bind`) instead
+    /// of searching — for acting on a specific row already chosen by a
+    /// `pick_result`. Mutually exclusive in spirit with the search fields.
+    #[serde(default)]
+    pub element_ref: Option<String>,
+    /// Scope the live search *under* an earlier-bound element (its subtree),
+    /// e.g. click the "More" button within the message row already bound.
+    #[serde(default)]
+    pub within_ref: Option<String>,
     /// Where to search: `app` (the target window) or `focused`.
     #[serde(default = "default_scope")]
     pub scope: String,
@@ -97,6 +167,26 @@ pub struct Selector {
 
 fn default_scope() -> String {
     "app".to_string()
+}
+
+/// Toggle-state requirements a candidate must satisfy to be a legal target, so a
+/// flow can target "the checkbox *only when unchecked*" or "the *selected* tab".
+/// `None` = don't care; `Some(true)`/`Some(false)` = assert the state.
+///
+/// These cover the states the safety filter does *not* own: enabled + on-screen
+/// are always required (a disabled or offscreen control is rejected outright,
+/// regardless of any gate here), so they are deliberately not expressible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct StateGate {
+    /// Assert the control is (not) checked (checkbox / toggle).
+    #[serde(default)]
+    pub checked: Option<bool>,
+    /// Assert the control is (not) selected (tab / list item / radio).
+    #[serde(default)]
+    pub selected: Option<bool>,
+    /// Assert the control is (not) expanded (tree item / combo box).
+    #[serde(default)]
+    pub expanded: Option<bool>,
 }
 
 /// A precondition that must hold (or be made to hold) before a flow runs.
@@ -139,8 +229,62 @@ pub enum OnFail {
     Replan,
 }
 
+/// How a `pick_result` step chooses among candidate rows, and what to do at the
+/// edges. This separates *choosing* a result from *acting* on it: a
+/// `pick_result` binds the winner (via [`FlowStep::bind`]); a later step acts on
+/// it through `element_ref`. Choosing is where flows most often go wrong, so the
+/// thresholds and the no-match / tie behaviour are explicit, not implicit.
+//
+// No `Eq`: `min_score`/`tie_margin` are `f32`. `PartialEq` is enough for tests.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PickSpec {
+    /// Slot-templated terms the desired row should match (e.g. `{song}`,
+    /// `{sender}`). Scored against each candidate's accessible name.
+    #[serde(default)]
+    pub match_terms: Vec<String>,
+    /// Rows whose name contains any of these are rejected outright — e.g.
+    /// `["Sponsored","Ad","Promoted"]` so an ad row never wins.
+    #[serde(default)]
+    pub negative_patterns: Vec<String>,
+    /// Minimum score (0.0–1.0) the best candidate must reach to be accepted.
+    #[serde(default = "default_min_score")]
+    pub min_score: f32,
+    /// The best must beat the runner-up by at least this margin, else it's a
+    /// tie (ambiguous) — guards against picking one of two near-identical rows.
+    #[serde(default = "default_tie_margin")]
+    pub tie_margin: f32,
+    /// What to do when nothing clears `min_score`.
+    #[serde(default)]
+    pub if_none: PickFallback,
+    /// What to do when the top rows tie within `tie_margin`.
+    #[serde(default)]
+    pub if_ambiguous: PickFallback,
+}
+
+fn default_min_score() -> f32 {
+    0.5
+}
+fn default_tie_margin() -> f32 {
+    0.15
+}
+
+/// What a `pick_result` does when it can't confidently pick one row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PickFallback {
+    /// Fail the step (honours the step's `on_fail`). Safe default — never guess.
+    #[default]
+    Fail,
+    /// Surface the candidates to the user and wait for a numbered pick.
+    Ask,
+    /// Take the top-scored row anyway (only for low-stakes, reversible picks).
+    TakeBest,
+}
+
 /// One semantic step of a leaf flow.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+//
+// No `Eq`: holds an optional [`PickSpec`], which carries `f32` thresholds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FlowStep {
     pub id: String,
     /// Human/audit description of the step's intent (PHI-free).
@@ -155,6 +299,14 @@ pub struct FlowStep {
     /// A slot-templated literal for `set_value` / `uri` / `launch` / `key`.
     #[serde(default)]
     pub value: Option<String>,
+    /// Selection parameters for a `pick_result` step (ignored otherwise).
+    #[serde(default)]
+    pub pick: Option<PickSpec>,
+    /// Bind this step's resolved element/result under a name so later steps can
+    /// reference it (`target.element_ref` / `target.within_ref`). PHI-free — a
+    /// name, never a value.
+    #[serde(default)]
+    pub bind: Option<String>,
     #[serde(default)]
     pub wait_before: Option<WaitSpec>,
     /// A predicate that must hold after the step (else the step failed).
@@ -186,7 +338,9 @@ pub struct FlowHealth {
 }
 
 /// A saved task file — the unit the drawer stores and the planner opens.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+//
+// No `Eq`: contains [`FlowStep`]s, which transitively hold `f32` thresholds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FlowFile {
     pub id: String,
     pub name: String,
@@ -303,6 +457,7 @@ mod tests {
                 required: true,
                 examples: vec!["Hotel California".into()],
                 default: None,
+                filters: vec![],
             }],
             steps: vec![FlowStep {
                 id: "s1".into(),
@@ -315,6 +470,8 @@ mod tests {
                     ..Default::default()
                 }),
                 value: Some("{song}".into()),
+                pick: None,
+                bind: None,
                 wait_before: None,
                 postcondition: None,
                 on_fail: OnFail::Abort,
@@ -358,6 +515,42 @@ mod tests {
         let json = serde_json::to_string(&f).unwrap();
         let back: FlowFile = serde_json::from_str(&json).unwrap();
         assert_eq!(back, f);
+    }
+
+    #[test]
+    fn slot_filters_apply_in_order() {
+        assert_eq!(SlotFilter::Trim.apply("  hi  "), "hi");
+        assert_eq!(SlotFilter::Squish.apply("a   b\t c"), "a b c");
+        assert_eq!(SlotFilter::Lower.apply("HeLLo"), "hello");
+        assert_eq!(SlotFilter::Urlencode.apply("a b&c"), "a%20b%26c");
+        // Unreserved chars survive urlencode untouched.
+        assert_eq!(SlotFilter::Urlencode.apply("A-z_0.9~"), "A-z_0.9~");
+    }
+
+    #[test]
+    fn pick_spec_defaults_are_conservative() {
+        let json = r#"{ "match_terms": ["{song}"] }"#;
+        let p: PickSpec = serde_json::from_str(json).unwrap();
+        assert_eq!(p.min_score, 0.5);
+        assert_eq!(p.tie_margin, 0.15);
+        assert_eq!(p.if_none, PickFallback::Fail);
+        assert_eq!(p.if_ambiguous, PickFallback::Fail);
+    }
+
+    #[test]
+    fn selector_ref_and_state_gates_roundtrip() {
+        let json = r#"{
+            "role": "check_box",
+            "within_ref": "msg_row",
+            "state": { "checked": false, "selected": true }
+        }"#;
+        let s: Selector = serde_json::from_str(json).unwrap();
+        assert_eq!(s.within_ref.as_deref(), Some("msg_row"));
+        assert_eq!(s.state.checked, Some(false));
+        assert_eq!(s.state.selected, Some(true));
+        assert_eq!(s.state.expanded, None);
+        assert!(s.element_ref.is_none());
+        assert!(s.nth.is_none());
     }
 
     #[test]
