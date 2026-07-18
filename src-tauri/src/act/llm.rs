@@ -75,6 +75,11 @@ impl LlmClient for GeminiLlmClient {
         let mut generation_config = serde_json::json!({
             "temperature": 0.0,
             "responseMimeType": "application/json",
+            // Minimize model "thinking" so flash / flash-lite return the structured
+            // plan with the lowest latency (budget 0 = thinking off). Act selection
+            // and planning are extraction/format tasks, not deep reasoning — the
+            // thinking phase was a large chunk of the slow Gemini round-trips.
+            "thinkingConfig": { "thinkingBudget": 0 },
         });
         if let Some(schema) = schema {
             let mut sanitized = schema.clone();

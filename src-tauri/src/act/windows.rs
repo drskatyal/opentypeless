@@ -265,10 +265,41 @@ impl AccessibilityBackend for WindowsUiaBackend {
     async fn open_uri(&self, uri: &str) -> std::result::Result<(), AppError> {
         let uri = uri.to_string();
         run_op(OP_WATCHDOG, "open_uri", move |desktop| {
-            let lower = uri.to_ascii_lowercase();
-            let is_web = lower.starts_with("http://") || lower.starts_with("https://");
+            let trimmed = uri.trim();
+            let lower = trimmed.to_ascii_lowercase();
+            let is_http = lower.starts_with("http://") || lower.starts_with("https://");
 
-            if !is_web {
+            // Does the URI carry an explicit non-web scheme (`shell:`, `ms-settings:`,
+            // `file:`, `mailto:`, …)? A scheme is `letters[+-.]*` before the first `:`,
+            // where the char after `:` is NOT a digit (so `host:port` is not mistaken
+            // for a scheme).
+            let has_uri_scheme = trimmed.find(':').is_some_and(|i| {
+                let scheme = &trimmed[..i];
+                let after = trimmed[i + 1..].chars().next();
+                !scheme.is_empty()
+                    && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+                    && scheme
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+                    && !after.is_some_and(|c| c.is_ascii_digit())
+            });
+
+            // A bare, scheme-less web address ("youtube.com", "www.x.com/p") is the
+            // common spoken form. Normalize it to https:// so it takes the browser
+            // path instead of falling through to `shell_open` (which can't open a
+            // bare domain → ShellExecuteW code 2). (B3)
+            let web_url = if is_http {
+                Some(trimmed.to_string())
+            } else if !has_uri_scheme
+                && trimmed.contains('.')
+                && !trimmed.chars().any(char::is_whitespace)
+            {
+                Some(format!("https://{trimmed}"))
+            } else {
+                None
+            };
+
+            let Some(url) = web_url else {
                 // Non-web schemes (`shell:`, `ms-settings:`, `file:`, `mailto:`, …)
                 // open no browser window. terminator's `open_url` hands the URI to
                 // ShellExecuteW and then *searches for a browser window with the
@@ -276,8 +307,8 @@ impl AccessibilityBackend for WindowsUiaBackend {
                 // spins to the watchdog (or mis-matches an unrelated browser window).
                 // Hand off directly to the shell instead: it returns as soon as the
                 // registered handler is launched. (B5)
-                return shell_open(&uri);
-            }
+                return shell_open(trimmed);
+            };
 
             // Web URL. Try the OS default browser first; if there is no default
             // association (ShellExecuteW error 2) fall back to Chrome then Edge,
@@ -287,7 +318,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
             let attempts = [None, Some(Browser::Chrome), Some(Browser::Edge)];
             let mut last_err: Option<AutomationError> = None;
             for browser in attempts {
-                match desktop.open_url(&uri, browser) {
+                match desktop.open_url(&url, browser) {
                     Ok(_) => return Ok(()),
                     Err(e) => last_err = Some(e),
                 }
