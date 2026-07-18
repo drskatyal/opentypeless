@@ -11,21 +11,22 @@ export function SegmentedControl({ options, value, onChange }: Props) {
   const id = useId()
 
   return (
-    <div className="flex bg-bg-tertiary/50 rounded-[10px] p-0.5 gap-0.5">
+    <div className="flex gap-0.5 rounded-[9px] border border-border bg-bg-tertiary/60 p-[3px]">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`relative flex-1 px-3 py-1.5 text-[13px] rounded-[8px] border-none cursor-pointer transition-colors ${
+          aria-pressed={value === opt.value}
+          className={`relative flex-1 cursor-pointer rounded-[6px] border-none bg-transparent px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
             value === opt.value
-              ? 'text-text-primary font-medium'
-              : 'text-text-secondary hover:text-text-primary bg-transparent'
+              ? 'text-text-primary'
+              : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           {value === opt.value && (
             <motion.div
               layoutId={`segment-bg-${id}`}
-              className="absolute inset-0 rounded-[8px] jelly-nav-active"
+              className="absolute inset-0 rounded-[6px] border border-border bg-bg-elevated shadow-sm"
               transition={{ type: 'spring', stiffness: 400, damping: 18 }}
             />
           )}

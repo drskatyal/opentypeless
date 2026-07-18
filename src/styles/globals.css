@@ -9,11 +9,12 @@
 
   --color-text-primary: #1a1a1a;
   --color-text-secondary: #666666;
-  --color-text-tertiary: #999999;
+  --color-text-tertiary: #6c727a; /* raised from #999999 → ≥4.5:1 on card/ground (WCAG AA) */
 
-  --color-accent: #0d9488; /* aurora family, deep enough for WCAG-AA UI contrast on white */
+  --color-accent: #0d9488; /* aurora family, deep enough for WCAG-AA UI contrast on white (≥3:1) */
   --color-accent-hover: #0b7d6f; /* aurora hover */
   --color-accent-light: #e3faf4; /* aurora tint */
+  --color-accent-text: #0a7266; /* link/emphasis TEXT — ≥4.5:1 on light surfaces (accent itself is UI-only) */
 
   --color-success: #34c759;
   --color-warning: #ff9500;
@@ -85,11 +86,12 @@ body,
 
   --color-text-primary: #d6dce8; /* text */
   --color-text-secondary: #9aa3b4; /* text-secondary */
-  --color-text-tertiary: #6e7889; /* muted */
+  --color-text-tertiary: #8b95a3; /* muted — raised from #6e7889 → ≥4.5:1 on dark surfaces (WCAG AA) */
 
   --color-accent: #6fe7cb; /* aurora */
   --color-accent-hover: #57c9ae; /* aurora hover */
   --color-accent-light: #0f2a24; /* dark aurora tint */
+  --color-accent-text: #7fecd2; /* link/emphasis TEXT on dark surfaces — high contrast */
 
   --color-border: #1b2331; /* hairline */
   --color-border-focus: #6fe7cb; /* aurora */

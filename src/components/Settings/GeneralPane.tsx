@@ -13,6 +13,7 @@ import {
 import type { HotkeyStatus } from '../../lib/tauri'
 import { SegmentedControl } from './shared/SegmentedControl'
 import { Toggle } from './shared/Toggle'
+import { SettingSection } from './shared/SettingSection'
 import { ShortcutBindingList } from './ShortcutBindingList'
 
 const MAC_ACCESSIBILITY_HOTKEY_ERROR = 'Accessibility permission may be denied'
@@ -347,11 +348,8 @@ export function GeneralPane() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h3 className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2.5">
-        {title}
-      </h3>
-      {children}
-    </div>
+    <SettingSection title={title}>
+      <div className="px-[18px] pb-4 pt-1">{children}</div>
+    </SettingSection>
   )
 }

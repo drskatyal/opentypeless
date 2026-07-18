@@ -104,7 +104,7 @@ export function DirtyBar() {
 
   return (
     <motion.div
-      className={`flex items-center justify-between px-5 py-3 ${bgClass}`}
+      className={`flex shrink-0 items-center justify-between px-8 py-3 max-[820px]:px-5 ${bgClass}`}
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 20, opacity: 0 }}
@@ -123,7 +123,7 @@ export function DirtyBar() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-white bg-accent rounded-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-70"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-[#04211d] bg-accent rounded-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-70"
           >
             {saving && (
               <motion.div

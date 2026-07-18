@@ -23,6 +23,8 @@ import {
   type SttProviderDiagnostics,
 } from '../../lib/tauri'
 import { FormField } from './shared/FormField'
+import { SettingSection } from './shared/SettingSection'
+import { Select } from './shared/Select'
 import { CheckCircle2, XCircle, Loader2, Crown } from 'lucide-react'
 
 export function SttPane() {
@@ -182,9 +184,11 @@ export function SttPane() {
   }
 
   return (
-    <div className="space-y-5">
+    <SettingSection>
+      <div className="space-y-5 p-[18px]">
       <FormField label={t('settings.provider')}>
-        <select
+        <Select
+          fluid
           value={config.stt_provider}
           onChange={(e) => {
             const provider = e.target.value as typeof config.stt_provider
@@ -206,14 +210,13 @@ export function SttPane() {
             setSttLatencyMs(null)
             setTestErrorMessage(null)
           }}
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
           {visibleSttProviders.map((p) => (
             <option key={p.value} value={p.value}>
               {t(p.labelKey)}
             </option>
           ))}
-        </select>
+        </Select>
       </FormField>
 
       {isCloud ? (
@@ -295,7 +298,8 @@ export function SttPane() {
           {isCustomWhisper && (
             <>
               <FormField label={t('settings.customSttPreset')}>
-                <select
+                <Select
+                  fluid
                   value={config.stt_custom_preset}
                   onChange={(e) => {
                     const preset = e.target.value as typeof config.stt_custom_preset
@@ -314,14 +318,13 @@ export function SttPane() {
                     setSttLatencyMs(null)
                     setTestErrorMessage(null)
                   }}
-                  className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
                 >
                   {CUSTOM_STT_PRESETS.map((preset) => (
                     <option key={preset.value} value={preset.value}>
                       {t(preset.labelKey)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </FormField>
 
               <FormField label={t('settings.customSttBaseUrl')}>
@@ -385,7 +388,8 @@ export function SttPane() {
 
           {isGemini && (
             <FormField label={t('settings.geminiSttModel')}>
-              <select
+              <Select
+                fluid
                 aria-label={t('settings.geminiSttModel')}
                 value={geminiModel}
                 onChange={(e) => {
@@ -394,14 +398,13 @@ export function SttPane() {
                   setSttLatencyMs(null)
                   setTestErrorMessage(null)
                 }}
-                className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
               >
                 {GEMINI_STT_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
                     {m.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           )}
 
@@ -477,7 +480,8 @@ export function SttPane() {
 
           {isVolcengineDoubao && (
             <FormField label={t('settings.volcengineResourceId')}>
-              <select
+              <Select
+                fluid
                 aria-label={t('settings.volcengineResourceId')}
                 value={volcengineResourceId}
                 onChange={(e) => {
@@ -487,14 +491,13 @@ export function SttPane() {
                   setTestErrorMessage(null)
                   setCredentialErrorMessage(null)
                 }}
-                className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
               >
                 {VOLCENGINE_STT_RESOURCES.map((resource) => (
                   <option key={resource.value} value={resource.value}>
                     {t(resource.labelKey)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           )}
 
@@ -554,18 +557,19 @@ export function SttPane() {
       )}
 
       <FormField label={t('settings.sttLanguage')}>
-        <select
+        <Select
+          fluid
           value={config.stt_language}
           onChange={(e) => updateConfig({ stt_language: e.target.value })}
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
           {LANGUAGES.map((l) => (
             <option key={l.value} value={l.value}>
               {l.labelKey ? t(l.labelKey) : l.label}
             </option>
           ))}
-        </select>
+        </Select>
       </FormField>
-    </div>
+      </div>
+    </SettingSection>
   )
 }

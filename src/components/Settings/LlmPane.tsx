@@ -15,6 +15,8 @@ import {
 import type { CustomAppMappingView, MappingCandidateView } from '../../lib/tauri'
 import { FormField } from './shared/FormField'
 import { Toggle } from './shared/Toggle'
+import { SettingSection } from './shared/SettingSection'
+import { Select } from './shared/Select'
 import {
   CheckCircle2,
   XCircle,
@@ -254,9 +256,11 @@ export function LlmPane() {
   )
 
   return (
-    <div className="space-y-4">
+    <SettingSection>
+      <div className="space-y-4 p-[18px]">
       <FormField label={t('settings.provider')}>
-        <select
+        <Select
+          fluid
           value={config.llm_provider}
           onChange={(e) => {
             const provider = e.target.value as typeof config.llm_provider
@@ -271,14 +275,13 @@ export function LlmPane() {
             setModels([])
             setTestErrorMessage(null)
           }}
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
           {LLM_PROVIDERS.map((p) => (
             <option key={p.value} value={p.value}>
               {t(p.labelKey)}
             </option>
           ))}
-        </select>
+        </Select>
       </FormField>
 
       {isCloud && (
@@ -511,16 +514,16 @@ export function LlmPane() {
 
       {config.polish_enabled && (
         <FormField label={t('settings.polishStyle')}>
-          <select
+          <Select
+            fluid
             value={config.polish_style}
             onChange={(e) => updateConfig({ polish_style: e.target.value as PolishStyle })}
-            className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
           >
             <option value="minimal">{t('settings.polishStyleMinimal')}</option>
             <option value="clean">{t('settings.polishStyleClean')}</option>
             <option value="structured">{t('settings.polishStyleStructured')}</option>
             <option value="professional">{t('settings.polishStyleProfessional')}</option>
-          </select>
+          </Select>
         </FormField>
       )}
 
@@ -604,7 +607,8 @@ export function LlmPane() {
           }}
         />
       )}
-    </div>
+      </div>
+    </SettingSection>
   )
 }
 
@@ -642,16 +646,16 @@ function ActFollowupSettings() {
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <FormField label={t('settings.actFollowupModel')}>
-        <select
+        <Select
+          fluid
           value={provider}
           onChange={(e) =>
             updateConfig({ act_followup_provider: e.target.value as typeof provider })
           }
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
           <option value="gemini">{t('settings.actFollowupGemini')}</option>
           <option value="cerebras">{t('settings.actFollowupCerebras')}</option>
-        </select>
+        </Select>
         <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.actFollowupHint')}</p>
       </FormField>
 
