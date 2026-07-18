@@ -212,6 +212,10 @@ impl LlmClient for CerebrasLlmClient {
             "model": self.model,
             "temperature": 0.0,
             "response_format": { "type": "json_object" },
+            // gpt-oss models default to "medium" reasoning; Act selection/planning is
+            // structured extraction, not deep reasoning, so pin the floor ("low") to
+            // cut latency on the follow-up path. Mirrors Gemini's thinkingBudget=0.
+            "reasoning_effort": "low",
             "messages": [
                 { "role": "system", "content": system_prompt },
                 { "role": "user", "content": user },
