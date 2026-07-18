@@ -630,15 +630,21 @@ impl Conductor {
         extra_context: Option<String>,
         events: &mut Vec<ActEvent>,
     ) -> Step {
+        // A snapshot failure (typically a wedged UIA provider timing out the walk)
+        // must not sink the whole command: degrade to empty grounding and let the
+        // planner proceed. Untargeted actions (launch app, type text, press keys,
+        // open uri) — which cover the bulk of branch recipes like "take a note" or
+        // "search the pc" — still run; targeted actions correctly fail validation
+        // because no element paths exist. Far better than a hard "couldn't read the
+        // screen" abort on every command while a heavy window (Win11 Notepad, a
+        // busy Chrome) is in the foreground.
         let packet = match self.backend.snapshot().await {
             Ok(snap) => {
                 GroundingPacket::from_snapshot(&snap, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS)
             }
             Err(e) => {
-                let message = format!("Couldn't read the screen: {e}");
-                self.finish_task(false, &message, events);
-                events.push(ActEvent::Error { message });
-                return Step::Next;
+                tracing::warn!(error = %e, "act: snapshot failed; planning with empty grounding");
+                GroundingPacket::empty()
             }
         };
         let mut prior = self.board.context_summary();

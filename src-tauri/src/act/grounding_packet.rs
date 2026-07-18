@@ -125,6 +125,21 @@ impl GroundingPacket {
         }
     }
 
+    /// A grounding packet with no screen context. Used when the UI snapshot fails
+    /// (e.g. a wedged UIA provider times out the walk) so a command degrades to
+    /// running "blind" instead of hard-failing: the planner can still emit
+    /// untargeted actions (key presses, launches, uris) — e.g. "search the pc"
+    /// (press Win, type, Enter) — while targeted actions correctly fail validation
+    /// because no element paths exist.
+    pub fn empty() -> Self {
+        Self {
+            app_name: String::new(),
+            window_title: String::new(),
+            focused_path: None,
+            elements: Vec::new(),
+        }
+    }
+
     /// Render the packet as a compact, UNTRUSTED-wrapped prompt block. Contains no
     /// element values — only labels, roles, states and value lengths.
     pub fn to_prompt_block(&self) -> String {
