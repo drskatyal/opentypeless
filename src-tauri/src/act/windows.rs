@@ -438,6 +438,47 @@ impl AccessibilityBackend for WindowsUiaBackend {
         .map_err(to_app_err)
     }
 
+    async fn capture_screen(&self) -> std::result::Result<Option<Vec<u8>>, AppError> {
+        // Screen capture is a GDI/DXGI grab, not a UIA op, so it runs on a blocking
+        // pool thread rather than the single UIA worker (keeping the worker free
+        // for element ops). Returns a PNG of the primary monitor for the vision /
+        // hybrid plan modes.
+        let png = tokio::task::spawn_blocking(|| -> std::result::Result<Vec<u8>, String> {
+            use image::ImageEncoder;
+            let monitors = xcap::Monitor::all().map_err(|e| e.to_string())?;
+            let monitor = monitors
+                .iter()
+                .find(|m| m.is_primary().unwrap_or(false))
+                .or_else(|| monitors.first())
+                .ok_or_else(|| "no monitor available".to_string())?;
+            let img = monitor.capture_image().map_err(|e| e.to_string())?;
+            let (w, h) = (img.width(), img.height());
+            let mut png = Vec::new();
+            image::codecs::png::PngEncoder::new(&mut png)
+                .write_image(img.as_raw(), w, h, image::ExtendedColorType::Rgba8)
+                .map_err(|e| e.to_string())?;
+            Ok(png)
+        })
+        .await
+        .map_err(|e| AppError::Config(format!("capture join error: {e}")))?
+        .map_err(AppError::Config)?;
+        Ok(Some(png))
+    }
+
+    async fn click_point(&self, x: i32, y: i32) -> std::result::Result<(), AppError> {
+        // A coordinate left-click for `vision` mode. Invalidates the snapshot cache
+        // (it may change the UI) and runs on the UIA worker like other input ops.
+        invalidate_snapshot_cache();
+        run_op(OP_WATCHDOG, "click_point", move |desktop| {
+            desktop
+                .click_at_coordinates(x as f64, y as f64)
+                .map_err(to_anyhow)?;
+            Ok(())
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
     fn name(&self) -> &str {
         "windows-terminator"
     }

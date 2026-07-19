@@ -4361,6 +4361,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "http",
+ "image",
  "keyring",
  "libloading 0.8.9",
  "objc2 0.5.2",
@@ -4389,6 +4390,7 @@ dependencies = [
  "url",
  "uuid",
  "windows-sys 0.59.0",
+ "xcap",
 ]
 
 [[package]]

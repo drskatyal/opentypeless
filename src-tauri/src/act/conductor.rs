@@ -29,7 +29,8 @@ use super::flow_runner::{
 };
 use super::grounding_packet::{GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS};
 use super::llm::LlmClient;
-use super::planner::{PlanRequest, PlanSource, Planner, CONTINUATION_MARKER};
+use super::plan_mode::PlanMode;
+use super::planner::{Perception, PlanRequest, PlanSource, Planner, CONTINUATION_MARKER};
 use super::selection::{self, Mission, SelectionError};
 
 /// Slot name -> value, as filled by the selection layer.
@@ -131,6 +132,9 @@ pub struct Conductor {
     /// The board id of the mission currently running (set in `run_mission`, and
     /// restored on resume), so a terminal outcome emits the matching `TaskResult`.
     current_task: Option<String>,
+    /// Screen-aware perception mode for novel planning (tree / hybrid / vision).
+    /// Set from config after construction; defaults to `Tree`.
+    plan_mode: PlanMode,
 }
 
 /// Where the mission loop lands after one mission.
@@ -172,7 +176,14 @@ impl Conductor {
             state: ConductorState::Idle,
             pending: None,
             current_task: None,
+            plan_mode: PlanMode::Tree,
         }
+    }
+
+    /// Set the screen-aware perception mode used for novel planning. Called after
+    /// construction from the persisted `act_plan_mode` config.
+    pub fn set_plan_mode(&mut self, mode: PlanMode) {
+        self.plan_mode = mode;
     }
 
     pub fn state(&self) -> &ConductorState {
@@ -318,6 +329,17 @@ impl Conductor {
             errors,
             total_events = events.len(),
             "Act command finished"
+        );
+        // Scoreboard: one comparable line per command so the three perception
+        // modes can be graded on the same tasks (goal-level result + which mode
+        // ran). Latency is added when the per-command timer lands in Phase 2b.
+        tracing::info!(
+            target: "act_scoreboard",
+            mode = self.plan_mode.as_str(),
+            results,
+            errors,
+            ok = (errors == 0 && results > 0),
+            "act scoreboard"
         );
         Ok(events)
     }
@@ -714,14 +736,43 @@ impl Conductor {
             // the goal — never raw untrusted screen text.
             let prior_context = novel_prior_context(&self.board, &goal, &history);
 
-            // (c) Plan the next batch.
+            // (c) Perception: for hybrid / vision modes, capture a screenshot to
+            // hand the planner. A missing platform impl (`Ok(None)`) or a capture
+            // error degrades to tree grounding for this turn rather than failing —
+            // the mode toggle never breaks Act.
+            let perception = if self.plan_mode.needs_screenshot() {
+                match self.backend.capture_screen().await {
+                    Ok(Some(png)) => Perception {
+                        mode: self.plan_mode,
+                        screenshot_png: Some(png),
+                    },
+                    Ok(None) => {
+                        tracing::debug!(
+                            mode = self.plan_mode.as_str(),
+                            "act novel: no screen capture available; using tree grounding"
+                        );
+                        Perception::tree()
+                    }
+                    Err(e) => {
+                        tracing::warn!(mode = self.plan_mode.as_str(), error = %e, "act novel: screen capture failed; using tree grounding");
+                        Perception::tree()
+                    }
+                }
+            } else {
+                Perception::tree()
+            };
+
+            // (d) Plan the next batch.
             let (plan, source) = match self
                 .planner
-                .plan(PlanRequest {
-                    transcript: goal.clone(),
-                    packet,
-                    prior_context,
-                })
+                .plan_perceived(
+                    PlanRequest {
+                        transcript: goal.clone(),
+                        packet,
+                        prior_context,
+                    },
+                    perception,
+                )
                 .await
             {
                 Ok(res) => (res.plan, res.source),

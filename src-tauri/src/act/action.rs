@@ -317,6 +317,16 @@ mod tests {
     }
 
     #[test]
+    fn click_roundtrips() {
+        let a: Action = serde_json::from_str(r#"{"op":"click","x":420,"y":137}"#).unwrap();
+        assert_eq!(a, Action::Click { x: 420, y: 137 });
+        assert_eq!(a.kind(), "click");
+        assert_eq!(a.origin(), None);
+        assert_eq!(a.target(), None);
+        assert_eq!(roundtrip(&a), a);
+    }
+
+    #[test]
     fn wait_roundtrips() {
         let a: Action = serde_json::from_str(r#"{"op":"wait","ms":250}"#).unwrap();
         assert_eq!(a, Action::Wait { ms: 250 });

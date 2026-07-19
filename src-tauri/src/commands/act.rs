@@ -244,7 +244,9 @@ fn build_conductor(
     let runner = FlowRunner::new(backend.clone(), gate.clone(), kill.clone());
     let planner = Planner::new(llm.clone(), config.act_model_tier.clone());
     let executor = Executor::new(backend.clone(), gate, None, kill);
-    Conductor::new(registry, llm, runner, planner, executor, backend)
+    let mut conductor = Conductor::new(registry, llm, runner, planner, executor, backend);
+    conductor.set_plan_mode(act::plan_mode::PlanMode::from_config(&config.act_plan_mode));
+    conductor
 }
 
 /// Build + arm a fresh Conductor from `config` and store it — plus its kill

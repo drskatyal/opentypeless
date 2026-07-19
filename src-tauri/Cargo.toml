@@ -63,6 +63,11 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
 ] }
+# Screen capture for Act's screen-aware plan modes (hybrid / vision), Windows
+# only — xcap's Linux backend needs PipeWire/libspa, which we don't want to pull
+# into non-Windows builds. Versions already appear in the tree via terminator.
+xcap = "0.6"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native"] }
