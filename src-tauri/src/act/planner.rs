@@ -119,12 +119,22 @@ You are a Windows Act planner working from a SCREENSHOT of the current screen. O
 ActionPlan. No markdown, no prose.
 
 You cannot see an accessibility tree — plan by looking at the image. To interact with something on \
-screen, emit a click at its PIXEL coordinate: {\"op\":\"click\",\"x\":<px>,\"y\":<px>} where x,y are \
-pixels in the screenshot (origin top-left), aimed at the CENTRE of the target. After a click that \
-focuses a field, use type to enter text and key for shortcuts (for example {\"op\":\"key\",\
-\"combo\":\"enter\"}). Prefer a known shortcut, uri, or launch (same as normal) when it is faster \
-than clicking; use click only for on-screen targets. Do NOT emit focus/invoke/select_menu — those \
-need an accessibility path you do not have here.
+screen, emit a click at its coordinate on a NORMALIZED 0-1000 grid: \
+{\"op\":\"click\",\"x\":<0-1000>,\"y\":<0-1000>}. x is HORIZONTAL (0 = left edge, 1000 = right edge); \
+y is VERTICAL (0 = top edge, 1000 = bottom edge); origin is top-left; both are integers in [0,1000] \
+regardless of the screen's real pixel size. Aim at the exact CENTRE of the target. Example: a button \
+in the middle of the screen is {\"op\":\"click\",\"x\":500,\"y\":500}; one near the top-right is \
+about {\"op\":\"click\",\"x\":930,\"y\":70}. After a click that focuses a field, use type to enter \
+text and key for shortcuts (for example {\"op\":\"key\",\"combo\":\"enter\"}). Prefer a known \
+shortcut, uri, or launch (same as normal) when it is faster than clicking; use click only for \
+on-screen targets. Do NOT emit focus/invoke/select_menu — those need an accessibility path you do \
+not have here.
+
+VISIBILITY: only click something that is CURRENTLY VISIBLE in the screenshot. If the target is below \
+the fold or scrolled out of view, do NOT guess a coordinate — emit a scroll first \
+({\"op\":\"scroll\",\"amount\":3} scrolls down, {\"op\":\"scroll\",\"amount\":-3} up), then STOP so \
+the next screenshot shows it, then click it. Guessing the coordinate of an offscreen item is the \
+main way clicks miss.
 
 SEQUENCING: after a launch or uri, wait, then STOP so the next screenshot shows the new screen — \
 never click into a window that is not visible yet. Return only the next few actions toward the \
@@ -151,7 +161,39 @@ see in the screenshot that has NO path in the elements list. If the target is in
 but offscreen, invoke it directly (invoke brings it into view) or scroll first — do not pixel- \
 click blank space. Example: to play a video when the elements list a link \
 name='Eagles - Hotel California' at path #/2/1/1/2/2/1/1/1/1/1/3/14, emit \
-{\"op\":\"invoke\",\"target\":\"#/2/1/1/2/2/1/1/1/1/1/3/14\"} — not a click at some pixel.";
+{\"op\":\"invoke\",\"target\":\"#/2/1/1/2/2/1/1/1/1/1/3/14\"} — not a click at some pixel. If you DO \
+fall back to a coordinate click, x and y are on a NORMALIZED 0-1000 grid (x = horizontal, 0 left to \
+1000 right; y = vertical, 0 top to 1000 bottom), aimed at the target's centre — never raw pixels.";
+
+/// Read `(width, height)` from a PNG's IHDR chunk without decoding the pixels.
+/// Returns `None` if the bytes aren't a PNG we recognize. Layout: 8-byte
+/// signature, then a `length(4) + "IHDR"(4)` chunk header, then `width(4)` and
+/// `height(4)` as big-endian u32.
+fn png_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.len() < 24 || &bytes[0..8] != b"\x89PNG\r\n\x1a\n" || &bytes[12..16] != b"IHDR" {
+        return None;
+    }
+    let w = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
+    let h = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
+    (w > 0 && h > 0).then_some((w, h))
+}
+
+/// Scale vision-mode coordinate clicks from the model's normalized 0-1000 grid to
+/// pixel coordinates over the `width`x`height` screenshot (the space `click_point`
+/// actuates in). The model is instructed to emit 0-1000; a value already above
+/// 1000 can't be normalized, so it's almost certainly a raw pixel from a turn that
+/// ignored the scale — pass those through untouched rather than crushing them to
+/// the screen edge. Negatives are clamped to 0.
+fn denormalize_clicks(plan: &mut ActionPlan, width: u32, height: u32) {
+    for action in &mut plan.actions {
+        if let Action::Click { x, y } = action {
+            if (0..=1000).contains(x) && (0..=1000).contains(y) {
+                *x = ((*x).max(0) as f64 / 1000.0 * f64::from(width)).round() as i32;
+                *y = ((*y).max(0) as f64 / 1000.0 * f64::from(height)).round() as i32;
+            }
+        }
+    }
+}
 
 /// The maximum number of actions a single (whole-goal) plan may contain.
 const MAX_ACTIONS: usize = 12;
@@ -348,6 +390,10 @@ impl Planner {
             std::borrow::Cow::Borrowed(SYSTEM_PROMPT)
         };
         let image = perception.screenshot_png.as_deref();
+        // Screenshot pixel dimensions, if we sent one. Coordinate clicks come back on
+        // a normalized 0-1000 grid (the model's native spatial space); we scale them
+        // to real screenshot pixels — the same space `click_point` actuates in.
+        let screen_dims = image.and_then(png_dimensions);
         tracing::debug!(model = %self.model, mode = perception.mode.as_str(), has_image = image.is_some(), "act planner escalating to LLM");
         let schema = response_schema();
         let mut user = build_user_message(&req);
@@ -376,7 +422,10 @@ impl Planner {
             };
 
             match parse_and_validate(&raw, &req) {
-                Ok(plan) => {
+                Ok(mut plan) => {
+                    if let Some((w, h)) = screen_dims {
+                        denormalize_clicks(&mut plan, w, h);
+                    }
                     return Ok(PlanResult {
                         plan,
                         source: PlanSource::Llm,
@@ -701,6 +750,60 @@ mod tests {
             focused_path: None,
             elements,
         }
+    }
+
+    fn fake_png(w: u32, h: u32) -> Vec<u8> {
+        // Just the 8-byte signature + IHDR header + width/height — enough for
+        // `png_dimensions`, which never decodes pixels.
+        let mut v = Vec::new();
+        v.extend_from_slice(b"\x89PNG\r\n\x1a\n");
+        v.extend_from_slice(&[0, 0, 0, 13]);
+        v.extend_from_slice(b"IHDR");
+        v.extend_from_slice(&w.to_be_bytes());
+        v.extend_from_slice(&h.to_be_bytes());
+        v
+    }
+
+    #[test]
+    fn png_dimensions_reads_ihdr() {
+        assert_eq!(png_dimensions(&fake_png(1920, 1080)), Some((1920, 1080)));
+        assert_eq!(png_dimensions(b"not a png at all"), None);
+        assert_eq!(png_dimensions(&fake_png(0, 100)), None);
+    }
+
+    #[test]
+    fn denormalize_clicks_scales_0_1000_to_pixels() {
+        // The core grounding fix: the model emits 0-1000; we scale to real pixels.
+        let mut plan = ActionPlan::new(vec![
+            Action::Click { x: 500, y: 500 }, // centre
+            Action::Click { x: 1000, y: 0 },  // top-right corner
+            Action::Wait { ms: 100 },         // non-click, untouched
+        ]);
+        denormalize_clicks(&mut plan, 1920, 1080);
+        assert!(matches!(plan.actions[0], Action::Click { x: 960, y: 540 }));
+        assert!(matches!(plan.actions[1], Action::Click { x: 1920, y: 0 }));
+        assert!(matches!(plan.actions[2], Action::Wait { ms: 100 }));
+    }
+
+    #[test]
+    fn denormalize_clicks_passes_through_raw_pixels_above_1000() {
+        // A coordinate beyond the 0-1000 grid can't be normalized — it's a raw pixel
+        // the model emitted despite instructions, so leave it exactly as-is.
+        let mut plan = ActionPlan::new(vec![Action::Click { x: 1600, y: 200 }]);
+        denormalize_clicks(&mut plan, 1920, 1080);
+        assert!(matches!(plan.actions[0], Action::Click { x: 1600, y: 200 }));
+    }
+
+    #[test]
+    fn vision_prompt_requests_normalized_grid_not_pixels() {
+        assert!(
+            VISION_SYSTEM_PROMPT.contains("0-1000"),
+            "vision prompt must request the normalized 0-1000 grid"
+        );
+        assert!(
+            !VISION_SYSTEM_PROMPT.contains("<px>"),
+            "vision prompt must not ask for raw pixels anymore"
+        );
     }
 
     #[test]
