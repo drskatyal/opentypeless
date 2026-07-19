@@ -90,14 +90,16 @@ fn act_gemini_key<V: CredentialSecretReader>(config: &storage::AppConfig, vault:
         .to_string()
 }
 
-/// Map the configured planner tier onto a concrete model id. "precise" trades
-/// latency for a stronger planner; anything else uses the fast default.
-fn model_for_tier(tier: &str) -> &'static str {
-    if tier == "precise" {
-        "gemini-3.5-flash"
-    } else {
-        "gemini-3.1-flash-lite"
-    }
+/// Map the configured planner tier onto a concrete model id.
+///
+/// Both tiers use `gemini-3.5-flash`: in practice `gemini-3.1-flash-lite`
+/// (the former "fast" model) repeatedly blew past the 25s planner timeout on the
+/// Act path — the whole command failed with "planner timed out" — while
+/// `gemini-3.5-flash` (the same model STT uses) answers in ~3s. Reliability beats
+/// a nominally-cheaper model that doesn't return. (Cerebras `gpt-oss-120b`
+/// remains the fastest planner and is preferred when a Cerebras key is set.)
+fn model_for_tier(_tier: &str) -> &'static str {
+    "gemini-3.5-flash"
 }
 
 /// The Cerebras model used for Act's follow-up calls — a large open model served

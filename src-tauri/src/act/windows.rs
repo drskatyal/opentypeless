@@ -255,6 +255,17 @@ impl AccessibilityBackend for WindowsUiaBackend {
         invalidate_snapshot_cache();
         let target = target.to_string();
         run_op(OP_WATCHDOG, "launch", move |desktop| {
+            // Prefer a fast, fire-and-forget ShellExecuteW launch. It resolves
+            // common apps via the App Paths registry (chrome, spotify, notepad),
+            // returns the instant the launch is *issued*, and lets the closed loop
+            // re-observe to find the new window. Terminator's `open_application`
+            // instead WAITS for the app window via UIA, which blows past the 10s
+            // watchdog on a cold start (this is exactly the "uia broker [launch]:
+            // exceeded watchdog (10s)" failure on Spotify's first launch). Fall
+            // back to it only when the shell can't resolve the name.
+            if shell_open(&target).is_ok() {
+                return Ok(());
+            }
             desktop.open_application(&target).map_err(to_anyhow)?;
             Ok(())
         })

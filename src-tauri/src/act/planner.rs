@@ -56,6 +56,13 @@ page) MUST NOT use origin: screen.
 SEQUENCING: after a launch or uri, emit a wait before interacting. Anything ambiguous or \
 destructive gets an ask_user. Emit stop when the goal is already done.
 
+ASK_USER IS A LAST RESORT: use ask_user ONLY when the SPOKEN GOAL is genuinely ambiguous (it \
+names something that maps to several equally-valid targets you cannot choose between). Do NOT \
+ask_user just because the app you launched is not on screen yet, because a search box has not \
+appeared, or because you are mid-task - in those cases emit stop and let the next observation \
+show the new screen. Launching an app and then asking the user how to proceed is a plan error: \
+launch, wait, STOP - then search/type on the next turn once the window is visible.
+
 CONTINUATION: You may be called repeatedly for ONE goal. When the trusted context contains a block \
 starting with <<<PROGRESS, it lists what has already happened and the SCREEN_CONTEXT is the CURRENT \
 screen after those steps. In that mode return ONLY the next action(s) - at most 6 - that make progress \
