@@ -622,9 +622,9 @@ impl Conductor {
                 // slot) is stripped so a `{name}` never leaks to the planner.
                 self.board.record(format!("branch {}", file.id));
                 let filters = branch_slot_filters(&file);
-                let goal =
-                    strip_unresolved_tokens(&substitute_value(&context, &slots, &filters));
-                self.run_novel_with(goal, slot_context(&slots), events).await
+                let goal = strip_unresolved_tokens(&substitute_value(&context, &slots, &filters));
+                self.run_novel_with(goal, slot_context(&slots), events)
+                    .await
             }
             Ok(FlowOutcome::Aborted) => {
                 self.finish_task(false, "Stopped", events);
@@ -744,7 +744,10 @@ impl Conductor {
                 .unwrap_or_default();
             let sig = (first_sig, fingerprint);
             if prev_sig.as_ref() == Some(&sig) {
-                tracing::warn!(iter, "act novel: no progress (same first action + unchanged screen); aborting");
+                tracing::warn!(
+                    iter,
+                    "act novel: no progress (same first action + unchanged screen); aborting"
+                );
                 let summary = format!("Couldn't make progress: {}", history_tail(&history));
                 self.board.record(short_goal(&goal));
                 self.finish_task(false, &summary, events);
@@ -784,7 +787,10 @@ impl Conductor {
             }
         }
 
-        tracing::warn!(iters = MAX_NOVEL_ITERS, "act novel: exhausted iteration budget");
+        tracing::warn!(
+            iters = MAX_NOVEL_ITERS,
+            "act novel: exhausted iteration budget"
+        );
         let summary = format!(
             "Couldn't finish after {MAX_NOVEL_ITERS} tries: {}",
             history_tail(&history)
@@ -1366,7 +1372,11 @@ mod tests {
         // loop terminates on the stop — exactly one planner call (a second would
         // exhaust the fixture and panic). Proves the "click Retry → one invoke,
         // model stops" case still terminates cleanly under the trust-the-stop rule.
-        let backend = Arc::new(MockBackend::new(snap(vec![el("#/1", Role::Button, "Play")])));
+        let backend = Arc::new(MockBackend::new(snap(vec![el(
+            "#/1",
+            Role::Button,
+            "Play",
+        )])));
         let selection = r#"{"missions":[{"type":"novel","goal":"press the play button"}]}"#;
         let plan = r##"{"actions":[{"op":"invoke","target":"#/1"},{"op":"stop"}]}"##;
         let mut c = conductor(
@@ -1394,9 +1404,12 @@ mod tests {
         // -> the loop continues, re-observes, and re-plans; iter 2 emits stop ->
         // success. Three LLM turns (selection + two planner calls) proves the loop
         // ran twice rather than terminating after the first interacting batch.
-        let backend = Arc::new(MockBackend::new(snap(vec![el("#/1", Role::TextField, "Body")])));
-        let selection =
-            r#"{"missions":[{"type":"novel","goal":"write the intro then finish"}]}"#;
+        let backend = Arc::new(MockBackend::new(snap(vec![el(
+            "#/1",
+            Role::TextField,
+            "Body",
+        )])));
+        let selection = r#"{"missions":[{"type":"novel","goal":"write the intro then finish"}]}"#;
         let iter1 = r#"{"actions":[{"op":"type","text":"intro"}]}"#;
         let iter2 = r#"{"actions":[{"op":"stop"}]}"#;
         let mut c = conductor(
@@ -1439,7 +1452,10 @@ mod tests {
             .on_transcript("open the page then finish".into())
             .await
             .unwrap();
-        assert_eq!(backend.opened_uris(), vec!["https://example.com".to_string()]);
+        assert_eq!(
+            backend.opened_uris(),
+            vec!["https://example.com".to_string()]
+        );
         assert!(events
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));

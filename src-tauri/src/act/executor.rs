@@ -1121,7 +1121,9 @@ fn describe_flow(flow: &Flow) -> (&'static str, String) {
     match flow {
         Flow::Continue(o) | Flow::Halt(o) | Flow::Pause(o) => match o {
             StepOutcome::Done { verified: true, .. } => ("done", String::new()),
-            StepOutcome::Done { verified: false, .. } => ("done_unverified", String::new()),
+            StepOutcome::Done {
+                verified: false, ..
+            } => ("done_unverified", String::new()),
             StepOutcome::NeedsConfirm { reason, .. } => ("needs_confirm", reason.clone()),
             StepOutcome::NeedsAskUser { .. } => ("needs_ask_user", String::new()),
             StepOutcome::Denied { reason, .. } => ("denied", reason.clone()),
@@ -1429,7 +1431,10 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(!b2.completed, "guard armed in batch 1 must survive into batch 2");
+        assert!(
+            !b2.completed,
+            "guard armed in batch 1 must survive into batch 2"
+        );
         assert!(
             backend.typed().is_empty(),
             "the guard must never send keystrokes to the wrong window across batches"
@@ -1681,7 +1686,11 @@ mod tests {
     fn chunk_type_text_splits_long_text_and_rejoins_exactly() {
         let text = "x".repeat(1200) + "\n" + &"y".repeat(1200);
         let chunks = chunk_type_text(&text);
-        assert!(chunks.len() >= 3, "expected multiple chunks: {}", chunks.len());
+        assert!(
+            chunks.len() >= 3,
+            "expected multiple chunks: {}",
+            chunks.len()
+        );
         assert!(chunks.iter().all(|c| c.len() <= TYPE_CHUNK_BYTES));
         // Reassembling the chunks must reproduce the input byte-for-byte.
         assert_eq!(chunks.concat(), text);
@@ -1724,7 +1733,11 @@ mod tests {
         let result = exec.execute_plan(plan).await.unwrap();
         assert!(result.completed);
         let typed = backend.typed();
-        assert!(typed.len() >= 3, "long text should be chunked: {}", typed.len());
+        assert!(
+            typed.len() >= 3,
+            "long text should be chunked: {}",
+            typed.len()
+        );
         assert_eq!(typed.concat(), long);
     }
 

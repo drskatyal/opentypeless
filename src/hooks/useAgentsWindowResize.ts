@@ -28,9 +28,8 @@ export function useAgentsWindowResize(open: boolean, visible: boolean) {
       if (running.current) return
       running.current = true
       try {
-        const { getCurrentWindow, LogicalSize, LogicalPosition, currentMonitor } = await import(
-          '@tauri-apps/api/window'
-        )
+        const { getCurrentWindow, LogicalSize, LogicalPosition, currentMonitor } =
+          await import('@tauri-apps/api/window')
         const win = getCurrentWindow()
         // Never let the widget steal focus (it floats during dictation / Act).
         await win.setFocusable(false).catch(() => {})

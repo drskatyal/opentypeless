@@ -252,8 +252,11 @@ mod tests {
         b.note_opened("Chrome");
         b.note_opened("Microsoft Word");
         b.note_opened("chrome"); // same app, different case
-        // Chrome collapses to one entry, now most-recent.
-        assert_eq!(b.opened, vec!["Microsoft Word".to_string(), "chrome".to_string()]);
+                                 // Chrome collapses to one entry, now most-recent.
+        assert_eq!(
+            b.opened,
+            vec!["Microsoft Word".to_string(), "chrome".to_string()]
+        );
     }
 
     #[test]

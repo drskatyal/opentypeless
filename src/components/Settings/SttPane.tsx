@@ -186,339 +186,92 @@ export function SttPane() {
   return (
     <SettingSection>
       <div className="space-y-5 p-[18px]">
-      <FormField label={t('settings.provider')}>
-        <Select
-          fluid
-          value={config.stt_provider}
-          onChange={(e) => {
-            const provider = e.target.value as typeof config.stt_provider
-            updateConfig({
-              stt_provider: provider,
-              ...(provider === CUSTOM_WHISPER_PROVIDER
-                ? {
-                    stt_custom_preset: config.stt_custom_preset || CUSTOM_STT_DEFAULTS.preset,
-                    stt_custom_base_url: config.stt_custom_base_url || CUSTOM_STT_DEFAULTS.baseUrl,
-                    stt_custom_model: config.stt_custom_model || CUSTOM_STT_DEFAULTS.model,
-                  }
-                : provider === 'volcengine-doubao' && !config.stt_volcengine_resource_id
+        <FormField label={t('settings.provider')}>
+          <Select
+            fluid
+            value={config.stt_provider}
+            onChange={(e) => {
+              const provider = e.target.value as typeof config.stt_provider
+              updateConfig({
+                stt_provider: provider,
+                ...(provider === CUSTOM_WHISPER_PROVIDER
                   ? {
-                      stt_volcengine_resource_id: VOLCENGINE_STT_RESOURCES[0].value,
+                      stt_custom_preset: config.stt_custom_preset || CUSTOM_STT_DEFAULTS.preset,
+                      stt_custom_base_url:
+                        config.stt_custom_base_url || CUSTOM_STT_DEFAULTS.baseUrl,
+                      stt_custom_model: config.stt_custom_model || CUSTOM_STT_DEFAULTS.model,
                     }
-                  : {}),
-            })
-            setSttTestStatus('idle')
-            setSttLatencyMs(null)
-            setTestErrorMessage(null)
-          }}
-        >
-          {visibleSttProviders.map((p) => (
-            <option key={p.value} value={p.value}>
-              {t(p.labelKey)}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-
-      {isCloud ? (
-        <div className="border border-border rounded-[10px] px-3 py-3 space-y-2">
-          <div className="flex items-center gap-2 text-[13px]">
-            <Crown size={14} className="text-accent" />
-            <span className="text-text-primary font-medium">{t('settings.cloudSttPro')}</span>
-          </div>
-          {!user ? (
-            <p className="text-[12px] text-text-secondary">{t('settings.sttSignInHint')}</p>
-          ) : !hasCloudAccess ? (
-            <div className="space-y-2">
-              <p className="text-[12px] text-text-secondary">{t('settings.sttUpgradeHint')}</p>
-              <button
-                type="button"
-                onClick={goUpgrade}
-                className="rounded-[8px] border border-accent bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent-hover"
-              >
-                {t('nav.upgrade')}
-              </button>
-            </div>
-          ) : (
-            <p className="text-[12px] text-green-500">{t('settings.sttProActive')}</p>
-          )}
-        </div>
-      ) : isAppleSpeech ? (
-        <FormField label={t('providers.stt.appleSpeech')}>
-          <div className="flex gap-2">
-            <div className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary">
-              <p
-                className={`flex items-center gap-1.5 ${
-                  appleSpeechReady
-                    ? 'text-success'
-                    : appleSpeechUnavailable
-                      ? 'text-text-tertiary'
-                      : 'text-text-secondary'
-                }`}
-              >
-                {appleSpeechReady ? (
-                  <CheckCircle2 size={13} className="flex-shrink-0" />
-                ) : appleSpeechUnavailable ? (
-                  <XCircle size={13} className="flex-shrink-0" />
-                ) : (
-                  <Loader2 size={13} className="flex-shrink-0 animate-spin" />
-                )}
-                <span>
-                  {appleSpeechReady
-                    ? t('settings.appleSpeechReady')
-                    : appleSpeechUnavailable
-                      ? t('settings.appleSpeechUnavailable')
-                      : t('settings.healthChecking')}
-                </span>
-              </p>
-            </div>
-            <button
-              onClick={handleTest}
-              disabled={!canTest || sttTestStatus === 'testing'}
-              className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-            >
-              {sttTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
-              {t('settings.test')}
-            </button>
-          </div>
-          {sttTestStatus === 'success' && (
-            <p className="flex items-center gap-1 text-[12px] text-success mt-2">
-              <CheckCircle2 size={13} />{' '}
-              {sttLatencyMs !== null ? `${sttLatencyMs}ms` : t('settings.connectionSuccess')}
-            </p>
-          )}
-          {(sttTestStatus === 'error' || testErrorMessage) && (
-            <div className="flex items-start gap-1 text-[12px] text-error mt-2">
-              <XCircle size={13} className="mt-[1px] flex-shrink-0" />
-              <span>{testErrorMessage || t('settings.connectionFailed')}</span>
-            </div>
-          )}
-        </FormField>
-      ) : (
-        <>
-          {isCustomWhisper && (
-            <>
-              <FormField label={t('settings.customSttPreset')}>
-                <Select
-                  fluid
-                  value={config.stt_custom_preset}
-                  onChange={(e) => {
-                    const preset = e.target.value as typeof config.stt_custom_preset
-                    const selected = CUSTOM_STT_PRESETS.find((p) => p.value === preset)
-                    const hasDefaults = selected && 'baseUrl' in selected && 'model' in selected
-                    updateConfig({
-                      stt_custom_preset: preset,
-                      ...(hasDefaults
-                        ? {
-                            stt_custom_base_url: selected.baseUrl,
-                            stt_custom_model: selected.model,
-                          }
-                        : {}),
-                    })
-                    setSttTestStatus('idle')
-                    setSttLatencyMs(null)
-                    setTestErrorMessage(null)
-                  }}
-                >
-                  {CUSTOM_STT_PRESETS.map((preset) => (
-                    <option key={preset.value} value={preset.value}>
-                      {t(preset.labelKey)}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-
-              <FormField label={t('settings.customSttBaseUrl')}>
-                <input
-                  value={config.stt_custom_base_url}
-                  onChange={(e) => {
-                    updateConfig({ stt_custom_base_url: e.target.value })
-                    setSttTestStatus('idle')
-                    setSttLatencyMs(null)
-                    setTestErrorMessage(null)
-                  }}
-                  placeholder={t('settings.customSttBaseUrlPlaceholder')}
-                  className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
-                />
-              </FormField>
-
-              <FormField label={t('settings.customSttModel')}>
-                <input
-                  value={config.stt_custom_model}
-                  onChange={(e) => {
-                    updateConfig({ stt_custom_model: e.target.value })
-                    setSttTestStatus('idle')
-                    setSttLatencyMs(null)
-                    setTestErrorMessage(null)
-                  }}
-                  placeholder={t('settings.customSttModelPlaceholder')}
-                  className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
-                />
-                <p className="text-[11px] text-text-tertiary mt-1.5">
-                  {t('settings.customSttSetupHint')}
-                </p>
-                {sttDiagnostics && (
-                  <p
-                    className={`flex items-center gap-1.5 text-[11px] mt-1.5 min-w-0 ${
-                      sttDiagnostics.ready ? 'text-success' : 'text-text-tertiary'
-                    }`}
-                  >
-                    {sttDiagnostics.ready ? (
-                      <CheckCircle2 size={12} className="flex-shrink-0" />
-                    ) : (
-                      <XCircle size={12} className="flex-shrink-0" />
-                    )}
-                    <span className="flex-shrink-0">
-                      {sttDiagnostics.ready
-                        ? t('settings.localSttReady')
-                        : t('settings.localSttNeedsSetup')}
-                    </span>
-                    {sttDiagnostics.endpoint && (
-                      <>
-                        <span className="text-text-tertiary">·</span>
-                        <span className="truncate text-text-tertiary">
-                          {sttDiagnostics.endpoint}
-                        </span>
-                      </>
-                    )}
-                  </p>
-                )}
-              </FormField>
-            </>
-          )}
-
-          {isGemini && (
-            <FormField label={t('settings.geminiSttModel')}>
-              <Select
-                fluid
-                aria-label={t('settings.geminiSttModel')}
-                value={geminiModel}
-                onChange={(e) => {
-                  updateConfig({ stt_gemini_model: e.target.value })
-                  setSttTestStatus('idle')
-                  setSttLatencyMs(null)
-                  setTestErrorMessage(null)
-                }}
-              >
-                {GEMINI_STT_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-          )}
-
-          {isGemini && (
-            <FormField label={t('settings.sttMode')}>
-              <div className="flex gap-2">
-                {STT_MODES.map((m) => {
-                  const active = config.stt_mode === m.value
-                  return (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => updateConfig({ stt_mode: m.value })}
-                      className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] border transition-colors ${
-                        active
-                          ? 'border-accent bg-accent/15 text-text-primary font-medium'
-                          : 'border-border bg-bg-secondary text-text-secondary hover:border-border-focus'
-                      }`}
-                      aria-pressed={active}
-                    >
-                      {t(m.labelKey)}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.sttModeHint')}</p>
-            </FormField>
-          )}
-
-          {isGemini && config.stt_mode === 'realtime' && (
-            <FormField label={t('settings.vadParams')}>
-              <div className="space-y-3">
-                {VAD_PARAMS.map((p) => {
-                  const value = config[p.key as keyof AppConfig] as number
-                  return (
-                    <div key={p.key}>
-                      <div className="flex justify-between text-[12px] mb-1">
-                        <span className="text-text-secondary">{t(p.labelKey)}</span>
-                        <span className="text-text-primary font-mono">
-                          {value}
-                          {p.unit}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={p.min}
-                        max={p.max}
-                        step={p.step}
-                        value={value}
-                        aria-label={t(p.labelKey)}
-                        onChange={(e) =>
-                          updateConfig({ [p.key]: Number(e.target.value) } as Partial<AppConfig>)
-                        }
-                        className="w-full accent-accent"
-                      />
-                      <div className="flex justify-between text-[11px] text-text-secondary mt-0.5 font-mono">
-                        <span>
-                          {p.min}
-                          {p.unit}
-                        </span>
-                        <span>
-                          {p.max}
-                          {p.unit}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.vadParamsHint')}</p>
-            </FormField>
-          )}
-
-          {isVolcengineDoubao && (
-            <FormField label={t('settings.volcengineResourceId')}>
-              <Select
-                fluid
-                aria-label={t('settings.volcengineResourceId')}
-                value={volcengineResourceId}
-                onChange={(e) => {
-                  updateConfig({ stt_volcengine_resource_id: e.target.value })
-                  setSttTestStatus('idle')
-                  setSttLatencyMs(null)
-                  setTestErrorMessage(null)
-                  setCredentialErrorMessage(null)
-                }}
-              >
-                {VOLCENGINE_STT_RESOURCES.map((resource) => (
-                  <option key={resource.value} value={resource.value}>
-                    {t(resource.labelKey)}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-          )}
-
-          <FormField
-            label={isCustomWhisper ? t('settings.customSttApiKeyOptional') : t('settings.apiKey')}
+                  : provider === 'volcengine-doubao' && !config.stt_volcengine_resource_id
+                    ? {
+                        stt_volcengine_resource_id: VOLCENGINE_STT_RESOURCES[0].value,
+                      }
+                    : {}),
+              })
+              setSttTestStatus('idle')
+              setSttLatencyMs(null)
+              setTestErrorMessage(null)
+            }}
           >
+            {visibleSttProviders.map((p) => (
+              <option key={p.value} value={p.value}>
+                {t(p.labelKey)}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        {isCloud ? (
+          <div className="border border-border rounded-[10px] px-3 py-3 space-y-2">
+            <div className="flex items-center gap-2 text-[13px]">
+              <Crown size={14} className="text-accent" />
+              <span className="text-text-primary font-medium">{t('settings.cloudSttPro')}</span>
+            </div>
+            {!user ? (
+              <p className="text-[12px] text-text-secondary">{t('settings.sttSignInHint')}</p>
+            ) : !hasCloudAccess ? (
+              <div className="space-y-2">
+                <p className="text-[12px] text-text-secondary">{t('settings.sttUpgradeHint')}</p>
+                <button
+                  type="button"
+                  onClick={goUpgrade}
+                  className="rounded-[8px] border border-accent bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent-hover"
+                >
+                  {t('nav.upgrade')}
+                </button>
+              </div>
+            ) : (
+              <p className="text-[12px] text-green-500">{t('settings.sttProActive')}</p>
+            )}
+          </div>
+        ) : isAppleSpeech ? (
+          <FormField label={t('providers.stt.appleSpeech')}>
             <div className="flex gap-2">
-              <input
-                type="password"
-                value={apiKeyDraft}
-                onChange={(e) => {
-                  setApiKeyDraft(e.target.value)
-                  persistSttCredential(e.target.value)
-                  setSttTestStatus('idle')
-                  setSttLatencyMs(null)
-                  setTestErrorMessage(null)
-                }}
-                onBlur={() => persistSttCredential(apiKeyDraft, 0)}
-                placeholder={t('settings.enterApiKey')}
-                className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
-              />
+              <div className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary">
+                <p
+                  className={`flex items-center gap-1.5 ${
+                    appleSpeechReady
+                      ? 'text-success'
+                      : appleSpeechUnavailable
+                        ? 'text-text-tertiary'
+                        : 'text-text-secondary'
+                  }`}
+                >
+                  {appleSpeechReady ? (
+                    <CheckCircle2 size={13} className="flex-shrink-0" />
+                  ) : appleSpeechUnavailable ? (
+                    <XCircle size={13} className="flex-shrink-0" />
+                  ) : (
+                    <Loader2 size={13} className="flex-shrink-0 animate-spin" />
+                  )}
+                  <span>
+                    {appleSpeechReady
+                      ? t('settings.appleSpeechReady')
+                      : appleSpeechUnavailable
+                        ? t('settings.appleSpeechUnavailable')
+                        : t('settings.healthChecking')}
+                  </span>
+                </p>
+              </div>
               <button
                 onClick={handleTest}
                 disabled={!canTest || sttTestStatus === 'testing'}
@@ -540,35 +293,287 @@ export function SttPane() {
                 <span>{testErrorMessage || t('settings.connectionFailed')}</span>
               </div>
             )}
-            {credentialErrorMessage ? (
-              <p className="text-[11px] text-error mt-1.5">
-                {t('settings.credentialSaveFailed', { details: credentialErrorMessage })}
-              </p>
-            ) : (
-              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.storedLocally')}</p>
-            )}
-            {isVolcengineDoubao && (
-              <p className="text-[11px] text-text-tertiary mt-1.5">
-                {t('settings.volcengineSttKeyHint')}
-              </p>
-            )}
           </FormField>
-        </>
-      )}
+        ) : (
+          <>
+            {isCustomWhisper && (
+              <>
+                <FormField label={t('settings.customSttPreset')}>
+                  <Select
+                    fluid
+                    value={config.stt_custom_preset}
+                    onChange={(e) => {
+                      const preset = e.target.value as typeof config.stt_custom_preset
+                      const selected = CUSTOM_STT_PRESETS.find((p) => p.value === preset)
+                      const hasDefaults = selected && 'baseUrl' in selected && 'model' in selected
+                      updateConfig({
+                        stt_custom_preset: preset,
+                        ...(hasDefaults
+                          ? {
+                              stt_custom_base_url: selected.baseUrl,
+                              stt_custom_model: selected.model,
+                            }
+                          : {}),
+                      })
+                      setSttTestStatus('idle')
+                      setSttLatencyMs(null)
+                      setTestErrorMessage(null)
+                    }}
+                  >
+                    {CUSTOM_STT_PRESETS.map((preset) => (
+                      <option key={preset.value} value={preset.value}>
+                        {t(preset.labelKey)}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
 
-      <FormField label={t('settings.sttLanguage')}>
-        <Select
-          fluid
-          value={config.stt_language}
-          onChange={(e) => updateConfig({ stt_language: e.target.value })}
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.value} value={l.value}>
-              {l.labelKey ? t(l.labelKey) : l.label}
-            </option>
-          ))}
-        </Select>
-      </FormField>
+                <FormField label={t('settings.customSttBaseUrl')}>
+                  <input
+                    value={config.stt_custom_base_url}
+                    onChange={(e) => {
+                      updateConfig({ stt_custom_base_url: e.target.value })
+                      setSttTestStatus('idle')
+                      setSttLatencyMs(null)
+                      setTestErrorMessage(null)
+                    }}
+                    placeholder={t('settings.customSttBaseUrlPlaceholder')}
+                    className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+                  />
+                </FormField>
+
+                <FormField label={t('settings.customSttModel')}>
+                  <input
+                    value={config.stt_custom_model}
+                    onChange={(e) => {
+                      updateConfig({ stt_custom_model: e.target.value })
+                      setSttTestStatus('idle')
+                      setSttLatencyMs(null)
+                      setTestErrorMessage(null)
+                    }}
+                    placeholder={t('settings.customSttModelPlaceholder')}
+                    className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+                  />
+                  <p className="text-[11px] text-text-tertiary mt-1.5">
+                    {t('settings.customSttSetupHint')}
+                  </p>
+                  {sttDiagnostics && (
+                    <p
+                      className={`flex items-center gap-1.5 text-[11px] mt-1.5 min-w-0 ${
+                        sttDiagnostics.ready ? 'text-success' : 'text-text-tertiary'
+                      }`}
+                    >
+                      {sttDiagnostics.ready ? (
+                        <CheckCircle2 size={12} className="flex-shrink-0" />
+                      ) : (
+                        <XCircle size={12} className="flex-shrink-0" />
+                      )}
+                      <span className="flex-shrink-0">
+                        {sttDiagnostics.ready
+                          ? t('settings.localSttReady')
+                          : t('settings.localSttNeedsSetup')}
+                      </span>
+                      {sttDiagnostics.endpoint && (
+                        <>
+                          <span className="text-text-tertiary">·</span>
+                          <span className="truncate text-text-tertiary">
+                            {sttDiagnostics.endpoint}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </FormField>
+              </>
+            )}
+
+            {isGemini && (
+              <FormField label={t('settings.geminiSttModel')}>
+                <Select
+                  fluid
+                  aria-label={t('settings.geminiSttModel')}
+                  value={geminiModel}
+                  onChange={(e) => {
+                    updateConfig({ stt_gemini_model: e.target.value })
+                    setSttTestStatus('idle')
+                    setSttLatencyMs(null)
+                    setTestErrorMessage(null)
+                  }}
+                >
+                  {GEMINI_STT_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+
+            {isGemini && (
+              <FormField label={t('settings.sttMode')}>
+                <div className="flex gap-2">
+                  {STT_MODES.map((m) => {
+                    const active = config.stt_mode === m.value
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => updateConfig({ stt_mode: m.value })}
+                        className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] border transition-colors ${
+                          active
+                            ? 'border-accent bg-accent/15 text-text-primary font-medium'
+                            : 'border-border bg-bg-secondary text-text-secondary hover:border-border-focus'
+                        }`}
+                        aria-pressed={active}
+                      >
+                        {t(m.labelKey)}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.sttModeHint')}</p>
+              </FormField>
+            )}
+
+            {isGemini && config.stt_mode === 'realtime' && (
+              <FormField label={t('settings.vadParams')}>
+                <div className="space-y-3">
+                  {VAD_PARAMS.map((p) => {
+                    const value = config[p.key as keyof AppConfig] as number
+                    return (
+                      <div key={p.key}>
+                        <div className="flex justify-between text-[12px] mb-1">
+                          <span className="text-text-secondary">{t(p.labelKey)}</span>
+                          <span className="text-text-primary font-mono">
+                            {value}
+                            {p.unit}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={p.min}
+                          max={p.max}
+                          step={p.step}
+                          value={value}
+                          aria-label={t(p.labelKey)}
+                          onChange={(e) =>
+                            updateConfig({ [p.key]: Number(e.target.value) } as Partial<AppConfig>)
+                          }
+                          className="w-full accent-accent"
+                        />
+                        <div className="flex justify-between text-[11px] text-text-secondary mt-0.5 font-mono">
+                          <span>
+                            {p.min}
+                            {p.unit}
+                          </span>
+                          <span>
+                            {p.max}
+                            {p.unit}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-text-tertiary mt-1.5">
+                  {t('settings.vadParamsHint')}
+                </p>
+              </FormField>
+            )}
+
+            {isVolcengineDoubao && (
+              <FormField label={t('settings.volcengineResourceId')}>
+                <Select
+                  fluid
+                  aria-label={t('settings.volcengineResourceId')}
+                  value={volcengineResourceId}
+                  onChange={(e) => {
+                    updateConfig({ stt_volcengine_resource_id: e.target.value })
+                    setSttTestStatus('idle')
+                    setSttLatencyMs(null)
+                    setTestErrorMessage(null)
+                    setCredentialErrorMessage(null)
+                  }}
+                >
+                  {VOLCENGINE_STT_RESOURCES.map((resource) => (
+                    <option key={resource.value} value={resource.value}>
+                      {t(resource.labelKey)}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+
+            <FormField
+              label={isCustomWhisper ? t('settings.customSttApiKeyOptional') : t('settings.apiKey')}
+            >
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={apiKeyDraft}
+                  onChange={(e) => {
+                    setApiKeyDraft(e.target.value)
+                    persistSttCredential(e.target.value)
+                    setSttTestStatus('idle')
+                    setSttLatencyMs(null)
+                    setTestErrorMessage(null)
+                  }}
+                  onBlur={() => persistSttCredential(apiKeyDraft, 0)}
+                  placeholder={t('settings.enterApiKey')}
+                  className="flex-1 px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
+                />
+                <button
+                  onClick={handleTest}
+                  disabled={!canTest || sttTestStatus === 'testing'}
+                  className="px-4 py-2.5 bg-accent text-white rounded-[10px] text-[13px] border-none cursor-pointer hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                >
+                  {sttTestStatus === 'testing' && <Loader2 size={14} className="animate-spin" />}
+                  {t('settings.test')}
+                </button>
+              </div>
+              {sttTestStatus === 'success' && (
+                <p className="flex items-center gap-1 text-[12px] text-success mt-2">
+                  <CheckCircle2 size={13} />{' '}
+                  {sttLatencyMs !== null ? `${sttLatencyMs}ms` : t('settings.connectionSuccess')}
+                </p>
+              )}
+              {(sttTestStatus === 'error' || testErrorMessage) && (
+                <div className="flex items-start gap-1 text-[12px] text-error mt-2">
+                  <XCircle size={13} className="mt-[1px] flex-shrink-0" />
+                  <span>{testErrorMessage || t('settings.connectionFailed')}</span>
+                </div>
+              )}
+              {credentialErrorMessage ? (
+                <p className="text-[11px] text-error mt-1.5">
+                  {t('settings.credentialSaveFailed', { details: credentialErrorMessage })}
+                </p>
+              ) : (
+                <p className="text-[11px] text-text-tertiary mt-1.5">
+                  {t('settings.storedLocally')}
+                </p>
+              )}
+              {isVolcengineDoubao && (
+                <p className="text-[11px] text-text-tertiary mt-1.5">
+                  {t('settings.volcengineSttKeyHint')}
+                </p>
+              )}
+            </FormField>
+          </>
+        )}
+
+        <FormField label={t('settings.sttLanguage')}>
+          <Select
+            fluid
+            value={config.stt_language}
+            onChange={(e) => updateConfig({ stt_language: e.target.value })}
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.labelKey ? t(l.labelKey) : l.label}
+              </option>
+            ))}
+          </Select>
+        </FormField>
       </div>
     </SettingSection>
   )
