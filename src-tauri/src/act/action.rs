@@ -99,7 +99,15 @@ pub enum Action {
     /// Pause the plan for a fixed number of milliseconds.
     Wait { ms: u32 },
     /// Bring a named application's window to the foreground.
-    FocusApp { name: String },
+    ///
+    /// Schema-only-enforced clients (Cerebras json_object) frequently emit the
+    /// app name under `target` (mirroring `launch`/`focus`) rather than `name`;
+    /// accept both so the whole plan doesn't fail to parse with
+    /// "missing field `name`".
+    FocusApp {
+        #[serde(alias = "target")]
+        name: String,
+    },
     /// Read or write the system clipboard.
     ///
     /// The clipboard sub-op is serialized as `clip_op` rather than `op`: the
@@ -324,6 +332,21 @@ mod tests {
         );
         assert_eq!(a.kind(), "focus_app");
         assert_eq!(a.origin(), None);
+        assert_eq!(roundtrip(&a), a);
+    }
+
+    #[test]
+    fn focus_app_accepts_target_alias() {
+        // Cerebras json_object often emits `target` instead of `name`; the alias
+        // keeps the whole plan from failing to parse.
+        let a: Action =
+            serde_json::from_str(r#"{"op":"focus_app","target":"spotify"}"#).unwrap();
+        assert_eq!(
+            a,
+            Action::FocusApp {
+                name: "spotify".into()
+            }
+        );
         assert_eq!(roundtrip(&a), a);
     }
 

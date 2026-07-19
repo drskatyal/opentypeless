@@ -83,7 +83,11 @@ const MAX_ACTIONS: usize = 12;
 /// The tighter per-iteration action budget for a closed-loop continuation turn
 /// (see [`CONTINUATION_MARKER`]): each observe->plan->act step should return only
 /// the next small batch, so the loop re-grounds often. Always `<= MAX_ACTIONS`.
-const MAX_ACTIONS_PER_ITER: usize = 6;
+/// Kept a little below `MAX_ACTIONS` so re-grounding stays frequent, but not so
+/// tight that a coherent multi-step sequence (e.g. open→search→select→play, ~8
+/// actions) is truncated mid-way and the loop has to burn an iteration to finish
+/// what was really one intent.
+const MAX_ACTIONS_PER_ITER: usize = 8;
 /// The maximum byte length of any `type` action's text. The executor's `Type`
 /// primitive chunks anything this large into <=500-byte pieces, so a multi-
 /// paragraph write ("write 3 paragraphs") passes validation and types cleanly.
