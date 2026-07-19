@@ -796,7 +796,7 @@ const defaultConfig: AppConfig = {
   capsule_auto_hide: true,
   act_enabled: false,
   act_model_tier: 'fast',
-  act_plan_mode: 'tree',
+  act_plan_mode: 'hybrid',
   act_followup_provider: 'gemini',
   cerebras_api_key: '',
 }

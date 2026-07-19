@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Radio } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useActTasks } from '../../hooks/useActTasks'
 import { useAgentsWindowResize } from '../../hooks/useAgentsWindowResize'
 import { useAppStore } from '../../stores/appStore'
@@ -21,8 +21,21 @@ export function FloatingAgents() {
   const [pinned, setPinned] = useState(false)
   // Auto-open whenever there are missions to show — the widget pops open on its
   // own when Act works, and falls back to the pill only when everything is idle.
+  // A grace period keeps it open briefly after the last mission clears so the
+  // panel doesn't flicker closed→open between two back-to-back commands (each new
+  // command momentarily empties the task list before the next mission spawns).
   const hasTasks = tasks.length > 0
-  const open = hovered || pinned || hasTasks
+  const [recentlyActive, setRecentlyActive] = useState(false)
+  useEffect(() => {
+    if (hasTasks) {
+      setRecentlyActive(true)
+      return
+    }
+    const timer = setTimeout(() => setRecentlyActive(false), 1800)
+    return () => clearTimeout(timer)
+  }, [hasTasks])
+
+  const open = hovered || pinned || hasTasks || recentlyActive
   const counts = tallyStatuses(tasks)
 
   useAgentsWindowResize(open, actEnabled)
