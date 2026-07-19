@@ -124,6 +124,10 @@ pub struct Executor {
     /// was foreground *before* the switch (the "typed into the terminal" bug).
     /// Reset per command; never derived from the live foreground.
     expected_app: Option<String>,
+    /// Fingerprint of the snapshot seen by the previous a11y step, used only to
+    /// log whether the screen changed between steps (a "step-by-step trace"
+    /// signal). Reset per command; never affects control flow.
+    last_snapshot_fp: Option<String>,
 }
 
 impl Executor {
@@ -141,6 +145,7 @@ impl Executor {
             transcript: String::new(),
             confirmed_target: None,
             expected_app: None,
+            last_snapshot_fp: None,
         }
     }
 
@@ -176,6 +181,8 @@ impl Executor {
         // Fresh command: no app has been launched/switched yet, so the focus
         // guard starts inert and only arms once this command launches one.
         self.expected_app = None;
+        // Fresh command: the previous command's screen fingerprint is irrelevant.
+        self.last_snapshot_fp = None;
         self.run(plan.actions, false).await
     }
 
@@ -236,7 +243,21 @@ impl Executor {
                 });
             }
 
-            match self.step(action, preapproved).await? {
+            // Capture the action's identity before it is moved into `step`, so the
+            // per-step trace line can name it even after it re-grounds inside.
+            let action_kind = action.kind();
+            let action_target = action.target().map(|t| t.to_string());
+            let flow = self.step(action, preapproved).await?;
+            let (outcome_label, detail) = describe_flow(&flow);
+            tracing::info!(
+                step = idx,
+                action = action_kind,
+                target = action_target.as_deref().unwrap_or(""),
+                outcome = outcome_label,
+                detail = %detail,
+                "act executor step"
+            );
+            match flow {
                 Flow::Continue(outcome) => outcomes.push(outcome),
                 Flow::Halt(outcome) | Flow::Pause(outcome) => {
                     outcomes.push(outcome);
@@ -309,15 +330,44 @@ impl Executor {
             .await
             .map_err(|e| ExecError::Backend(e.to_string()))?;
 
+        // Log whether the screen changed since the previous a11y step — a plain
+        // "did anything move" signal that makes the trace readable.
+        let snapshot_changed = self.note_snapshot_change(&snapshot);
+
         // 4. Resolve the target against the live snapshot; re-ground if stale.
         let action = match self.resolve_target(&action, &snapshot) {
-            TargetResolution::Ready(a) => a,
+            TargetResolution::Ready(a) => {
+                let resolved_name = a
+                    .target()
+                    .and_then(|p| snapshot.get(p))
+                    .map(|e| e.name.as_str())
+                    .unwrap_or("");
+                tracing::info!(
+                    action = a.kind(),
+                    target = a.target().unwrap_or(""),
+                    resolved_name,
+                    snapshot_changed,
+                    "act executor step: target resolved"
+                );
+                a
+            }
             TargetResolution::Ambiguous(options) => {
                 let prompt = format!("Which one? ({})", action.kind());
+                tracing::info!(
+                    action = action.kind(),
+                    target = action.target().unwrap_or(""),
+                    candidates = options.len(),
+                    "act executor step: target ambiguous (asking user)"
+                );
                 self.audit_step(&action, decision, "paused: ask_user");
                 return Ok(Flow::Pause(StepOutcome::NeedsAskUser { prompt, options }));
             }
             TargetResolution::Gone => {
+                tracing::info!(
+                    action = action.kind(),
+                    target = action.target().unwrap_or(""),
+                    "act executor step: target gone (could not re-ground)"
+                );
                 self.audit_step(&action, decision, "failed: target_absent");
                 return Ok(Flow::Halt(StepOutcome::Failed {
                     action,
@@ -730,14 +780,23 @@ impl Executor {
             Action::Invoke { target } => guarded!(self.backend.invoke(target)),
             Action::Key { combo } => guarded!(self.backend.key_combo(combo)),
             Action::Type { text, clear } => {
+                let mut typed: Result<(), String> = Ok(());
                 if *clear {
-                    match guarded!(self.backend.key_combo("ctrl+a")) {
-                        Ok(()) => guarded!(self.backend.type_text(text)),
-                        err => err,
-                    }
-                } else {
-                    guarded!(self.backend.type_text(text))
+                    typed = guarded!(self.backend.key_combo("ctrl+a"));
                 }
+                if typed.is_ok() {
+                    // A single type primitive can choke on a long paragraph, so send
+                    // the text as <=500-byte, char-boundary chunks (never splitting a
+                    // CRLF). This unblocks multi-paragraph writes; each chunk still
+                    // races the kill switch via `guarded!`.
+                    for chunk in chunk_type_text(text) {
+                        typed = guarded!(self.backend.type_text(chunk));
+                        if typed.is_err() {
+                            break;
+                        }
+                    }
+                }
+                typed
             }
             Action::Scroll { .. } => {
                 // Best-effort: the backend trait has no cross-platform scroll
@@ -847,7 +906,19 @@ impl Executor {
 
         // The chosen element becomes the head action retargeted to that path.
         let resolved = retarget(&head, path);
-        match self.step(resolved, false).await? {
+        let action_kind = resolved.kind();
+        let action_target = resolved.target().map(|t| t.to_string());
+        let flow = self.step(resolved, false).await?;
+        let (outcome_label, detail) = describe_flow(&flow);
+        tracing::info!(
+            step = "pick",
+            action = action_kind,
+            target = action_target.as_deref().unwrap_or(""),
+            outcome = outcome_label,
+            detail = %detail,
+            "act executor step (resumed pick)"
+        );
+        match flow {
             Flow::Continue(outcome) => outcomes.push(outcome),
             Flow::Halt(outcome) | Flow::Pause(outcome) => {
                 outcomes.push(outcome);
@@ -879,6 +950,15 @@ impl Executor {
             outcomes,
             completed,
         })
+    }
+
+    /// Record this step's snapshot fingerprint and report whether it differs from
+    /// the previous a11y step's. Logging-only: it never gates execution.
+    fn note_snapshot_change(&mut self, snapshot: &Snapshot) -> bool {
+        let fp = snapshot_fingerprint(snapshot);
+        let changed = self.last_snapshot_fp.as_deref() != Some(fp.as_str());
+        self.last_snapshot_fp = Some(fp);
+        changed
     }
 
     /// Append one audit row for a step, if an audit log is attached. Best-effort:
@@ -976,6 +1056,72 @@ fn command_echoes_screen(command: &str, snapshot: &Snapshot) -> bool {
         // Ignore windows that are mostly whitespace (weak matches).
         window.trim().len() >= MIN && screen.contains(&window)
     })
+}
+
+/// A cheap, PHI-free fingerprint of a snapshot (app, window title, element count)
+/// for the "did the screen change between steps" trace signal.
+fn snapshot_fingerprint(snap: &Snapshot) -> String {
+    format!("{}|{}|{}", snap.app, snap.window_title, snap.elements.len())
+}
+
+/// A short trace label + PHI-safe detail for one step's [`Flow`] outcome. Only our
+/// own reason/error strings are surfaced (never a model-authored ask_user prompt).
+fn describe_flow(flow: &Flow) -> (&'static str, String) {
+    match flow {
+        Flow::Continue(o) | Flow::Halt(o) | Flow::Pause(o) => match o {
+            StepOutcome::Done { verified: true, .. } => ("done", String::new()),
+            StepOutcome::Done { verified: false, .. } => ("done_unverified", String::new()),
+            StepOutcome::NeedsConfirm { reason, .. } => ("needs_confirm", reason.clone()),
+            StepOutcome::NeedsAskUser { .. } => ("needs_ask_user", String::new()),
+            StepOutcome::Denied { reason, .. } => ("denied", reason.clone()),
+            StepOutcome::Failed { error, .. } => ("failed", error.clone()),
+            StepOutcome::Aborted => ("aborted", String::new()),
+        },
+        Flow::Aborted => ("aborted", String::new()),
+        Flow::Stop => ("stop", String::new()),
+    }
+}
+
+/// The maximum byte length of one `type_text` chunk. Long text is split into
+/// pieces no larger than this before being sent to the backend.
+const TYPE_CHUNK_BYTES: usize = 500;
+
+/// Split `text` into chunks of at most [`TYPE_CHUNK_BYTES`] bytes, cutting only on
+/// UTF-8 char boundaries and never between a `\r` and its following `\n`. Short
+/// text (including "") returns a single chunk, preserving the original single-call
+/// behavior. Newlines within the text are preserved exactly.
+fn chunk_type_text(text: &str) -> Vec<&str> {
+    if text.len() <= TYPE_CHUNK_BYTES {
+        return vec![text];
+    }
+    let bytes = text.as_bytes();
+    let mut chunks: Vec<&str> = Vec::new();
+    let mut start = 0;
+    while start < text.len() {
+        let mut end = (start + TYPE_CHUNK_BYTES).min(text.len());
+        if end < text.len() {
+            // Back up to the nearest char boundary at or before the cap.
+            while end > start && !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            // Never split a CRLF: if the cut lands right after '\r' and the next
+            // byte is '\n', move the '\r' to the next chunk with its '\n'.
+            if end > start && bytes[end - 1] == b'\r' && end < text.len() && bytes[end] == b'\n' {
+                end -= 1;
+            }
+            // Guarantee forward progress (degenerate: a single char wider than the
+            // cap can't happen for UTF-8 <=4 bytes, but stay safe).
+            if end == start {
+                end = start + 1;
+                while end < text.len() && !text.is_char_boundary(end) {
+                    end += 1;
+                }
+            }
+        }
+        chunks.push(&text[start..end]);
+        start = end;
+    }
+    chunks
 }
 
 /// Return `action` with its target path replaced by `path` (for the target-bearing
@@ -1302,6 +1448,63 @@ mod tests {
             [StepOutcome::Failed { .. }]
         ));
         assert!(backend.invoked().is_empty());
+    }
+
+    #[test]
+    fn chunk_type_text_short_is_single_chunk() {
+        assert_eq!(chunk_type_text(""), vec![""]);
+        assert_eq!(chunk_type_text("hello"), vec!["hello"]);
+    }
+
+    #[test]
+    fn chunk_type_text_splits_long_text_and_rejoins_exactly() {
+        let text = "x".repeat(1200) + "\n" + &"y".repeat(1200);
+        let chunks = chunk_type_text(&text);
+        assert!(chunks.len() >= 3, "expected multiple chunks: {}", chunks.len());
+        assert!(chunks.iter().all(|c| c.len() <= TYPE_CHUNK_BYTES));
+        // Reassembling the chunks must reproduce the input byte-for-byte.
+        assert_eq!(chunks.concat(), text);
+    }
+
+    #[test]
+    fn chunk_type_text_never_splits_a_crlf() {
+        // A CRLF placed exactly at the 500-byte cap must stay together.
+        let mut text = "a".repeat(TYPE_CHUNK_BYTES - 1);
+        text.push('\r');
+        text.push('\n');
+        text.push_str(&"b".repeat(10));
+        let chunks = chunk_type_text(&text);
+        assert_eq!(chunks.concat(), text);
+        for c in &chunks {
+            // No chunk ends in a lone '\r' whose '\n' was pushed to the next chunk.
+            assert!(!c.ends_with('\r'), "chunk split a CRLF: {c:?}");
+        }
+    }
+
+    #[test]
+    fn chunk_type_text_respects_utf8_boundaries() {
+        // Multi-byte chars packed past the cap must never split mid-codepoint
+        // (str slicing on a non-boundary would panic — reaching concat() proves it).
+        let text = "é".repeat(400); // 800 bytes
+        let chunks = chunk_type_text(&text);
+        assert!(chunks.len() >= 2);
+        assert_eq!(chunks.concat(), text);
+    }
+
+    #[tokio::test]
+    async fn type_long_text_is_chunked_into_multiple_type_calls() {
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let long = "z".repeat(1300);
+        let plan = ActionPlan::new(vec![Action::Type {
+            text: long.clone(),
+            clear: false,
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        let typed = backend.typed();
+        assert!(typed.len() >= 3, "long text should be chunked: {}", typed.len());
+        assert_eq!(typed.concat(), long);
     }
 
     #[tokio::test]

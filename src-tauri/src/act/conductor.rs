@@ -16,9 +16,10 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
-use super::action::ActionPlan;
+use super::action::{Action, ActionPlan};
 use super::backend::AccessibilityBackend;
 use super::blackboard::Blackboard;
+use super::element::Snapshot;
 use super::events::{ActEvent, AskOption};
 use super::executor::{ExecError, ExecResult, Executor, StepOutcome, UserDecision};
 use super::flow::{FlowFile, SlotFilter};
@@ -28,7 +29,7 @@ use super::flow_runner::{
 };
 use super::grounding_packet::{GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS};
 use super::llm::LlmClient;
-use super::planner::{PlanRequest, Planner};
+use super::planner::{PlanRequest, PlanSource, Planner, CONTINUATION_MARKER};
 use super::selection::{self, Mission, SelectionError};
 
 /// Slot name -> value, as filled by the selection layer.
@@ -36,6 +37,14 @@ type SlotMap = HashMap<String, String>;
 
 /// Cap on control names listed in a talk-back screen summary.
 const SCREEN_SUMMARY_CAP: usize = 24;
+
+/// Upper bound on observe->plan->act iterations for one novel goal. Each iteration
+/// re-observes the screen and re-plans the next batch, so the loop adapts when the
+/// UI isn't what a one-shot plan assumed — but it must terminate.
+const MAX_NOVEL_ITERS: usize = 8;
+
+/// Cap on the trusted per-goal progress history carried between iterations.
+const NOVEL_HISTORY_CAP: usize = 16;
 
 /// Where the Conductor is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,8 +106,15 @@ enum PendingKind {
         /// Options offered (to map a numbered pick back to a row).
         options: Vec<AskOption>,
     },
-    /// Paused inside a novel plan.
-    Novel { remaining: ActionPlan },
+    /// Paused inside a novel plan. Carries the pre-approved `remaining` batch to
+    /// run first on resume, PLUS the `goal` and trusted `history` so that after the
+    /// user answers, execution re-enters the closed loop (re-observe + re-plan the
+    /// rest of the goal) rather than only replaying a stale `remaining`.
+    Novel {
+        remaining: ActionPlan,
+        goal: String,
+        history: Vec<String>,
+    },
 }
 
 /// The drawer-aware orchestrator.
@@ -125,6 +141,14 @@ enum Step {
     Paused(PendingKind),
     /// Abort the whole batch (kill switch).
     Stop,
+}
+
+/// Where the novel closed loop lands after classifying one iteration's execution
+/// result: either terminate (handing a [`Step`] back to the mission driver) or
+/// re-observe and re-plan the next batch.
+enum LoopStep {
+    Return(Step),
+    Continue,
 }
 
 impl Conductor {
@@ -630,80 +654,176 @@ impl Conductor {
         extra_context: Option<String>,
         events: &mut Vec<ActEvent>,
     ) -> Step {
-        // A snapshot failure (typically a wedged UIA provider timing out the walk)
-        // must not sink the whole command: degrade to empty grounding and let the
-        // planner proceed. Untargeted actions (launch app, type text, press keys,
-        // open uri) — which cover the bulk of branch recipes like "take a note" or
-        // "search the pc" — still run; targeted actions correctly fail validation
-        // because no element paths exist. Far better than a hard "couldn't read the
-        // screen" abort on every command while a heavy window (Win11 Notepad, a
-        // busy Chrome) is in the foreground.
-        let packet = match self.backend.snapshot().await {
-            Ok(snap) => {
-                GroundingPacket::from_snapshot(&snap, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS)
-            }
-            Err(e) => {
-                tracing::warn!(error = %e, "act: snapshot failed; planning with empty grounding");
-                GroundingPacket::empty()
-            }
-        };
-        let mut prior = self.board.context_summary();
+        let mut history: Vec<String> = Vec::new();
+        // A branch's carried slot context ("carried slots: text=hello") is trusted;
+        // seed it as the first progress note so it rides along every iteration.
         if let Some(extra) = extra_context {
-            prior.push('\n');
-            prior.push_str(&extra);
+            push_progress(&mut history, extra);
         }
-        let prior_context = (!prior.trim().is_empty()).then_some(prior);
-
-        let hint = goal.clone();
-        let plan = match self
-            .planner
-            .plan(PlanRequest {
-                transcript: goal,
-                packet,
-                prior_context,
-            })
-            .await
-        {
-            Ok(res) => res.plan,
-            Err(e) => {
-                let message = e.to_string();
-                self.finish_task(false, &message, events);
-                events.push(ActEvent::Error { message });
-                return Step::Next;
-            }
-        };
-
-        let result = self
-            .executor
-            .execute_plan_with_context(plan.clone(), &hint)
-            .await;
-        self.absorb_novel(plan, result, &hint, events)
+        self.novel_loop(goal, history, events).await
     }
 
-    /// Map an executor result onto state + events, storing any remainder on pause.
-    fn absorb_novel(
+    /// The closed loop (ReAct-style): observe -> plan the next batch -> act ->
+    /// re-observe, until the goal is done, a step pauses for the user, the kill
+    /// switch trips, or the iteration budget / no-progress guard stops it. Each
+    /// iteration re-grounds against a FRESH snapshot, so a goal adapts when the UI
+    /// isn't what a one-shot plan assumed.
+    async fn novel_loop(
         &mut self,
-        plan: ActionPlan,
-        result: Result<ExecResult, ExecError>,
-        hint: &str,
+        goal: String,
+        mut history: Vec<String>,
         events: &mut Vec<ActEvent>,
     ) -> Step {
+        // (first planned-action signature, snapshot fingerprint) of the previous
+        // iteration — the no-progress guard aborts if both repeat unchanged.
+        let mut prev_sig: Option<(String, String)> = None;
+
+        for iter in 0..MAX_NOVEL_ITERS {
+            // (a) Fresh snapshot -> grounding packet + a cheap fingerprint. A
+            // snapshot failure (e.g. a wedged UIA provider) degrades to empty
+            // grounding rather than sinking the command: untargeted actions
+            // (launch, type, key, uri) still run; targeted ones fail validation.
+            let (packet, fingerprint) = match self.backend.snapshot().await {
+                Ok(snap) => {
+                    self.board.observe(&snap);
+                    let fp = snapshot_fingerprint(&snap);
+                    let packet = GroundingPacket::from_snapshot(
+                        &snap,
+                        DEFAULT_MAX_ELEMENTS,
+                        DEFAULT_MAX_NAME_CHARS,
+                    );
+                    (packet, fp)
+                }
+                Err(e) => {
+                    tracing::warn!(iter, error = %e, "act novel: snapshot failed; planning with empty grounding");
+                    (GroundingPacket::empty(), String::new())
+                }
+            };
+
+            // (b) Trusted context = session state + the progress block (goal +
+            // history). The progress block's marker puts the planner in next-step
+            // (continuation) mode. History holds only OUR outcome descriptions and
+            // the goal — never raw untrusted screen text.
+            let prior_context = novel_prior_context(&self.board, &goal, &history);
+
+            // (c) Plan the next batch.
+            let (plan, source) = match self
+                .planner
+                .plan(PlanRequest {
+                    transcript: goal.clone(),
+                    packet,
+                    prior_context,
+                })
+                .await
+            {
+                Ok(res) => (res.plan, res.source),
+                Err(e) => {
+                    let message = e.to_string();
+                    tracing::warn!(iter, error = %message, "act novel: planning failed");
+                    self.finish_task(false, &message, events);
+                    events.push(ActEvent::Error { message });
+                    return Step::Next;
+                }
+            };
+
+            // No-progress guard: identical first action AND unchanged screen two
+            // iterations running means the loop is stuck — bail with a clear result
+            // rather than spinning.
+            let first_sig = plan
+                .actions
+                .first()
+                .map(action_signature)
+                .unwrap_or_default();
+            let sig = (first_sig, fingerprint);
+            if prev_sig.as_ref() == Some(&sig) {
+                tracing::warn!(iter, "act novel: no progress (same first action + unchanged screen); aborting");
+                let summary = format!("Couldn't make progress: {}", history_tail(&history));
+                self.board.record(short_goal(&goal));
+                self.finish_task(false, &summary, events);
+                events.push(ActEvent::Result { ok: false, summary });
+                return Step::Next;
+            }
+            prev_sig = Some(sig);
+
+            let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+            tracing::info!(
+                iter,
+                goal = %short_goal(&goal),
+                source = ?source,
+                actions = ?kinds,
+                "act novel: executing iteration"
+            );
+
+            // (d) Execute the batch.
+            let result = self
+                .executor
+                .execute_plan_with_context(plan.clone(), &goal)
+                .await;
+
+            // (e) Classify: pause, stop, terminal success/failure, or continue.
+            match self.classify_novel(plan, source, result, &goal, &mut history, events) {
+                LoopStep::Return(step) => {
+                    tracing::info!(iter, "act novel: iteration terminal");
+                    return step;
+                }
+                LoopStep::Continue => {
+                    tracing::info!(iter, "act novel: adapting — re-observing and re-planning");
+                    continue;
+                }
+            }
+        }
+
+        tracing::warn!(iters = MAX_NOVEL_ITERS, "act novel: exhausted iteration budget");
+        let summary = format!(
+            "Couldn't finish after {MAX_NOVEL_ITERS} tries: {}",
+            history_tail(&history)
+        );
+        self.board.record(short_goal(&goal));
+        self.finish_task(false, &summary, events);
+        events.push(ActEvent::Result { ok: false, summary });
+        Step::Next
+    }
+
+    /// Classify one iteration's executor result and update the trusted `history`.
+    /// Terminal cases (done / blocked / aborted / paused) emit their events and
+    /// return [`LoopStep::Return`]; a per-step failure or backend error records the
+    /// error and returns [`LoopStep::Continue`] so the loop re-observes and adapts.
+    /// Shared by both the loop and the pause/resume re-entry path.
+    fn classify_novel(
+        &mut self,
+        plan: ActionPlan,
+        source: PlanSource,
+        result: Result<ExecResult, ExecError>,
+        goal: &str,
+        history: &mut Vec<String>,
+        events: &mut Vec<ActEvent>,
+    ) -> LoopStep {
         let result = match result {
             Ok(r) => r,
             Err(e) => {
-                let message = e.to_string();
-                self.finish_task(false, &message, events);
-                events.push(ActEvent::Error { message });
-                return Step::Next;
+                let msg = short_err(&e.to_string());
+                tracing::warn!(error = %msg, "act novel: executor error; re-observing to adapt");
+                push_progress(history, format!("execution error: {msg}"));
+                return LoopStep::Continue;
             }
         };
+
+        // Trusted, PHI-free notes for the steps that completed (fed to the next
+        // plan so the model knows what's already done and won't repeat it).
+        for o in &result.outcomes {
+            if let StepOutcome::Done { action, .. } = o {
+                if let Some(note) = done_summary(action) {
+                    push_progress(history, note);
+                }
+            }
+        }
 
         let done = result
             .outcomes
             .iter()
             .take_while(|o| matches!(o, StepOutcome::Done { .. }))
             .count();
-        let remaining: Vec<_> = plan.actions.iter().skip(done).cloned().collect();
+        let remaining: Vec<Action> = plan.actions.iter().skip(done).cloned().collect();
 
         match result.outcomes.last() {
             Some(StepOutcome::NeedsConfirm { action, reason }) => {
@@ -711,18 +831,22 @@ impl Conductor {
                     summary: format!("{} {}", action.kind(), action.target().unwrap_or("")),
                     reason: reason.clone(),
                 });
-                Step::Paused(PendingKind::Novel {
+                LoopStep::Return(Step::Paused(PendingKind::Novel {
                     remaining: ActionPlan::new(remaining),
-                })
+                    goal: goal.to_string(),
+                    history: history.clone(),
+                }))
             }
             Some(StepOutcome::NeedsAskUser { prompt, options }) => {
                 events.push(ActEvent::AskUser {
                     prompt: prompt.clone(),
                     options: options.clone(),
                 });
-                Step::Paused(PendingKind::Novel {
+                LoopStep::Return(Step::Paused(PendingKind::Novel {
                     remaining: ActionPlan::new(remaining),
-                })
+                    goal: goal.to_string(),
+                    history: history.clone(),
+                }))
             }
             Some(StepOutcome::Aborted) => {
                 self.finish_task(false, "Stopped", events);
@@ -730,14 +854,47 @@ impl Conductor {
                     ok: false,
                     summary: "Stopped".into(),
                 });
-                Step::Stop
+                LoopStep::Return(Step::Stop)
             }
+            // A safety refusal (capability / elevated / classifier) is terminal —
+            // re-planning would only re-hit the same boundary.
+            Some(StepOutcome::Denied { reason, .. }) => {
+                push_progress(history, format!("blocked: {}", short_err(reason)));
+                let summary = format!("Blocked: {reason}");
+                self.board.record(short_goal(goal));
+                self.finish_task(false, &summary, events);
+                events.push(ActEvent::Result { ok: false, summary });
+                LoopStep::Return(Step::Next)
+            }
+            // A recoverable step failure (stale target gone, verify failed, backend
+            // error): record it and let the loop re-observe + re-plan.
+            Some(StepOutcome::Failed { error, .. }) => {
+                push_progress(history, format!("step failed: {}", short_err(error)));
+                tracing::info!(error = %short_err(error), "act novel: step failed; will re-observe");
+                LoopStep::Continue
+            }
+            // No blocking outcome: the batch completed. Treat the goal as DONE when
+            // the model declared it (a trailing stop), the deterministic fast path
+            // produced the plan, or the batch actually INTERACTED with the UI
+            // (type/invoke/key/…) — completing a real interaction means the work got
+            // done, and re-looping would risk repeating it. A "setup-only" batch
+            // (just launch/uri/wait/focus) with no stop is NOT treated as done: loop
+            // again so the model can act on the app it just brought up (this is what
+            // makes "open Word and write…" adapt to the start page).
             _ => {
-                self.board.record(short_goal(hint));
-                let (ok, summary) = summarize_novel(&result);
-                self.finish_task(ok, &summary, events);
-                events.push(ActEvent::Result { ok, summary });
-                Step::Next
+                let explicit_stop = plan.actions.iter().any(|a| matches!(a, Action::Stop));
+                let interacted = plan.actions.iter().any(is_interaction);
+                let goal_done = result.completed
+                    && (explicit_stop || interacted || source == PlanSource::FastPath);
+                if goal_done {
+                    self.board.record(short_goal(goal));
+                    let (ok, summary) = summarize_novel(&result);
+                    self.finish_task(ok, &summary, events);
+                    events.push(ActEvent::Result { ok, summary });
+                    LoopStep::Return(Step::Next)
+                } else {
+                    LoopStep::Continue
+                }
             }
         }
     }
@@ -765,12 +922,30 @@ impl Conductor {
                 events.extend(local.into_inner().unwrap());
                 self.absorb_flow(*file, slots, outcome, events).await
             }
-            PendingKind::Novel { remaining } => {
+            PendingKind::Novel {
+                remaining,
+                goal,
+                mut history,
+            } => {
+                // Run the pre-approved batch, then feed its result through the same
+                // classifier. If it didn't itself pause/stop/finish, RE-ENTER the
+                // loop so the rest of the goal is re-observed and re-planned — not
+                // just replayed from the stale `remaining`.
                 let result = self
                     .executor
                     .resume_after_user(remaining.clone(), decision)
                     .await;
-                self.absorb_novel(remaining, result, "", events)
+                match self.classify_novel(
+                    remaining,
+                    PlanSource::Llm,
+                    result,
+                    &goal,
+                    &mut history,
+                    events,
+                ) {
+                    LoopStep::Return(step) => step,
+                    LoopStep::Continue => self.novel_loop(goal, history, events).await,
+                }
             }
         }
     }
@@ -795,6 +970,111 @@ fn flow_decision(decision: &UserDecision, options: &[AskOption]) -> ResumeDecisi
             .map(ResumeDecision::Choose)
             .unwrap_or(ResumeDecision::Decline),
     }
+}
+
+/// A cheap, PHI-free fingerprint of a snapshot (app, window, element count) used
+/// by the no-progress guard to tell whether the screen changed between iterations.
+fn snapshot_fingerprint(snap: &Snapshot) -> String {
+    format!("{}|{}|{}", snap.app, snap.window_title, snap.elements.len())
+}
+
+/// A stable, PHI-free signature of an action for the no-progress guard: its kind
+/// plus any target path (never the typed text).
+fn action_signature(action: &Action) -> String {
+    format!("{}:{}", action.kind(), action.target().unwrap_or(""))
+}
+
+/// Whether an action actually acts on the UI / system toward the goal (as opposed
+/// to a "setup" primitive like launch/uri/wait/focus that merely gets ready). A
+/// completed batch that interacted is treated as having done the work.
+fn is_interaction(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::Type { .. }
+            | Action::Invoke { .. }
+            | Action::Key { .. }
+            | Action::SelectMenu { .. }
+            | Action::Scroll { .. }
+            | Action::Clipboard { .. }
+            | Action::Shell { .. }
+    )
+}
+
+/// Append a trusted progress note, keeping only the most recent [`NOVEL_HISTORY_CAP`].
+fn push_progress(history: &mut Vec<String>, note: String) {
+    history.push(note);
+    let overflow = history.len().saturating_sub(NOVEL_HISTORY_CAP);
+    if overflow > 0 {
+        history.drain(0..overflow);
+    }
+}
+
+/// A trusted, PHI-free one-line note for a completed action, fed back to the
+/// planner as progress. Never includes typed text, document content, or on-screen
+/// values — only the action kind and (for launch/focus) the app name. Returns
+/// `None` for steps that carry no useful progress signal.
+fn done_summary(action: &Action) -> Option<String> {
+    Some(match action {
+        Action::Launch { target, .. } => format!("launched {}", short_goal(target)),
+        Action::Uri { .. } => "opened a link".into(),
+        Action::Key { combo } => format!("pressed {combo}"),
+        Action::Type { .. } => "typed text".into(),
+        Action::Invoke { .. } => "activated a control".into(),
+        Action::Focus { .. } => "moved focus".into(),
+        Action::FocusApp { name } => format!("focused {}", short_goal(name)),
+        Action::SelectMenu { .. } => "selected a menu item".into(),
+        Action::Scroll { .. } => "scrolled".into(),
+        Action::Clipboard { .. } => "used the clipboard".into(),
+        Action::Shell { .. } => "ran a command".into(),
+        Action::Wait { .. } | Action::Stop | Action::AskUser { .. } => return None,
+    })
+}
+
+/// Collapse an error string to a single, bounded line for the history / summary.
+fn short_err(e: &str) -> String {
+    let one_line = e.split_whitespace().collect::<Vec<_>>().join(" ");
+    if one_line.chars().count() <= 80 {
+        one_line
+    } else {
+        one_line.chars().take(79).collect::<String>() + "…"
+    }
+}
+
+/// The most recent progress note, for a terminal "here's how far we got" summary.
+fn history_tail(history: &[String]) -> String {
+    history
+        .last()
+        .cloned()
+        .unwrap_or_else(|| "no steps ran".to_string())
+}
+
+/// Build the trusted `prior_context` for a loop iteration: the session context
+/// block followed by a [`CONTINUATION_MARKER`]-fenced progress block (the goal and
+/// our own step notes). Presence of the marker switches the planner to next-step
+/// mode. Always `Some` (the goal is always available), so novel planning is always
+/// held to the per-iteration action budget.
+fn novel_prior_context(board: &Blackboard, goal: &str, history: &[String]) -> Option<String> {
+    let mut out = String::new();
+    let ctx = board.context_summary();
+    if !ctx.trim().is_empty() {
+        out.push_str(&ctx);
+        out.push('\n');
+    }
+    out.push_str(CONTINUATION_MARKER);
+    out.push_str(
+        " (trusted — what has already happened this goal; SCREEN_CONTEXT is the CURRENT screen)\n",
+    );
+    out.push_str(&format!("goal: {goal}\n"));
+    out.push_str("steps so far:\n");
+    if history.is_empty() {
+        out.push_str("  - (nothing yet)\n");
+    } else {
+        for h in history {
+            out.push_str(&format!("  - {h}\n"));
+        }
+    }
+    out.push_str("<<<END_PROGRESS");
+    Some(out)
 }
 
 /// A short, PHI-free description of a novel goal for the history.
@@ -1058,6 +1338,59 @@ mod tests {
         assert!(events
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+    }
+
+    #[tokio::test]
+    async fn novel_loop_completes_in_one_iteration_when_it_interacts() {
+        // A novel goal the model answers with a single benign invoke: because the
+        // batch INTERACTED and completed, the closed loop finishes in ONE iteration
+        // — exactly one planner call (a second would exhaust the fixture and panic).
+        let backend = Arc::new(MockBackend::new(snap(vec![el("#/1", Role::Button, "Play")])));
+        let selection = r#"{"missions":[{"type":"novel","goal":"press the play button"}]}"#;
+        let plan = r##"{"actions":[{"op":"invoke","target":"#/1"}]}"##;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(plan.into())],
+            backend.clone(),
+        );
+        c.arm();
+        let events = c
+            .on_transcript("press the play button".into())
+            .await
+            .unwrap();
+        assert_eq!(backend.invoked(), vec!["#/1".to_string()]);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+        assert!(matches!(c.state(), ConductorState::Armed));
+    }
+
+    #[tokio::test]
+    async fn novel_loop_reobserves_after_setup_only_batch_until_stop() {
+        // Iter 1 is a setup-only uri (no stop) — the loop must NOT declare the goal
+        // done; it re-observes and re-plans. Iter 2 the model emits stop -> success.
+        // Three LLM turns total (selection + two planner calls) proves the loop ran
+        // twice and terminated cleanly.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let selection = r#"{"missions":[{"type":"novel","goal":"open the page then finish"}]}"#;
+        let iter1 =
+            r#"{"actions":[{"op":"uri","uri":"https://example.com","origin":"world_knowledge"}]}"#;
+        let iter2 = r#"{"actions":[{"op":"stop"}]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(iter1.into()), Ok(iter2.into())],
+            backend.clone(),
+        );
+        c.arm();
+        let events = c
+            .on_transcript("open the page then finish".into())
+            .await
+            .unwrap();
+        assert_eq!(backend.opened_uris(), vec!["https://example.com".to_string()]);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+        assert!(matches!(c.state(), ConductorState::Armed));
     }
 
     #[tokio::test]
