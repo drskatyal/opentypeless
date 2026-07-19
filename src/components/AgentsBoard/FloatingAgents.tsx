@@ -91,7 +91,7 @@ export function FloatingAgents() {
             transition={{ type: 'spring', stiffness: 460, damping: 34 }}
             style={{ transformOrigin: 'top right' }}
             onPointerDown={startDrag}
-            className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-border bg-bg-secondary/95 shadow-float backdrop-blur"
+            className="flex h-full w-full flex-col overflow-hidden rounded-[16px] bg-bg-secondary/95 shadow-float ring-1 ring-accent/15 backdrop-blur"
           >
             <PanelHeader
               total={tasks.length}
@@ -116,7 +116,7 @@ export function FloatingAgents() {
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 460, damping: 30 }}
             onPointerDown={startDrag}
-            className="flex h-full w-full items-center gap-2 rounded-full border border-border bg-bg-secondary/90 pr-2 pl-2.5 shadow-lg backdrop-blur"
+            className="flex h-full w-full items-center gap-2 rounded-full bg-bg-secondary/90 pr-2 pl-2.5 shadow-lg ring-1 ring-accent/15 backdrop-blur"
           >
             <button
               type="button"
