@@ -741,7 +741,7 @@ mod tests {
     #[test]
     fn system_prompt_carries_the_offscreen_rule() {
         // The below-the-fold reach fix: the planner must be told that an
-        // `offscreen` element is still invokable by PATH and must not be reached
+        // `offscreen` element is still invocable by PATH and must not be reached
         // with a coordinate click at empty space. Asserted on the prompt constant
         // (like the HYBRID_GROUNDING / GROUNDING PRIORITY prompt tests) so a prompt
         // edit that drops the rule fails here.
@@ -751,7 +751,7 @@ mod tests {
         );
         assert!(
             SYSTEM_PROMPT.contains("offscreen") && SYSTEM_PROMPT.contains("BY PATH"),
-            "the rule must say an offscreen element is invokable by path"
+            "the rule must say an offscreen element is invocable by path"
         );
         assert!(
             SYSTEM_PROMPT.contains("NEVER be reached with a coordinate click"),
