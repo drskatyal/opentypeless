@@ -192,6 +192,11 @@ impl Planner {
                     });
                 }
                 Err(err) => {
+                    // Surface exactly what the model returned so a schema slip is
+                    // debuggable from the app log (the plan JSON is PHI-free — it's
+                    // roles/paths/keys, never document text). Truncated to keep logs sane.
+                    let preview: String = raw.chars().take(600).collect();
+                    tracing::warn!(error = %err, attempt, model_output = %preview, "act planner: plan parse/validate failed");
                     // Only malformed JSON / schema violations are worth a repair
                     // retry; policy denials and empties are terminal.
                     let repairable =
