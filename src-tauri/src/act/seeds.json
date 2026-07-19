@@ -200,8 +200,8 @@
     "description": "find and play a video on YouTube",
     "aliases": ["play the video {query}", "watch {query} on youtube"],
     "kind": "branch",
-    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["relaxing rain sounds"] } ],
-    "branch_context": "Open YouTube in the browser, search for {query}, and play the first video result.",
+    "slots": [ { "name": "query", "kind": "query", "required": true, "examples": ["relaxing rain sounds"], "filters": ["urlencode"] } ],
+    "branch_context": "The YouTube search results for this video open directly at https://www.youtube.com/results?search_query={query} . Navigate there ONCE with a single uri action (never open youtube.com first, and never navigate twice). Wait for the results to load, then click the FIRST video result to play it. Once a video is playing you are done.",
     "status": "smoke",
     "version": 1
   },
