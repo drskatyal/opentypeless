@@ -70,6 +70,10 @@ pub enum Action {
     /// Ask the user to disambiguate; halts the plan until answered.
     AskUser {
         question: String,
+        /// Schema-only-enforced clients (Cerebras json_object) sometimes omit this;
+        /// default to no preset choices (a free-form question) rather than failing
+        /// the whole plan parse with "missing field `choices`".
+        #[serde(default)]
         choices: Vec<String>,
     },
     /// Launch / start an application or executable by name or path.
