@@ -52,6 +52,9 @@ use windows_sys::Win32::System::Threading::{
     GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW,
     PROCESS_QUERY_LIMITED_INFORMATION,
 };
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_WHEEL, MOUSEINPUT,
+};
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SW_SHOWNORMAL};
 
@@ -480,8 +483,82 @@ impl AccessibilityBackend for WindowsUiaBackend {
         .map_err(to_app_err)
     }
 
+    async fn scroll(&self, dx: i32, dy: i32) -> std::result::Result<(), AppError> {
+        // Best-effort mouse-wheel scroll of the foreground window, so below-the-fold
+        // content (search results, long lists) can be brought within reach. Runs on
+        // the UIA worker (COM/STA-initialized, like the other input ops) and
+        // invalidates the snapshot cache because the viewport moves. No `Desktop`
+        // call is needed — the wheel is synthesized with `SendInput` and delivered
+        // to the focused window.
+        invalidate_snapshot_cache();
+        run_op(OP_WATCHDOG, "scroll", move |_desktop| {
+            send_wheel(dx, dy);
+            Ok(())
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn scroll_into_view(&self, path: &ElementPath) -> std::result::Result<(), AppError> {
+        // Preferred offscreen-reach: terminator's `scroll_into_view` finds a
+        // scrollable ancestor and drives the UIA ScrollItem/Scroll pattern (with
+        // key fallbacks), re-checking bounds until the element is within the
+        // viewport. The executor calls this best-effort before invoking an
+        // `offscreen` target; surface a real error here so the caller can log it.
+        invalidate_snapshot_cache();
+        let path = path.to_string();
+        run_op(OP_WATCHDOG, "scroll_into_view", move |desktop| {
+            let element = resolve(desktop, &path)?;
+            element.scroll_into_view().map_err(to_anyhow)
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
     fn name(&self) -> &str {
         "windows-terminator"
+    }
+}
+
+/// One mouse-wheel notch, in the `WHEEL_DELTA` units `SendInput` expects.
+const WHEEL_DELTA: i32 = 120;
+
+/// Synthesize mouse-wheel input for the foreground window. `dy > 0` scrolls the
+/// content DOWN and `dx > 0` scrolls RIGHT, matching the
+/// [`AccessibilityBackend::scroll`] contract. Windows' vertical-wheel convention
+/// is the inverse — a POSITIVE `mouseData` scrolls up (away from the user) — so a
+/// downward scroll is sent as a negative delta; the horizontal axis is already
+/// right-positive.
+fn send_wheel(dx: i32, dy: i32) {
+    if dy != 0 {
+        send_wheel_event(MOUSEEVENTF_WHEEL, -dy.saturating_mul(WHEEL_DELTA));
+    }
+    if dx != 0 {
+        send_wheel_event(MOUSEEVENTF_HWHEEL, dx.saturating_mul(WHEEL_DELTA));
+    }
+}
+
+/// Send a single wheel `INPUT` carrying `flags` (the vertical or horizontal wheel
+/// event) and a signed `delta` in `WHEEL_DELTA` units.
+fn send_wheel_event(flags: u32, delta: i32) {
+    // SAFETY: a single, fully-initialized `INPUT` describing a mouse-wheel event.
+    // `mi.mouseData` carries the signed wheel delta reinterpreted as u32 (the
+    // documented ABI for wheel input); every other field is zeroed. `SendInput`
+    // copies the struct for the duration of the call and retains nothing, and
+    // `cbsize` is the exact size of one `INPUT`. Runs on the UIA worker, a normal
+    // input-capable OS thread.
+    unsafe {
+        let mut input: INPUT = std::mem::zeroed();
+        input.r#type = INPUT_MOUSE;
+        input.Anonymous.mi = MOUSEINPUT {
+            dx: 0,
+            dy: 0,
+            mouseData: delta as u32,
+            dwFlags: flags,
+            time: 0,
+            dwExtraInfo: 0,
+        };
+        SendInput(1, &input, std::mem::size_of::<INPUT>() as i32);
     }
 }
 

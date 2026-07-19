@@ -81,5 +81,27 @@ pub trait AccessibilityBackend: Send + Sync {
         ))
     }
 
+    /// Scroll the foreground window / focused scrollable region by `dx`, `dy`
+    /// wheel notches. Vertical: `dy > 0` scrolls DOWN (reveals content below the
+    /// fold), `dy < 0` scrolls UP. Horizontal: `dx > 0` scrolls RIGHT, `dx < 0`
+    /// LEFT. This is how below-the-fold search results / list items marked
+    /// `offscreen` in a snapshot are brought within reach.
+    ///
+    /// The default is a no-op success so the mock and any backend without pointer
+    /// synthesis still compile and degrade cleanly (a `Scroll` action simply does
+    /// nothing rather than failing the plan). The Windows backend overrides it.
+    async fn scroll(&self, _dx: i32, _dy: i32) -> Result<(), AppError> {
+        Ok(())
+    }
+
+    /// Best-effort: bring `target` into view if it is scrolled offscreen, so a
+    /// following invoke/focus lands on a real, on-screen control. The default is a
+    /// no-op success (a backend without a scroll-into-view primitive still acts in
+    /// place — an a11y invoke-by-path works regardless of viewport position). The
+    /// Windows backend overrides it with the UIA scroll-into-view primitive.
+    async fn scroll_into_view(&self, _target: &ElementPath) -> Result<(), AppError> {
+        Ok(())
+    }
+
     fn name(&self) -> &str;
 }

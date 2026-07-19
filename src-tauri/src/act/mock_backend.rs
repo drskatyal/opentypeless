@@ -27,6 +27,8 @@ struct Recorded {
     ran_shells: Vec<(String, String)>,
     focused_apps: Vec<String>,
     clipboard_sets: Vec<String>,
+    scrolls: Vec<(i32, i32)>,
+    scrolled_into_view: Vec<ElementPath>,
 }
 
 /// A scriptable backend backed by an in-memory snapshot that records calls.
@@ -120,6 +122,17 @@ impl MockBackend {
     /// Text values passed to [`AccessibilityBackend::clipboard_set`], in order.
     pub fn clipboard_sets(&self) -> Vec<String> {
         self.calls().clipboard_sets.clone()
+    }
+
+    /// `(dx, dy)` wheel-notch pairs passed to [`AccessibilityBackend::scroll`],
+    /// in call order.
+    pub fn scrolls(&self) -> Vec<(i32, i32)> {
+        self.calls().scrolls.clone()
+    }
+
+    /// Targets passed to [`AccessibilityBackend::scroll_into_view`], in call order.
+    pub fn scrolled_into_view(&self) -> Vec<ElementPath> {
+        self.calls().scrolled_into_view.clone()
     }
 }
 
@@ -240,6 +253,16 @@ impl AccessibilityBackend for MockBackend {
         Ok(())
     }
 
+    async fn scroll(&self, dx: i32, dy: i32) -> Result<(), AppError> {
+        self.calls().scrolls.push((dx, dy));
+        Ok(())
+    }
+
+    async fn scroll_into_view(&self, target: &ElementPath) -> Result<(), AppError> {
+        self.calls().scrolled_into_view.push(target.clone());
+        Ok(())
+    }
+
     fn name(&self) -> &str {
         "mock"
     }
@@ -346,6 +369,22 @@ mod tests {
         assert!(backend.ran_shells().is_empty());
         assert!(backend.focused_apps().is_empty());
         assert!(backend.clipboard_sets().is_empty());
+        assert!(backend.scrolls().is_empty());
+        assert!(backend.scrolled_into_view().is_empty());
         assert_eq!(backend.clipboard_get().await.unwrap(), "");
+    }
+
+    #[tokio::test]
+    async fn records_scroll_and_scroll_into_view_calls() {
+        let backend = MockBackend::default();
+        backend.scroll(0, 3).await.unwrap();
+        backend.scroll(0, -1).await.unwrap();
+        backend
+            .scroll_into_view(&"#/2/1".to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(backend.scrolls(), vec![(0, 3), (0, -1)]);
+        assert_eq!(backend.scrolled_into_view(), vec!["#/2/1".to_string()]);
     }
 }

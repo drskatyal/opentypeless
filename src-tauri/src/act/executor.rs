@@ -12,7 +12,7 @@ use super::audit::{AuditEntry, AuditLog};
 use super::backend::AccessibilityBackend;
 use super::capability::{CapabilityGate, Decision};
 use super::destructive::{self, Destructive};
-use super::element::{ElementPath, Snapshot};
+use super::element::{ElementPath, ElementState, Snapshot};
 use super::events::AskOption;
 use super::focus_guard;
 use super::grounding::{self, Grounded};
@@ -464,6 +464,38 @@ impl Executor {
             }
         }
 
+        // 5d. Reach below-the-fold targets. A control marked `offscreen` is
+        // scrolled out of the viewport, so a coordinate click at its bounds hits
+        // nothing (the "clicks empty space, no progress, aborts" failure on a
+        // YouTube result). An a11y invoke-by-path still works, but bringing the
+        // element into view first makes the invoke/focus land reliably and keeps
+        // any bounds-based fallback on real pixels. Best-effort and non-fatal: on
+        // any failure we act in place anyway, and the kill switch pre-empts it.
+        if matches!(action, Action::Invoke { .. } | Action::Focus { .. }) {
+            if let Some(path) = action.target() {
+                let offscreen = snapshot
+                    .get(path)
+                    .is_some_and(|e| e.has_state(ElementState::Offscreen));
+                if offscreen {
+                    let path = path.to_string();
+                    let kill = self.kill.clone();
+                    tokio::select! {
+                        biased;
+                        _ = kill.wait_tripped() => return Ok(Flow::Aborted),
+                        r = self.backend.scroll_into_view(&path) => {
+                            if let Err(e) = r {
+                                tracing::debug!(
+                                    target = %path,
+                                    error = %e,
+                                    "act executor: scroll_into_view failed; acting in place"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 6. Execute, racing the kill switch.
         match self.execute_action(&action).await? {
             Execution::Ok => {
@@ -867,10 +899,14 @@ impl Executor {
                 }
                 typed
             }
-            Action::Scroll { .. } => {
-                // Best-effort: the backend trait has no cross-platform scroll
-                // primitive yet, so treat scroll as a no-op success.
-                Ok(())
+            Action::Scroll { amount, .. } => {
+                // Drive the real backend scroll primitive. `amount` is a signed
+                // wheel-notch count (positive = down, negative = up); a zero/absent
+                // amount defaults to a modest downward nudge (the common "scroll
+                // down to see more results" case). The target, if any, was already
+                // brought into view by the offscreen-reach step below; the wheel
+                // itself acts on the foreground scrollable region.
+                guarded!(self.backend.scroll(0, scroll_dy(*amount)))
             }
             Action::SelectMenu { path } => {
                 // Best-effort: walk the menu by invoking each item path in turn.
@@ -1160,6 +1196,23 @@ fn describe_flow(flow: &Flow) -> (&'static str, String) {
         },
         Flow::Aborted => ("aborted", String::new()),
         Flow::Stop => ("stop", String::new()),
+    }
+}
+
+/// The default number of vertical wheel notches a `Scroll` with no explicit
+/// `amount` performs — a modest downward nudge, enough to pull the next band of
+/// list results into view without overshooting the whole page.
+const DEFAULT_SCROLL_NOTCHES: i32 = 3;
+
+/// Translate a [`Action::Scroll`]'s `amount` into vertical wheel notches for the
+/// backend `scroll` primitive. `amount` is a signed notch count (positive = down,
+/// negative = up); a zero/absent `amount` defaults to
+/// [`DEFAULT_SCROLL_NOTCHES`] downward.
+fn scroll_dy(amount: i32) -> i32 {
+    if amount == 0 {
+        DEFAULT_SCROLL_NOTCHES
+    } else {
+        amount
     }
 }
 
@@ -1761,6 +1814,94 @@ mod tests {
             [StepOutcome::Failed { .. }]
         ));
         assert!(backend.invoked().is_empty());
+    }
+
+    #[tokio::test]
+    async fn scroll_action_calls_backend_scroll_with_mapped_amount() {
+        // #1: `Action::Scroll` is no longer a no-op — it drives the backend `scroll`
+        // primitive. A zero/absent amount defaults to a downward nudge; a signed
+        // amount passes through (negative = up).
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![
+            Action::Scroll {
+                target: None,
+                amount: 0,
+            },
+            Action::Scroll {
+                target: None,
+                amount: -2,
+            },
+        ]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed, "scroll actions run to completion");
+        assert_eq!(
+            backend.scrolls(),
+            vec![(0, DEFAULT_SCROLL_NOTCHES), (0, -2)],
+            "amount 0 defaults to a downward nudge; a signed amount passes through"
+        );
+    }
+
+    fn snapshot_with_offscreen_result() -> Snapshot {
+        // A YouTube-style result present in the tree but scrolled below the fold.
+        let mut result = el("#/5", Role::Link, "Eagles - Hotel California");
+        result.states = vec![ElementState::Offscreen];
+        Snapshot {
+            app: "Chrome".into(),
+            window_title: "YouTube".into(),
+            focused: Some("#/1".into()),
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![el("#/1", Role::TextField, "Search"), result],
+        }
+    }
+
+    #[tokio::test]
+    async fn offscreen_invoke_scrolls_into_view_before_acting() {
+        // #3a: invoking a target marked `offscreen` first brings it into view, so
+        // the invoke lands on a real control instead of scrolled-out empty space.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_with_offscreen_result())
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/5".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        assert_eq!(
+            backend.scrolled_into_view(),
+            vec!["#/5".to_string()],
+            "the offscreen target is scrolled into view first"
+        );
+        assert_eq!(backend.invoked(), vec!["#/5".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn onscreen_invoke_does_not_scroll_into_view() {
+        // The offscreen-reach step is inert for an on-screen control: a plain
+        // invoke must not pay a spurious scroll-into-view.
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/2".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        assert!(
+            backend.scrolled_into_view().is_empty(),
+            "an on-screen target is not scrolled into view"
+        );
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
+    }
+
+    #[test]
+    fn scroll_dy_maps_amount_to_notches() {
+        assert_eq!(scroll_dy(0), DEFAULT_SCROLL_NOTCHES, "0 defaults to down");
+        assert_eq!(scroll_dy(5), 5, "positive passes through (down)");
+        assert_eq!(scroll_dy(-3), -3, "negative passes through (up)");
     }
 
     #[test]

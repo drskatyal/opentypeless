@@ -83,6 +83,13 @@ now on the CURRENT screen: interact with what SCREEN_CONTEXT shows (type into it
 click a control) rather than re-opening it. Re-navigating is only correct if SCREEN_CONTEXT proves the earlier \
 open failed (the expected app/page is genuinely absent from the current screen).
 
+OFFSCREEN TARGETS: an element in SCREEN_CONTEXT may carry the state 'offscreen' - it is present in the tree but \
+scrolled below the fold, out of the visible viewport. List results (search results, menu items, emails) are \
+commonly offscreen yet remain fully actionable BY PATH: emit invoke or focus on its '#/...' path - a UIA invoke \
+scrolls the control into view and activates it - or emit a scroll toward it first, then invoke. An offscreen \
+element you can address by path must NEVER be reached with a coordinate click at empty space. Do NOT ask_user or \
+give up just because the result you want is offscreen; invoke its path.
+
 GOOD PLANS:
 - 'open bluetooth settings' -> \
 {\"actions\":[{\"op\":\"uri\",\"uri\":\"ms-settings:bluetooth\",\"origin\":\"world_knowledge\"}]}
@@ -729,6 +736,31 @@ mod tests {
             parse_and_validate(&raw, &req),
             Err(PlanError::Schema(_))
         ));
+    }
+
+    #[test]
+    fn system_prompt_carries_the_offscreen_rule() {
+        // The below-the-fold reach fix: the planner must be told that an
+        // `offscreen` element is still invokable by PATH and must not be reached
+        // with a coordinate click at empty space. Asserted on the prompt constant
+        // (like the HYBRID_GROUNDING / GROUNDING PRIORITY prompt tests) so a prompt
+        // edit that drops the rule fails here.
+        assert!(
+            SYSTEM_PROMPT.contains("OFFSCREEN TARGETS"),
+            "system prompt must carry the offscreen-target rule"
+        );
+        assert!(
+            SYSTEM_PROMPT.contains("offscreen") && SYSTEM_PROMPT.contains("BY PATH"),
+            "the rule must say an offscreen element is invokable by path"
+        );
+        assert!(
+            SYSTEM_PROMPT.contains("NEVER be reached with a coordinate click"),
+            "the rule must forbid a coordinate click at empty space for an offscreen target"
+        );
+        // The rule reaches the model in tree mode (base prompt) AND in hybrid mode
+        // (base + HYBRID_GROUNDING), so it is not confined to screenshot turns.
+        let hybrid = format!("{SYSTEM_PROMPT}\n\n{HYBRID_GROUNDING}");
+        assert!(hybrid.contains("OFFSCREEN TARGETS"));
     }
 
     #[tokio::test]
