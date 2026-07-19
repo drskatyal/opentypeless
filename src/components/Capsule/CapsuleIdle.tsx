@@ -40,8 +40,6 @@ export function CapsuleIdle({ armed = false }: CapsuleIdleProps) {
       ) : (
         <Mic size={16} strokeWidth={2.1} className="capsule-mic relative z-10 drop-shadow-sm" />
       )}
-
-      {armed && <span aria-hidden="true" className="capsule-badge-dot" />}
     </motion.div>
   )
 }

@@ -431,7 +431,7 @@ impl Default for AppConfig {
                 .to_string(),
             act_enabled: false,
             act_model_tier: "fast".to_string(),
-            act_plan_mode: "tree".to_string(),
+            act_plan_mode: "hybrid".to_string(),
             act_followup_provider: "gemini".to_string(),
             cerebras_api_key: String::new(),
             llm_provider: "gemini".to_string(),
