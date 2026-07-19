@@ -315,7 +315,7 @@ impl AccessibilityBackend for WindowsUiaBackend {
                 // open no browser window. terminator's `open_url` hands the URI to
                 // ShellExecuteW and then *searches for a browser window with the
                 // page title* — which never appears for a folder/settings URI, so it
-                // spins to the watchdog (or mis-matches an unrelated browser window).
+                // spins to the watchdog (or mismatches an unrelated browser window).
                 // Hand off directly to the shell instead: it returns as soon as the
                 // registered handler is launched. (B5)
                 return shell_open(trimmed);

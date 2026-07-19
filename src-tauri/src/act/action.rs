@@ -339,8 +339,7 @@ mod tests {
     fn focus_app_accepts_target_alias() {
         // Cerebras json_object often emits `target` instead of `name`; the alias
         // keeps the whole plan from failing to parse.
-        let a: Action =
-            serde_json::from_str(r#"{"op":"focus_app","target":"spotify"}"#).unwrap();
+        let a: Action = serde_json::from_str(r#"{"op":"focus_app","target":"spotify"}"#).unwrap();
         assert_eq!(
             a,
             Action::FocusApp {

@@ -1,4 +1,13 @@
-import { Settings, Mic, Sparkles, BookOpen, Info, LayoutGrid, Wand2, AudioLines } from 'lucide-react'
+import {
+  Settings,
+  Mic,
+  Sparkles,
+  BookOpen,
+  Info,
+  LayoutGrid,
+  Wand2,
+  AudioLines,
+} from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { spring } from '../../lib/animations'

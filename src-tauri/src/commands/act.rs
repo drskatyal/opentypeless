@@ -165,15 +165,17 @@ fn resolve_followup_choice<V: CredentialSecretReader>(
 /// `provider|model|hash(key)`. The key is hashed (never retained in plaintext)
 /// so two saves that resolve to the same provider/model/key compare equal and no
 /// live rebuild is triggered; any real provider, model, or key change flips it.
-fn followup_signature<V: CredentialSecretReader>(
-    config: &storage::AppConfig,
-    vault: &V,
-) -> String {
+fn followup_signature<V: CredentialSecretReader>(config: &storage::AppConfig, vault: &V) -> String {
     use std::hash::{Hash, Hasher};
     let choice = resolve_followup_choice(config, vault);
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     choice.key.hash(&mut hasher);
-    format!("{}|{}|{:016x}", choice.provider, choice.model, hasher.finish())
+    format!(
+        "{}|{}|{:016x}",
+        choice.provider,
+        choice.model,
+        hasher.finish()
+    )
 }
 
 /// Build the LlmClient for Act's text-only FOLLOW-UP calls (selection routing,
