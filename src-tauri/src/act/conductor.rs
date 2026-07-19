@@ -14,6 +14,7 @@
 //! drawer and the cross-dictation loop.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::action::{Action, ActionPlan};
@@ -27,7 +28,9 @@ use super::flow_registry::FlowRegistry;
 use super::flow_runner::{
     substitute_value, FlowOutcome, FlowRunError, FlowRunner, Resume, ResumeDecision,
 };
-use super::grounding_packet::{GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS};
+use super::grounding_packet::{
+    GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS, SCREENSHOT_MAX_ELEMENTS,
+};
 use super::llm::LlmClient;
 use super::plan_mode::PlanMode;
 use super::planner::{Perception, PlanRequest, PlanSource, Planner, CONTINUATION_MARKER};
@@ -46,6 +49,15 @@ const MAX_NOVEL_ITERS: usize = 8;
 
 /// Cap on the trusted per-goal progress history carried between iterations.
 const NOVEL_HISTORY_CAP: usize = 16;
+
+/// How long the adaptive post-navigation settle polls the screen before it stops
+/// waiting and re-plans anyway. A page/app usually repaints well under this; we
+/// proceed on the FIRST snapshot that differs from the pre-navigation screen, so
+/// this is only the worst-case ceiling, not a flat wait.
+const NAV_SETTLE_BUDGET_MS: u64 = 1800;
+
+/// Poll cadence while waiting for the screen to change after a navigation.
+const NAV_SETTLE_POLL_MS: u64 = 120;
 
 /// Where the Conductor is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,6 +147,9 @@ pub struct Conductor {
     /// Screen-aware perception mode for novel planning (tree / hybrid / vision).
     /// Set from config after construction; defaults to `Tree`.
     plan_mode: PlanMode,
+    /// Where a composed document is saved. `None` resolves to the OS Documents
+    /// folder at save time; tests override it to a scratch directory.
+    documents_dir: Option<PathBuf>,
 }
 
 /// Where the mission loop lands after one mission.
@@ -177,7 +192,14 @@ impl Conductor {
             pending: None,
             current_task: None,
             plan_mode: PlanMode::Tree,
+            documents_dir: None,
         }
+    }
+
+    /// Override where composed documents are saved (defaults to the OS Documents
+    /// folder). Used by tests to redirect saves to a scratch directory.
+    pub fn set_documents_dir(&mut self, dir: PathBuf) {
+        self.documents_dir = Some(dir);
     }
 
     /// Set the screen-aware perception mode used for novel planning. Called after
@@ -297,6 +319,7 @@ impl Conductor {
             .map(|m| match m {
                 Mission::OpenFlow { id, .. } => format!("open_flow:{id}"),
                 Mission::Novel { .. } => "novel".to_string(),
+                Mission::Compose { .. } => "compose".to_string(),
                 Mission::Answer { .. } => "answer".to_string(),
             })
             .collect();
@@ -482,6 +505,14 @@ impl Conductor {
                 tracing::info!(goal = %goal, "Act running novel goal (planner)");
                 self.run_novel(goal, events).await
             }
+            Mission::Compose {
+                topic,
+                kind,
+                target_app,
+            } => {
+                tracing::info!(kind = %kind, topic = %topic, target_app = ?target_app, "Act composing content");
+                self.run_compose(topic, kind, target_app, events).await
+            }
             Mission::Answer { question } => {
                 tracing::info!(question = %question, "Act answering (talk-back)");
                 self.run_answer(question, events).await
@@ -499,6 +530,11 @@ impl Conductor {
                 .map(|f| f.name.clone())
                 .unwrap_or_else(|| id.clone()),
             Mission::Novel { goal, .. } => short_goal(goal),
+            Mission::Compose { kind, topic, .. } => {
+                let k = kind.trim();
+                let k = if k.is_empty() { "note" } else { k };
+                short_goal(&format!("write a {k}: {topic}"))
+            }
             Mission::Answer { question } => short_goal(question),
         }
     }
@@ -665,6 +701,62 @@ impl Conductor {
         }
     }
 
+    /// Generate substantive document content for an authoring request and SAVE it.
+    ///
+    /// The selection layer routes "write / draft / compose a report / summary /
+    /// letter about X" here (NOT to `take_a_note`, which types a short LITERAL
+    /// snippet). This is a single deterministic pass — generate, then save — with NO
+    /// app automation and NO observe/act/re-plan loop: writing a fresh document must
+    /// never launch Word or Notepad. We GENERATE the body with one LLM call
+    /// ([`super::compose::compose_body`]) and write it as a `.docx` into the user's
+    /// Documents folder ([`super::compose::save_docx`]), reporting the saved path.
+    ///
+    /// `target_app` is intentionally unused: editing into an app's editor is only
+    /// appropriate when that editor is ALREADY the focused, open document (which is a
+    /// Novel/planner intent, not a fresh compose). Fresh creation always saves a file.
+    async fn run_compose(
+        &mut self,
+        topic: String,
+        kind: String,
+        _target_app: Option<String>,
+        events: &mut Vec<ActEvent>,
+    ) -> Step {
+        let body = super::compose::compose_body(self.llm.as_ref(), &topic, &kind).await;
+        if body.trim().is_empty() {
+            let message = format!("Couldn't generate the {}", short_kind(&kind));
+            self.finish_task(false, &message, events);
+            events.push(ActEvent::Error { message });
+            return Step::Next;
+        }
+
+        let dir = self.compose_documents_dir();
+        match super::compose::save_docx(&dir, &topic, &kind, &body) {
+            Ok(path) => {
+                self.board.record(format!("saved a {}", short_kind(&kind)));
+                let summary = format!("Saved the {} to {}", short_kind(&kind), path.display());
+                self.finish_task(true, &summary, events);
+                events.push(ActEvent::Result { ok: true, summary });
+                Step::Next
+            }
+            Err(e) => {
+                let message = format!("Couldn't save the {}: {e}", short_kind(&kind));
+                self.finish_task(false, &message, events);
+                events.push(ActEvent::Error { message });
+                Step::Next
+            }
+        }
+    }
+
+    /// The directory composed documents are saved to: the test/config override if
+    /// set, else the OS Documents folder, else the current directory as a last
+    /// resort (so a headless environment without a home still saves *somewhere*).
+    fn compose_documents_dir(&self) -> PathBuf {
+        self.documents_dir
+            .clone()
+            .or_else(dirs::document_dir)
+            .unwrap_or_else(|| PathBuf::from("."))
+    }
+
     /// Plan a novel goal from primitives and execute it.
     async fn run_novel(&mut self, goal: String, events: &mut Vec<ActEvent>) -> Step {
         self.run_novel_with(goal, None, events).await
@@ -721,11 +813,16 @@ impl Conductor {
                 Ok(snap) => {
                     self.board.observe(&snap);
                     let fp = snapshot_fingerprint(&snap);
-                    let packet = GroundingPacket::from_snapshot(
-                        &snap,
-                        DEFAULT_MAX_ELEMENTS,
-                        DEFAULT_MAX_NAME_CHARS,
-                    );
+                    // A screenshot turn (hybrid / vision) leans on the image and
+                    // often acts by coordinate, so serialize a leaner tree; tree
+                    // mode keeps the full budget.
+                    let max_elems = if self.plan_mode.needs_screenshot() {
+                        SCREENSHOT_MAX_ELEMENTS
+                    } else {
+                        DEFAULT_MAX_ELEMENTS
+                    };
+                    let packet =
+                        GroundingPacket::from_snapshot(&snap, max_elems, DEFAULT_MAX_NAME_CHARS);
                     (packet, fp)
                 }
                 Err(e) => {
@@ -794,6 +891,19 @@ impl Conductor {
             // empties the batch, it becomes a short wait + re-observe instead.
             let plan = dedupe_navigation(plan, &mut visited_uris, &mut history);
 
+            // Adaptive wait: a batch that navigates (uri / launch) usually carries a
+            // trailing flat `wait` the model guessed to let the page/app appear. Drop
+            // that blind sleep and instead poll the screen after execution (see
+            // `settle_after_nav`), proceeding on the first change. `fingerprint` (this
+            // iteration's pre-execution screen) is the baseline the poll compares
+            // against.
+            let navigated = plan_navigates(&plan);
+            let plan = if navigated {
+                strip_trailing_nav_waits(plan)
+            } else {
+                plan
+            };
+
             // No-progress guard: identical first action AND unchanged screen two
             // iterations running means the loop is stuck — bail with a clear result
             // rather than spinning.
@@ -802,7 +912,7 @@ impl Conductor {
                 .first()
                 .map(action_signature)
                 .unwrap_or_default();
-            let sig = (first_sig, fingerprint);
+            let sig = (first_sig, fingerprint.clone());
             if prev_sig.as_ref() == Some(&sig) {
                 tracing::warn!(
                     iter,
@@ -841,6 +951,12 @@ impl Conductor {
                     return step;
                 }
                 LoopStep::Continue => {
+                    // If this batch navigated, adaptively settle before re-planning:
+                    // poll until the screen changes from `fingerprint` (or the budget
+                    // elapses) instead of trusting the model's flat wait.
+                    if navigated {
+                        self.settle_after_nav(&fingerprint).await;
+                    }
                     tracing::info!(iter, "act novel: adapting — re-observing and re-planning");
                     continue;
                 }
@@ -859,6 +975,31 @@ impl Conductor {
         self.finish_task(false, &summary, events);
         events.push(ActEvent::Result { ok: false, summary });
         Step::Next
+    }
+
+    /// Adaptive post-navigation settle: after a batch that opened a URL or launched
+    /// an app, poll the snapshot fingerprint and return as soon as the screen
+    /// differs from `baseline_fp` (the page/app has appeared), or after
+    /// [`NAV_SETTLE_BUDGET_MS`]. This replaces the model's blind flat `wait` (which
+    /// burns its full guess even when the page painted in a fraction of it) with an
+    /// adaptive one: a screen that settles in 300ms proceeds in ~300ms. The freshly
+    /// observed snapshot is folded into the blackboard so the next plan grounds on
+    /// the settled screen.
+    async fn settle_after_nav(&mut self, baseline_fp: &str) {
+        let start = std::time::Instant::now();
+        let budget = std::time::Duration::from_millis(NAV_SETTLE_BUDGET_MS);
+        loop {
+            if let Ok(snap) = self.backend.snapshot().await {
+                if snapshot_fingerprint(&snap) != baseline_fp {
+                    self.board.observe(&snap);
+                    return;
+                }
+            }
+            if start.elapsed() >= budget {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(NAV_SETTLE_POLL_MS)).await;
+        }
     }
 
     /// Classify one iteration's executor result and update the trusted `history`.
@@ -1135,6 +1276,47 @@ fn dedupe_navigation(
     ActionPlan::new(kept)
 }
 
+/// Whether a batch performs a navigation — opens a URL or launches an app. These
+/// are the actions after which a page/app needs a beat to appear, so a navigating
+/// batch triggers the adaptive settle (and the trailing-wait strip) in the loop.
+fn plan_navigates(plan: &ActionPlan) -> bool {
+    plan.actions
+        .iter()
+        .any(|a| matches!(a, Action::Uri { .. } | Action::Launch { .. }))
+}
+
+/// Drop the blind flat `wait` the model appends after a navigation, so the
+/// Conductor's adaptive settle governs the pause instead. Only waits that TRAIL
+/// the final navigation with nothing but more waits / a `stop` after them are
+/// removed — the canonical "launch, wait 5000, stop" tail. A `wait` that gates a
+/// later interactive step in the SAME batch (e.g. `uri, wait, type`) is kept,
+/// since dropping it would type into a page that hasn't loaded.
+fn strip_trailing_nav_waits(plan: ActionPlan) -> ActionPlan {
+    let actions = plan.actions;
+    let Some(nav_idx) = actions
+        .iter()
+        .rposition(|a| matches!(a, Action::Uri { .. } | Action::Launch { .. }))
+    else {
+        return ActionPlan::new(actions);
+    };
+    // Only strip when everything after the last navigation is inert (wait / stop);
+    // otherwise a later action depends on the wait and it must stay.
+    let inert_tail = actions
+        .iter()
+        .skip(nav_idx + 1)
+        .all(|a| matches!(a, Action::Wait { .. } | Action::Stop));
+    if !inert_tail {
+        return ActionPlan::new(actions);
+    }
+    let kept: Vec<Action> = actions
+        .into_iter()
+        .enumerate()
+        .filter(|(i, a)| !(*i > nav_idx && matches!(a, Action::Wait { .. })))
+        .map(|(_, a)| a)
+        .collect();
+    ActionPlan::new(kept)
+}
+
 /// A trusted, PHI-free one-line note for a completed action, fed back to the
 /// planner as progress. Never includes typed text, document content, or on-screen
 /// values — only the action kind and (for launch/focus) the app name. Returns
@@ -1225,6 +1407,17 @@ fn short_goal(goal: &str) -> String {
         g.to_string()
     } else {
         format!("{}…", &g[..47])
+    }
+}
+
+/// A short, safe label for a composed document kind ("report", "summary", …) for
+/// user-facing result strings, defaulting to "document" when the kind is blank.
+fn short_kind(kind: &str) -> String {
+    let k = kind.trim();
+    if k.is_empty() {
+        "document".to_string()
+    } else {
+        short_goal(k)
     }
 }
 
@@ -1442,6 +1635,104 @@ mod tests {
             .filter(|e| matches!(e, ActEvent::Result { ok: true, .. }))
             .count();
         assert_eq!(results, 2);
+    }
+
+    fn scratch_docs_dir() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("otl-conductor-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn compose_generates_a_report_and_saves_a_docx_no_app_automation() {
+        // The real bug: "write a detailed report in Notepad on X" typed the LITERAL
+        // instruction. Compose must instead GENERATE a body and SAVE it as a .docx —
+        // no app automation, no clipboard, no keystrokes, in a single pass.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let docs = scratch_docs_dir();
+
+        let report =
+            "MRI of the Right Foot: Morton Neuroma\n\nTechnique: ...\n\nFindings: A well-defined \
+             mass is seen in the third intermetatarsal space.\n\nImpression: Findings consistent \
+             with a Morton neuroma.";
+        // Two LLM turns share the fixture: (1) selection routes to compose, (2)
+        // compose_body returns the generated report.
+        let selection = r#"{"missions":[
+            {"type":"compose","topic":"MRI right foot, imaging features of Morton neuroma","kind":"report","target_app":"Notepad"}
+        ]}"#;
+        let compose = format!(r#"{{"body":{report:?}}}"#);
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(compose)],
+            backend.clone(),
+        );
+        c.set_documents_dir(docs.clone());
+        c.arm();
+
+        let events = c
+            .on_transcript(
+                "write a detailed report in Notepad on MRI right foot with imaging features of Morton neuroma".into(),
+            )
+            .await
+            .unwrap();
+
+        // Exactly one .docx was saved to the Documents dir.
+        let saved: Vec<_> = std::fs::read_dir(&docs)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("docx"))
+            .collect();
+        assert_eq!(saved.len(), 1, "one report should be saved, got {saved:?}");
+        assert!(
+            std::fs::read(&saved[0]).unwrap().starts_with(b"PK"),
+            "a real .docx"
+        );
+
+        // No app automation at all: nothing launched, focused, typed, or pasted.
+        assert!(backend.launched().is_empty());
+        assert!(backend.focused_apps().is_empty());
+        assert!(backend.typed().is_empty());
+        assert!(backend.clipboard_sets().is_empty());
+        assert!(backend.keys().is_empty());
+
+        // The result reports the saved path.
+        assert!(events.iter().any(|e| matches!(
+            e,
+            ActEvent::Result { ok: true, summary } if summary.contains(".docx")
+        )));
+        assert!(matches!(c.state(), ConductorState::Armed));
+        std::fs::remove_dir_all(&docs).ok();
+    }
+
+    #[tokio::test]
+    async fn compose_generation_failure_surfaces_an_error_and_saves_nothing() {
+        // If generation fails, we must never save a blank/apology document.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let docs = scratch_docs_dir();
+        let selection = r#"{"missions":[
+            {"type":"compose","topic":"anything","kind":"report"}
+        ]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![
+                Ok(selection.into()),
+                Err(crate::error::AppError::Network("down".into())),
+            ],
+            backend.clone(),
+        );
+        c.set_documents_dir(docs.clone());
+        c.arm();
+
+        let events = c
+            .on_transcript("write a report on anything".into())
+            .await
+            .unwrap();
+        let count = std::fs::read_dir(&docs).unwrap().count();
+        assert_eq!(count, 0, "nothing saved on generation failure");
+        assert!(backend.typed().is_empty());
+        assert!(events.iter().any(|e| matches!(e, ActEvent::Error { .. })));
+        std::fs::remove_dir_all(&docs).ok();
     }
 
     #[tokio::test]
@@ -1849,6 +2140,72 @@ mod tests {
         assert_eq!(plan.actions.len(), 2);
         assert!(matches!(plan.actions[0], Action::Uri { .. }));
         assert!(matches!(plan.actions[1], Action::Wait { .. }));
+    }
+
+    #[test]
+    fn plan_navigates_detects_uri_and_launch() {
+        assert!(plan_navigates(&ActionPlan::new(vec![Action::Uri {
+            uri: "https://youtube.com".into(),
+            origin: Default::default(),
+        }])));
+        assert!(plan_navigates(&ActionPlan::new(vec![Action::Launch {
+            target: "spotify".into(),
+            origin: Default::default(),
+        }])));
+        assert!(!plan_navigates(&ActionPlan::new(vec![
+            Action::Key {
+                combo: "ctrl+a".into()
+            },
+            Action::Wait { ms: 500 },
+        ])));
+    }
+
+    #[test]
+    fn strip_trailing_nav_waits_drops_the_blind_post_nav_wait() {
+        // The canonical "launch, wait 5000, stop": the trailing wait is the model's
+        // blind guess, replaced by the adaptive settle — it is removed; the launch
+        // and stop stay.
+        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+            Action::Launch {
+                target: "spotify".into(),
+                origin: Default::default(),
+            },
+            Action::Wait { ms: 5000 },
+            Action::Stop,
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["launch", "stop"]);
+    }
+
+    #[test]
+    fn strip_trailing_nav_waits_keeps_a_wait_that_gates_a_later_step() {
+        // `uri, wait, type`: the wait gates the type (which needs the page loaded),
+        // so it must NOT be stripped — the tail is not inert.
+        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+            Action::Uri {
+                uri: "https://example.com".into(),
+                origin: Default::default(),
+            },
+            Action::Wait { ms: 800 },
+            Action::Type {
+                text: "hello".into(),
+                clear: false,
+            },
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["uri", "wait", "type"]);
+    }
+
+    #[test]
+    fn strip_trailing_nav_waits_is_a_noop_without_navigation() {
+        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+            Action::Key {
+                combo: "ctrl+a".into(),
+            },
+            Action::Wait { ms: 500 },
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["key", "wait"]);
     }
 
     #[test]

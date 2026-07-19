@@ -444,6 +444,19 @@ impl Executor {
             }
         }
 
+        // 5b-fg. Foreground lock. `Type`/`Key` go to the focused window, and an
+        // `Invoke`/`Focus` acts on the foreground app; after a coordinate click the
+        // dev console repeatedly steals focus (the "snapshotted the terminal" bug),
+        // so bring the intended app forward — and never treat our own console/window
+        // as the target — before acting. Best-effort here; the `Type`/`Key` focus
+        // guard below is the hard stop.
+        if matches!(
+            action,
+            Action::Type { .. } | Action::Key { .. } | Action::Invoke { .. } | Action::Focus { .. }
+        ) {
+            self.lock_foreground().await;
+        }
+
         // 5c. Focus guard. `Type` and `Key` go to whatever window is foreground,
         // so if this command launched/switched to an app, make sure that app is
         // actually in front before sending input — focus it or ABORT rather than
@@ -651,7 +664,7 @@ impl Executor {
         let kill = self.kill.clone();
         match action {
             Action::Wait { ms } => {
-                let dur = std::time::Duration::from_millis((*ms).min(15_000) as u64);
+                let dur = std::time::Duration::from_millis(clamp_wait_ms(*ms) as u64);
                 tokio::select! {
                     biased;
                     _ = kill.wait_tripped() => Ok(Execution::Aborted),
@@ -659,9 +672,19 @@ impl Executor {
                 }
             }
             Action::Click { x, y } => {
-                // `vision`-mode coordinate click. The focus guard (armed by an
-                // earlier launch/focus in this run) still applies to the app that
-                // owns the coordinate, and the kill switch pre-empts it.
+                // `vision`-mode coordinate click. Before clicking, foreground-lock
+                // the intended app: a coordinate lands on whatever window is in
+                // front, and after the *previous* click the dev console repeatedly
+                // stole focus, so a raw click would hit (and snapshot) the terminal.
+                // Best-effort — the kill switch pre-empts it and it no-ops off-Windows.
+                tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    _ = self.lock_foreground() => {}
+                }
+                // The focus guard (armed by an earlier launch/focus in this run)
+                // still applies to the app that owns the coordinate, and the kill
+                // switch pre-empts it.
                 let res = tokio::select! {
                     biased;
                     _ = kill.wait_tripped() => return Ok(Execution::Aborted),
@@ -825,6 +848,34 @@ impl Executor {
             }
         }
         None
+    }
+
+    /// Foreground lock before an action that lands on whatever window is
+    /// foreground (`Type`/`Key`/`Invoke`/`Focus`/coordinate `Click`). Asks the
+    /// backend to make sure a *legitimate* target — never our dev console or own
+    /// window — is in front, bringing the command's intended app (`expected_app`)
+    /// forward if the console stole focus after a click.
+    ///
+    /// Best-effort at this layer: the mock and macOS backends return `Ok(true)`
+    /// (no-op), and a `false`/error only logs — it does not by itself halt the
+    /// plan. The `Type`/`Key` path additionally runs the hard [`focus_guard`],
+    /// which ABORTS if the wrong window is still confirmed foreground.
+    async fn lock_foreground(&self) {
+        match self
+            .backend
+            .ensure_foreground(self.expected_app.as_deref())
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => tracing::warn!(
+                expected = self.expected_app.as_deref().unwrap_or(""),
+                "act foreground guard: could not confirm a valid target window is foreground"
+            ),
+            Err(e) => tracing::debug!(
+                error = %e,
+                "act foreground guard: ensure_foreground failed; acting anyway"
+            ),
+        }
     }
 
     /// Best-effort post-condition verification for a just-run action. Returns
@@ -1112,6 +1163,20 @@ enum Execution {
 fn target_is_url(target: &str) -> bool {
     let lower = target.trim().to_ascii_lowercase();
     lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+/// Upper bound on a model-emitted `wait`. The planner habitually appends a flat
+/// multi-second `wait` after a navigation ("launch, wait 5000, stop") to let a
+/// page/app appear, which blindly burns the full guess even when the screen
+/// settled in a fraction of it. Clamping keeps a genuine pause honest while
+/// capping the worst case; the Conductor's adaptive post-navigation settle (poll
+/// the snapshot fingerprint, proceed on first change) recovers the rest.
+const WAIT_CEIL_MS: u32 = 2500;
+
+/// Clamp a model-emitted wait to [`WAIT_CEIL_MS`]. A short, deliberate pause is
+/// preserved; a multi-second guess is bounded.
+fn clamp_wait_ms(ms: u32) -> u32 {
+    ms.min(WAIT_CEIL_MS)
 }
 
 /// Whether an action is a "script primitive" (OS/shell op) rather than an
@@ -2256,6 +2321,19 @@ mod tests {
     }
 
     // ---- Script primitives (launch / uri / shell / wait / focus_app / clipboard) ----
+
+    #[test]
+    fn clamp_wait_bounds_long_model_waits_but_keeps_short_ones() {
+        // A short, deliberate pause is preserved exactly.
+        assert_eq!(clamp_wait_ms(0), 0);
+        assert_eq!(clamp_wait_ms(800), 800);
+        assert_eq!(clamp_wait_ms(WAIT_CEIL_MS), WAIT_CEIL_MS);
+        // A multi-second guess ("wait 5000" after a navigation) is capped.
+        assert_eq!(clamp_wait_ms(5000), WAIT_CEIL_MS);
+        assert_eq!(clamp_wait_ms(15_000), WAIT_CEIL_MS);
+        assert_eq!(clamp_wait_ms(u32::MAX), WAIT_CEIL_MS);
+        assert!(WAIT_CEIL_MS <= 2500, "ceiling stays a sane sub-3s bound");
+    }
 
     #[tokio::test]
     async fn wait_and_focus_app_are_allowed_and_execute() {

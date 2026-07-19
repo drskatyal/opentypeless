@@ -12,7 +12,12 @@ pub mod answer;
 pub mod audit;
 pub mod backend;
 pub mod blackboard;
+// CDP-controlled-Chrome browser automation (SPIKE). Gated OFF by default; not
+// wired into the live conductor. See docs/act-cdp-browser.md and browser-agent/.
+#[cfg(feature = "cdp-browser")]
+pub mod browser;
 pub mod capability;
+pub mod compose;
 pub mod conductor;
 pub mod destructive;
 #[cfg(test)]

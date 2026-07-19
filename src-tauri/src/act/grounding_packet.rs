@@ -12,6 +12,14 @@ use super::element::{ElementState, Snapshot, UiElement};
 pub const DEFAULT_MAX_ELEMENTS: usize = 40;
 pub const DEFAULT_MAX_NAME_CHARS: usize = 60;
 
+/// A tighter element budget for turns that ALSO send a screenshot (hybrid /
+/// vision). On those turns the model leans on the image and frequently acts by
+/// coordinate, so walking and serializing a full 40-element tree is wasted
+/// latency and tokens. Interactive elements are ordered first
+/// ([`GroundingPacket::from_snapshot`]), so the most actionable controls survive
+/// the smaller cap. Tree mode keeps [`DEFAULT_MAX_ELEMENTS`].
+pub const SCREENSHOT_MAX_ELEMENTS: usize = 20;
+
 /// One element as the planner sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GroundingElement {
@@ -224,6 +232,21 @@ mod tests {
         assert_eq!(p.elements[0].name, "Message");
         assert_eq!(p.elements[1].name, "Send");
         assert_eq!(p.elements[2].name, "just a label");
+    }
+
+    #[test]
+    fn screenshot_cap_is_leaner_than_the_tree_default() {
+        // The screenshot-turn budget must be strictly smaller than the tree
+        // default so hybrid/vision turns serialize fewer elements.
+        assert!(SCREENSHOT_MAX_ELEMENTS < DEFAULT_MAX_ELEMENTS);
+        // And it is actually honored by the builder.
+        let mut s = snap();
+        for i in 0..30 {
+            s.elements
+                .push(el(&format!("#/x{i}"), Role::Button, "b", true));
+        }
+        let lean = GroundingPacket::from_snapshot(&s, SCREENSHOT_MAX_ELEMENTS, 60);
+        assert_eq!(lean.elements.len(), SCREENSHOT_MAX_ELEMENTS);
     }
 
     #[test]

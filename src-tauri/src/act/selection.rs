@@ -51,6 +51,24 @@ pub enum Mission {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         target_app: Option<String>,
     },
+    /// Author substantive content the agent must GENERATE — a report, summary,
+    /// letter, essay, article, or email body — then insert into the target app.
+    ///
+    /// This is distinct from an `OpenFlow` to `take_a_note` (which types a SHORT
+    /// LITERAL snippet the user dictated verbatim, e.g. "note down: buy milk"):
+    /// here the user asks the agent to WRITE a document, so the body is produced by
+    /// the model from the `topic`, not lifted from the spoken words.
+    Compose {
+        /// What to write about, lifted only from the user's spoken words.
+        topic: String,
+        /// The document kind ("report", "summary", "email", "letter", "essay",
+        /// "note"). A hint that shapes generation; defaults to "note" when absent.
+        #[serde(default)]
+        kind: String,
+        /// Optional target-app hint (see [`Mission::OpenFlow::target_app`]).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target_app: Option<String>,
+    },
     /// The user asked a question rather than commanding an action ("what's on my
     /// screen?", "is Spotify open?"); answer it instead of acting.
     Answer { question: String },
@@ -114,6 +132,23 @@ screen-referential imperative — an action, NOT talk-back): request 'play the t
 screen, the one with 96 million views' -> {\"missions\":[{\"type\":\"novel\",\"goal\":\"play \
 the third video on screen, the one with 96 million views\"}]}.
 
+AUTHORING — writing a DOCUMENT is a 'compose' mission, NOT a literal note. When the user asks the \
+agent to WRITE, DRAFT, or COMPOSE substantive content — 'write a (detailed) report on X', 'draft \
+an essay/summary/letter/article about X', 'compose an email about X' — the agent must GENERATE the \
+body text; the spoken words are the TOPIC, not the text to type. Return a 'compose' mission with \
+\"topic\" (what it is about, from the user's words), \"kind\" (report/summary/email/letter/essay/ \
+note), and optional \"target_app\". Do NOT route these to a note-taking file, which would type the \
+literal instruction ('report on X') instead of a report. RESERVE a literal note (the take-a-note \
+file, or a Novel that types verbatim) for a SHORT snippet the user dictates to record as-is: 'note \
+down buy milk', 'take a note: call the dentist', 'write down 6pm Tuesday'. The test: does the user \
+want the agent to AUTHOR content (compose) or to CAPTURE their exact words (literal note)? Example \
+(authoring): request 'write a detailed report in Notepad on MRI right foot imaging features of \
+Morton neuroma' -> {\"missions\":[{\"type\":\"compose\",\"topic\":\"MRI of the right foot: imaging \
+features of Morton neuroma\",\"kind\":\"report\",\"target_app\":\"Notepad\"}]}. Example (literal \
+note — NOT compose): request 'note down buy milk' with a take_a_note file -> {\"missions\":[{\
+\"type\":\"open_flow\",\"id\":\"take_a_note\",\"slots\":[{\"name\":\"text\",\"value\":\"buy \
+milk\"}]}]}.
+
 The spoken command may apply to the current FOREGROUND_APP, to a different app, or need a new \
 one — decide from the user's intent. Each mission MAY carry an optional \"target_app\" string \
 naming the app the task is for; omit it (or leave it empty) to mean \"use the current foreground \
@@ -176,8 +211,10 @@ pub fn response_schema() -> serde_json::Value {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "type": { "type": "string", "enum": ["open_flow", "novel", "answer"] },
+                        "type": { "type": "string", "enum": ["open_flow", "novel", "compose", "answer"] },
                         "id": { "type": "string" },
+                        "topic": { "type": "string" },
+                        "kind": { "type": "string" },
                         "slots": {
                             "type": "array",
                             "items": {
@@ -316,6 +353,36 @@ fn parse_and_validate(
                 goal,
                 target_app: normalize_target(target_app),
             }),
+            // A compose mission carries a generated document. Normalize its topic
+            // (fall back to the raw transcript so the request is never lost) and its
+            // kind (default "note"); the body itself is generated later, not here.
+            Mission::Compose {
+                topic,
+                kind,
+                target_app,
+            } => {
+                let topic = {
+                    let t = topic.trim();
+                    if t.is_empty() {
+                        transcript.to_string()
+                    } else {
+                        t.to_string()
+                    }
+                };
+                let kind = {
+                    let k = kind.trim();
+                    if k.is_empty() {
+                        "note".to_string()
+                    } else {
+                        k.to_string()
+                    }
+                };
+                missions.push(Mission::Compose {
+                    topic,
+                    kind,
+                    target_app: normalize_target(target_app),
+                });
+            }
             // A question routes straight through — no registry to validate against.
             Mission::Answer { question } => missions.push(Mission::Answer { question }),
         }
@@ -708,6 +775,111 @@ mod tests {
         // is ONE mission" guidance that keeps a launch fused to its in-app action.
         assert!(SELECTION_SYSTEM_PROMPT.contains("COHESION"));
         assert!(SELECTION_SYSTEM_PROMPT.contains("SINGLE mission"));
+    }
+
+    fn note_file() -> FlowFile {
+        file(
+            "take_a_note",
+            "open Notepad and jot down a note",
+            vec![slot("text")],
+        )
+    }
+
+    #[tokio::test]
+    async fn write_a_report_routes_to_compose_with_topic_and_kind() {
+        // "write a detailed report on X" must GENERATE content (compose), never be
+        // routed to a note file that would type the literal instruction.
+        let llm = FixtureLlmClient::new(vec![Ok(r#"{"missions":[
+            {"type":"compose","topic":"MRI right foot, imaging features of Morton neuroma","kind":"report","target_app":"Notepad"}
+        ]}"#
+        .into())]);
+        let reg = FlowRegistry::from_files([note_file()]);
+        let sel = select(
+            &llm,
+            &reg,
+            "write a detailed report in Notepad on MRI right foot with imaging features of Morton neuroma",
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(sel.missions.len(), 1);
+        match &sel.missions[0] {
+            Mission::Compose {
+                topic,
+                kind,
+                target_app,
+            } => {
+                assert!(topic.contains("Morton neuroma"), "topic: {topic}");
+                assert_eq!(kind, "report");
+                assert_eq!(target_app.as_deref(), Some("Notepad"));
+            }
+            other => panic!("expected Compose, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn note_down_stays_a_literal_note_not_compose() {
+        // A short dictated snippet must stay a LITERAL note (take_a_note), typing
+        // the user's exact words — never routed to compose/generation.
+        let llm = FixtureLlmClient::new(vec![Ok(r#"{"missions":[
+            {"type":"open_flow","id":"take_a_note","slots":[{"name":"text","value":"buy milk"}]}
+        ]}"#
+        .into())]);
+        let reg = FlowRegistry::from_files([note_file()]);
+        let sel = select(&llm, &reg, "note down buy milk", None)
+            .await
+            .unwrap();
+        assert_eq!(sel.missions.len(), 1);
+        match &sel.missions[0] {
+            Mission::OpenFlow { id, slots, .. } => {
+                assert_eq!(id, "take_a_note");
+                assert_eq!(slots.get("text").map(String::as_str), Some("buy milk"));
+            }
+            other => panic!("expected literal OpenFlow, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn compose_with_blank_topic_falls_back_to_transcript() {
+        // A compose mission with an empty topic must not lose the request — it falls
+        // back to the raw transcript, and a blank kind defaults to "note".
+        let llm = FixtureLlmClient::new(vec![Ok(r#"{"missions":[
+            {"type":"compose","topic":"  ","kind":""}
+        ]}"#
+        .into())]);
+        let reg = FlowRegistry::from_files([note_file()]);
+        let sel = select(&llm, &reg, "write something up", None)
+            .await
+            .unwrap();
+        match &sel.missions[0] {
+            Mission::Compose { topic, kind, .. } => {
+                assert_eq!(topic, "write something up");
+                assert_eq!(kind, "note");
+            }
+            other => panic!("expected Compose, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn compose_mission_roundtrips_through_json() {
+        let sel = Selection {
+            missions: vec![Mission::Compose {
+                topic: "the Q3 results".into(),
+                kind: "report".into(),
+                target_app: Some("Notepad".into()),
+            }],
+        };
+        let json = serde_json::to_string(&sel).unwrap();
+        let back: Selection = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, sel);
+    }
+
+    #[test]
+    fn system_prompt_carries_the_authoring_rule() {
+        // Guards the compose fix: "write a report" must stay separated from a
+        // literal note in the routing rules.
+        assert!(SELECTION_SYSTEM_PROMPT.contains("AUTHORING"));
+        assert!(SELECTION_SYSTEM_PROMPT.contains("compose"));
     }
 
     #[test]

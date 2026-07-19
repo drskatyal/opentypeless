@@ -417,10 +417,47 @@ impl FlowFile {
     }
 }
 
+/// Maximum characters of a card's description rendered into the drawer index.
+/// The description is the routing signal, but the planner only needs its gist —
+/// the whole (fenced) index ships on every selection call, so a terse cap keeps
+/// that per-command prompt small. Every command id and its slots are always kept
+/// in full; only the free-text description is shortened.
+const CARD_DESC_MAX: usize = 44;
+
+/// Compact a card description for the drawer index: collapse whitespace, drop any
+/// parenthetical "(e.g. …)" example clause, and cap length. This is purely a
+/// rendering shrink — the stored [`FlowFile::description`] is untouched.
+fn terse_description(desc: &str) -> String {
+    // Strip parenthesized clauses (usually verbose "(e.g. …)" examples).
+    let mut stripped = String::with_capacity(desc.len());
+    let mut depth = 0usize;
+    for c in desc.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ if depth == 0 => stripped.push(c),
+            _ => {}
+        }
+    }
+    // Collapse any run of whitespace (incl. the gaps a stripped clause left) to one.
+    let collapsed = stripped.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.chars().count() > CARD_DESC_MAX {
+        collapsed
+            .chars()
+            .take(CARD_DESC_MAX - 1)
+            .collect::<String>()
+            + "…"
+    } else {
+        collapsed
+    }
+}
+
 impl FlowCard {
     /// Render one card as a single prompt line inside the (fenced) drawer index.
     /// Description is treated as data; callers wrap the whole index in an
-    /// UNTRUSTED block so a malicious file name can't act as an instruction.
+    /// UNTRUSTED block so a malicious file name can't act as an instruction. The
+    /// description is rendered terse ([`terse_description`]) to keep the index —
+    /// which ships on every selection call — small; id and slots are kept in full.
     pub fn to_prompt_line(&self) -> String {
         let slots = if self.slots.is_empty() {
             String::new()
@@ -430,7 +467,7 @@ impl FlowCard {
         format!(
             "{} — {}{}",
             self.id,
-            self.description.replace('\n', " "),
+            terse_description(&self.description),
             slots
         )
     }
@@ -495,6 +532,39 @@ mod tests {
         assert_eq!(c.slots, vec!["song".to_string()]);
         assert!(c.to_prompt_line().contains("play_song"));
         assert!(c.to_prompt_line().contains("slots=[song]"));
+    }
+
+    #[test]
+    fn drawer_line_is_terse_but_keeps_id_and_slots() {
+        // A verbose card with a parenthetical example clause and a long, multi-line
+        // description. The rendered index line must drop the "(e.g. …)" clause and
+        // cap length, while keeping the command id and every slot intact.
+        let mut c = leaf().card();
+        c.description =
+            "open or launch any application by name\n(e.g. Spotify, Outlook, Notepad, Calculator, and many more)"
+                .into();
+        let verbose_len = format!(
+            "{} — {} slots=[{}]",
+            c.id,
+            c.description.replace('\n', " "),
+            c.slots.join(",")
+        )
+        .chars()
+        .count();
+
+        let line = c.to_prompt_line();
+        // Id and slots survive in full.
+        assert!(line.starts_with("play_song — "));
+        assert!(line.contains("slots=[song]"));
+        // The verbose example clause is gone.
+        assert!(!line.contains("(e.g."));
+        assert!(!line.contains("Outlook"));
+        // And the whole line is shorter than the untrimmed rendering.
+        assert!(
+            line.chars().count() < verbose_len,
+            "trimmed line ({}) must be shorter than verbose ({verbose_len})",
+            line.chars().count()
+        );
     }
 
     #[test]
