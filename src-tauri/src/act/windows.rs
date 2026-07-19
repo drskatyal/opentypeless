@@ -49,7 +49,8 @@ use windows_sys::Win32::Security::{
     TOKEN_MANDATORY_LABEL, TOKEN_QUERY,
 };
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+    GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW,
+    PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SW_SHOWNORMAL};
@@ -637,10 +638,18 @@ fn build_snapshot(
 
     // Window / app context (best-effort; never carries element values).
     let window_title = root.attributes().name.clone().unwrap_or_default();
-    let app = probe(deadline, || focused.application())
+    let app_name = probe(deadline, || focused.application())
         .flatten()
         .and_then(|a| a.attributes().name)
         .unwrap_or_else(|| window_title.clone());
+
+    // The reported app name is often just the window title, which for some apps
+    // is not the app's identity (Spotify titles its window with the playing
+    // track). Fold in the foreground process's executable stem so the focus
+    // guard's substring match can still recognize the app. `process_id` reuses
+    // the already-resolved focused element (no extra COM round-trip).
+    let app_stem = focused.process_id().ok().and_then(process_exe_stem);
+    let app = app_identity(&app_name, app_stem.as_deref());
 
     let mut elements: Vec<UiElement> = Vec::new();
     let mut focused_path: Option<String> = None;
@@ -1119,6 +1128,60 @@ fn key_token(key: &str) -> String {
     }
 }
 
+/// Combine the reported window/app title with the foreground process's
+/// executable `stem` into a single app-identity string. The stem is appended
+/// only when the title does not already contain it (case-insensitively), so a
+/// title like "Google Chrome" with stem `chrome` is returned unchanged while a
+/// track title with stem `spotify` becomes `"<track> (spotify)"`. With no stem
+/// the title is returned verbatim.
+///
+/// Pure string logic (no Win32) so it is unit-testable without an OS.
+fn app_identity(title: &str, stem: Option<&str>) -> String {
+    match stem {
+        Some(stem) if !title.to_lowercase().contains(stem) => format!("{title} ({stem})"),
+        _ => title.to_string(),
+    }
+}
+
+/// The executable stem (basename without a trailing ".exe", lowercased, e.g.
+/// `spotify`) of the process identified by `pid`. Any failure — a zero PID, a
+/// null handle, a failed query, or an empty result — resolves to `None`.
+fn process_exe_stem(pid: u32) -> Option<String> {
+    if pid == 0 {
+        return None;
+    }
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return None;
+        }
+
+        // Flag 0 requests the Win32 path form; `len` is in/out (buffer capacity
+        // on entry, characters written excluding the NUL on success).
+        let mut buffer = [0u16; 260];
+        let mut len = buffer.len() as u32;
+        let ok = QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &mut len);
+        CloseHandle(handle);
+
+        if ok == 0 || len == 0 {
+            return None;
+        }
+
+        let path = String::from_utf16_lossy(&buffer[..len as usize]);
+        let name = path
+            .rsplit('\\')
+            .next()
+            .unwrap_or(path.as_str())
+            .to_lowercase();
+        let stem = name.strip_suffix(".exe").unwrap_or(&name);
+        if stem.is_empty() {
+            return None;
+        }
+        Some(stem.to_string())
+    }
+}
+
 /// Whether the focused application's process runs at a higher integrity level
 /// than this process. Any failure resolves to `false`.
 ///
@@ -1216,6 +1279,30 @@ mod tests {
     #[test]
     fn translates_meta_enter() {
         assert_eq!(translate_combo("meta+Enter").unwrap(), "{WIN}{ENTER}");
+    }
+
+    #[test]
+    fn app_identity_appends_stem_when_title_lacks_it() {
+        // Spotify's window title is the playing track, not the app name.
+        let app = app_identity("Red Hot Chili Peppers - Can't Stop", Some("spotify"));
+        assert!(
+            app.to_lowercase().contains("spotify"),
+            "expected stem folded in, got {app:?}"
+        );
+    }
+
+    #[test]
+    fn app_identity_does_not_double_append_present_stem() {
+        // "Google Chrome" already contains "chrome" — leave it unchanged.
+        assert_eq!(
+            app_identity("Google Chrome", Some("chrome")),
+            "Google Chrome"
+        );
+    }
+
+    #[test]
+    fn app_identity_without_stem_returns_title() {
+        assert_eq!(app_identity("Notepad", None), "Notepad");
     }
 
     #[test]

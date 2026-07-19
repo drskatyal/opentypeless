@@ -225,6 +225,12 @@ pub struct PlanResult {
 /// Turns transcripts into action plans.
 pub struct Planner {
     llm: Arc<dyn LlmClient>,
+    /// An optional multimodal (Gemini) client dedicated to screenshot modes. When
+    /// set, `hybrid` / `vision` turns route their `generate_json_multimodal` call
+    /// here instead of `llm`, so the screenshot is actually seen even when the
+    /// user picked a text-only follow-up provider (Cerebras) for `llm`. `None`
+    /// preserves the old behavior (the `is_multimodal` guard degrades to tree).
+    vision_llm: Option<Arc<dyn LlmClient>>,
     model: String,
     max_retries: u8,
 }
@@ -233,9 +239,17 @@ impl Planner {
     pub fn new(llm: Arc<dyn LlmClient>, model: String) -> Self {
         Self {
             llm,
+            vision_llm: None,
             model,
             max_retries: 1,
         }
+    }
+
+    /// Attach a dedicated multimodal client for screenshot modes (see
+    /// [`vision_llm`](Self::vision_llm)). `None` leaves the planner on `llm` alone.
+    pub fn with_vision_llm(mut self, client: Option<Arc<dyn LlmClient>>) -> Self {
+        self.vision_llm = client;
+        self
     }
 
     /// Fast-path first (no network); otherwise plan via the LLM in tree mode.
@@ -259,12 +273,23 @@ impl Planner {
             });
         }
 
+        // Pick the client for this turn: a screenshot mode routes to the dedicated
+        // multimodal vision client when one is attached, so hybrid / vision work
+        // even when `llm` is a text-only follow-up provider (Cerebras). Everything
+        // else (tree planner, or no vision client) stays on `llm`. Bound before the
+        // guard so it reflects the *requested* mode, not the possibly-degraded one.
+        let planner_llm: &Arc<dyn LlmClient> =
+            match (perception.mode.needs_screenshot(), &self.vision_llm) {
+                (true, Some(vision)) => vision,
+                _ => &self.llm,
+            };
+
         // Multimodal guard: hybrid / vision hand the model a screenshot, and vision
         // switches to a coordinate-click prompt. A text-only transport (Cerebras)
         // cannot see the image, so it would emit blind coordinate clicks — the exact
-        // "clicks, no progress, aborts" failure. When the transport can't see,
+        // "clicks, no progress, aborts" failure. When the SELECTED client can't see,
         // degrade to tree perception (drop the image, use the element-path prompt).
-        let perception = if perception.mode.needs_screenshot() && !self.llm.is_multimodal() {
+        let perception = if perception.mode.needs_screenshot() && !planner_llm.is_multimodal() {
             tracing::warn!(
                 mode = perception.mode.as_str(),
                 model = %self.model,
@@ -296,8 +321,7 @@ impl Planner {
         // Timeout, and only once.
         let mut timeout_retry_left = true;
         loop {
-            let raw = match self
-                .llm
+            let raw = match planner_llm
                 .generate_json_multimodal(system, &user, image, Some(&schema))
                 .await
             {
@@ -757,6 +781,38 @@ mod tests {
         assert!(matches!(err, PlanError::DeniedByPolicy(_)), "got {err:?}");
         // Policy denials are terminal — no repair retry.
         assert_eq!(llm.call_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn screenshot_mode_routes_to_vision_llm_not_base() {
+        // With a dedicated vision client attached, a screenshot mode (hybrid/vision)
+        // routes the LLM call to that client and leaves the base follow-up client
+        // (a Cerebras-style text transport) untouched. The base fixture is empty, so
+        // it panics-by-exhaustion if it is ever called. Uses a target-less `wait`
+        // plan so only the routing is exercised.
+        let base = Arc::new(FixtureLlmClient::new(vec![]));
+        let vision = Arc::new(FixtureLlmClient::new(vec![Ok(
+            r#"{"actions":[{"op":"wait","ms":100}]}"#.into(),
+        )]));
+        let vision_client: Arc<dyn LlmClient> = vision.clone();
+        let planner = Planner::new(base.clone(), "m".into()).with_vision_llm(Some(vision_client));
+        let res = planner
+            .plan_perceived(
+                PlanRequest {
+                    transcript: "do the thing".into(),
+                    packet: packet_with(vec![]),
+                    prior_context: None,
+                },
+                Perception {
+                    mode: crate::act::plan_mode::PlanMode::Hybrid,
+                    screenshot_png: Some(vec![1, 2, 3]),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.source, PlanSource::Llm);
+        assert_eq!(vision.call_count(), 1);
+        assert_eq!(base.call_count(), 0);
     }
 
     #[tokio::test]

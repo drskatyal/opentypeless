@@ -240,13 +240,36 @@ fn build_conductor(
     config: &storage::AppConfig,
     kill: KillSwitch,
 ) -> Conductor {
-    let llm: Arc<dyn LlmClient> = build_followup_llm(client, config, &SystemCredentialVault);
+    let llm: Arc<dyn LlmClient> =
+        build_followup_llm(client.clone(), config, &SystemCredentialVault);
     let backend = act::create_backend();
     let gate = conductor_gate();
 
+    // A dedicated multimodal (Gemini) client for the planner's screenshot modes.
+    // The follow-up `llm` above may be text-only (Cerebras), which cannot see the
+    // hybrid/vision screenshot; giving the planner its own Gemini client lets those
+    // modes work regardless of the follow-up provider. Built only when a Gemini key
+    // resolves — otherwise `None`, and the planner's guard degrades screenshot modes
+    // to tree (the correct fallback).
+    let gemini_key = act_gemini_key(config, &SystemCredentialVault);
+    let vision_llm: Option<Arc<dyn LlmClient>> = if gemini_key.is_empty() {
+        tracing::debug!(
+            "Act planner vision client not attached: no Gemini key (screenshot modes degrade to tree)"
+        );
+        None
+    } else {
+        tracing::info!("Act planner vision client attached (Gemini) for hybrid/vision modes");
+        Some(Arc::new(GeminiLlmClient::new(
+            client,
+            gemini_key,
+            model_for_tier(&config.act_model_tier).to_string(),
+        )))
+    };
+
     let registry = FlowRegistry::from_files(seed::builtin_flows());
     let runner = FlowRunner::new(backend.clone(), gate.clone(), kill.clone());
-    let planner = Planner::new(llm.clone(), config.act_model_tier.clone());
+    let planner =
+        Planner::new(llm.clone(), config.act_model_tier.clone()).with_vision_llm(vision_llm);
     let executor = Executor::new(backend.clone(), gate, None, kill);
     let mut conductor = Conductor::new(registry, llm, runner, planner, executor, backend);
     conductor.set_plan_mode(act::plan_mode::PlanMode::from_config(&config.act_plan_mode));
