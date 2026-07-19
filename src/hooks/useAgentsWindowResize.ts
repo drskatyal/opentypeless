@@ -2,25 +2,44 @@ import { useEffect, useRef } from 'react'
 
 /**
  * Drives the dedicated always-on-top "agents" window. It sits in the TOP-RIGHT
- * corner of the screen (a well-known notification spot, like macOS), auto-opens
- * into the full panel whenever Act is working, and collapses to a small pill when
- * idle. The whole point of this window is to be SEEN on top of other apps while
- * the main app lives in the tray — so it favours visibility over hiding.
- *
- * Collapsed it's a small pill that still covers only a corner (clicks land on the
- * app behind it everywhere else); it grows down-and-left into the card stack when
- * open. Frontend-driven sizing, mirroring the capsule (`useCapsuleResize`).
+ * corner of the screen (a well-known notification spot, like macOS). Collapsed,
+ * it is a thin vertical strip of small status orbs — one per agent — sized to the
+ * agent count so it only ever covers a sliver of the corner (clicks land on the
+ * app behind it everywhere else). Hovering expands it leftward into a card that
+ * shows every agent's label + live step. Frontend-driven sizing, mirroring the
+ * capsule (`useCapsuleResize`) — no Rust side needed.
  */
 
 const MARGIN = 18
-const COLLAPSED = { width: 132, height: 44 }
-const EXPANDED = { width: 348, height: 560 }
+const ORB_STRIP_W = 46
+const ORB_PITCH = 24 // vertical spacing per orb
+const ORB_PAD = 16
+const EXPANDED_W = 344
 
-export function useAgentsWindowResize(open: boolean, visible: boolean, positionLocked = false) {
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(Math.max(n, lo), hi)
+}
+
+/** Thin orb strip: width fixed, height scales with the agent count. */
+function collapsedSize(count: number) {
+  return { width: ORB_STRIP_W, height: clamp(count * ORB_PITCH + ORB_PAD, 44, 460) }
+}
+
+/** Expanded card: wide enough for labels, height scales with the agent count. */
+function expandedSize(count: number) {
+  return { width: EXPANDED_W, height: clamp(count * 46 + 64, 96, 588) }
+}
+
+export function useAgentsWindowResize(
+  open: boolean,
+  visible: boolean,
+  positionLocked = false,
+  count = 1,
+) {
   // Latest desired state, read by the single serialized applier below so rapid
   // hover/pin toggles can't interleave setSize/setPosition/show calls.
-  const desired = useRef({ open, visible, positionLocked })
-  desired.current = { open, visible, positionLocked }
+  const desired = useRef({ open, visible, positionLocked, count })
+  desired.current = { open, visible, positionLocked, count }
   const running = useRef(false)
 
   useEffect(() => {
@@ -40,16 +59,16 @@ export function useAgentsWindowResize(open: boolean, visible: boolean, positionL
         let last = ''
         for (let i = 0; i < 6; i += 1) {
           if (cancelled) break
-          const { open: o, visible: v, positionLocked: locked } = desired.current
-          const key = `${o}|${v}|${locked}`
+          const { open: o, visible: v, positionLocked: locked, count: c } = desired.current
+          const key = `${o}|${v}|${locked}|${c}`
           if (key === last) break
           last = key
 
-          const size = o ? EXPANDED : COLLAPSED
+          const size = o ? expandedSize(c) : collapsedSize(c)
           await win.setSize(new LogicalSize(size.width, size.height)).catch(() => {})
           // Once the user has dragged the widget somewhere, respect that spot —
-          // only resize in place. Until then, anchor it top-right so the collapsed
-          // pill and the open card stack hang from the same corner and never jump.
+          // only resize in place. Until then, anchor it top-right so the orb strip
+          // and the expanded card hang from the same corner and never jump.
           if (!locked) {
             const monitor = await currentMonitor().catch(() => null)
             if (monitor) {
@@ -71,5 +90,5 @@ export function useAgentsWindowResize(open: boolean, visible: boolean, positionL
     return () => {
       cancelled = true
     }
-  }, [open, visible, positionLocked])
+  }, [open, visible, positionLocked, count])
 }
