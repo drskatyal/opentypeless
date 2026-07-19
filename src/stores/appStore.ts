@@ -786,7 +786,7 @@ const defaultConfig: AppConfig = {
   auto_start: true,
   close_to_tray: true,
   start_minimized: false,
-  max_recording_seconds: 30,
+  max_recording_seconds: 300,
   history_enabled: true,
   history_retention_days: 0,
   history_max_entries: 5000,

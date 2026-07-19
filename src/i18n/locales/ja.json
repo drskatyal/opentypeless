@@ -498,7 +498,14 @@
     "actFollowupGemini": "Gemini（デフォルト）",
     "actFollowupCerebras": "Cerebras — 高速",
     "actFollowupHint": "最初の呼び出しは常に Gemini を使います（音声を聞き取ります）。以降のステップはより高速なモデルで実行できます。",
-    "cerebrasApiKey": "Cerebras API キー"
+    "cerebrasApiKey": "Cerebras API キー",
+    "generalDesc": "ショートカット、ディクテーションの動作、文字起こしテキストの出力先。",
+    "speechRecognitionDesc": "文字起こしエンジンを選び、APIキーを接続します。",
+    "aiPolishDesc": "文字起こしを整え、推敲とActに使うモデルを選びます。",
+    "actModeDesc": "Act有効時に話せる操作のすべて — アプリを開く・検索・操作。",
+    "dictionaryDesc": "すべての文字起こしに適用されるカスタム単語とテキスト置換。",
+    "scenesDesc": "アプリごとの書き込みモードと自分だけのカスタムシーン。",
+    "aboutDesc": "バージョン、アップデート、プロジェクト情報。"
   },
   "act": {
     "armed": "Act 待機中",

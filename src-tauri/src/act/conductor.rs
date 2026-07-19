@@ -820,9 +820,15 @@ impl Conductor {
         };
 
         // Trusted, PHI-free notes for the steps that completed (fed to the next
-        // plan so the model knows what's already done and won't repeat it).
+        // plan so the model knows what's already done and won't repeat it). Also
+        // record any app/URI a completed step opened onto the blackboard so a later
+        // iteration (or a later mission) reuses it instead of relaunching a second
+        // copy — this is the cross-task "what's already open" memory.
         for o in &result.outcomes {
             if let StepOutcome::Done { action, .. } = o {
+                if let Some(target) = opened_target(action) {
+                    self.board.note_opened(target);
+                }
                 if let Some(note) = done_summary(action) {
                     push_progress(history, note);
                 }
@@ -1029,6 +1035,18 @@ fn done_summary(action: &Action) -> Option<String> {
         Action::Shell { .. } => "ran a command".into(),
         Action::Wait { .. } | Action::Stop | Action::AskUser { .. } => return None,
     })
+}
+
+/// The app / URI a completed action opened or focused, for the blackboard's
+/// "already open this session" memory. Only the three "bring something up"
+/// primitives qualify; every other action returns `None`.
+fn opened_target(action: &Action) -> Option<String> {
+    match action {
+        Action::Launch { target, .. } => Some(target.clone()),
+        Action::FocusApp { name } => Some(name.clone()),
+        Action::Uri { uri, .. } => Some(uri.clone()),
+        _ => None,
+    }
 }
 
 /// Collapse an error string to a single, bounded line for the history / summary.

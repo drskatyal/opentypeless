@@ -498,7 +498,14 @@
     "actFollowupGemini": "Gemini (predefinito)",
     "actFollowupCerebras": "Cerebras — più veloce",
     "actFollowupHint": "La prima chiamata usa sempre Gemini (ascolta la tua voce). I passaggi successivi possono usare un modello più veloce.",
-    "cerebrasApiKey": "Chiave API Cerebras"
+    "cerebrasApiKey": "Chiave API Cerebras",
+    "generalDesc": "Scorciatoie, comportamento della dettatura e dove finisce il testo trascritto.",
+    "speechRecognitionDesc": "Scegli il motore di trascrizione e collega la sua chiave API.",
+    "aiPolishDesc": "Ripulisci le trascrizioni e scegli i modelli per la rifinitura e Act.",
+    "actModeDesc": "Tutto ciò che puoi dire quando Act è attivo: aprire, cercare e controllare le app.",
+    "dictionaryDesc": "Parole personalizzate e sostituzioni di testo applicate a ogni trascrizione.",
+    "scenesDesc": "Modalità di scrittura per app e le tue scene personalizzate.",
+    "aboutDesc": "Versione, aggiornamenti e informazioni sul progetto."
   },
   "act": {
     "armed": "Act pronto",

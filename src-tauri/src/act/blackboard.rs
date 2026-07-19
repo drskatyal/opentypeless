@@ -20,6 +20,11 @@ use super::flow::Selector;
 /// How many recent command summaries to keep for conversational context.
 const HISTORY_CAP: usize = 6;
 
+/// How many "opened this session" targets to remember. A small window is enough
+/// to let a later mission reuse an app/tab an earlier one opened without the list
+/// growing unbounded.
+const OPENED_CAP: usize = 8;
+
 /// The Conductor's durable, cross-dictation view of the machine.
 #[derive(Debug, Default, Clone)]
 pub struct Blackboard {
@@ -31,6 +36,11 @@ pub struct Blackboard {
     pub selection_len: usize,
     /// Short, PHI-free summaries of recent commands, oldest first (capped).
     pub recent: Vec<String>,
+    /// Apps / URIs opened or focused so far this session, oldest first (capped,
+    /// deduped case-insensitively). Lets a later mission reuse what an earlier one
+    /// opened — "open YouTube" then "play X" should use the existing tab, not open
+    /// a second one — instead of relaunching blind.
+    pub opened: Vec<String>,
     /// Durable element bindings a command named, re-resolvable by identity in a
     /// later dictation's fresh snapshot (never a cached path).
     pub binds: HashMap<String, Selector>,
@@ -65,6 +75,24 @@ impl Blackboard {
         }
     }
 
+    /// Note that an app or URI was opened / focused, so a later mission can reuse
+    /// it. Deduped case-insensitively (moving an existing entry to most-recent) and
+    /// capped at [`OPENED_CAP`]. Blank targets are ignored.
+    pub fn note_opened(&mut self, target: impl Into<String>) {
+        let target = target.into();
+        let t = target.trim();
+        if t.is_empty() {
+            return;
+        }
+        let key = t.to_lowercase();
+        self.opened.retain(|o| o.to_lowercase() != key);
+        self.opened.push(t.to_string());
+        let overflow = self.opened.len().saturating_sub(OPENED_CAP);
+        if overflow > 0 {
+            self.opened.drain(0..overflow);
+        }
+    }
+
     /// Bind an element identity under a name, durable across dictations.
     pub fn bind(&mut self, name: impl Into<String>, selector: Selector) {
         self.binds.insert(name.into(), selector);
@@ -76,17 +104,19 @@ impl Blackboard {
         self.binds.extend(binds);
     }
 
-    /// Clear conversational memory (history + bindings) — a new, unrelated task.
-    /// The observed frame is left as-is; the next `observe` refreshes it.
+    /// Clear conversational memory (history + bindings + opened set) — a new,
+    /// unrelated task. The observed frame is left as-is; the next `observe`
+    /// refreshes it.
     pub fn reset_context(&mut self) {
         self.recent.clear();
         self.binds.clear();
+        self.opened.clear();
     }
 
     /// A compact, data-only context block for the planner/selection prompt. Empty
     /// when nothing is known yet, so the first command carries no stale context.
     pub fn context_summary(&self) -> String {
-        if self.focus_app.is_none() && self.recent.is_empty() {
+        if self.focus_app.is_none() && self.recent.is_empty() && self.opened.is_empty() {
             return String::new();
         }
         let mut out =
@@ -102,6 +132,11 @@ impl Blackboard {
                 "selection: {} chars selected\n",
                 self.selection_len
             ));
+        }
+        if !self.opened.is_empty() {
+            // Already-open apps/tabs this session — a later mission should reuse one
+            // of these (focus/switch) rather than launch or navigate a second copy.
+            out.push_str(&format!("already_open: {}\n", self.opened.join(", ")));
         }
         if !self.binds.is_empty() {
             let mut names: Vec<&str> = self.binds.keys().map(String::as_str).collect();
@@ -203,9 +238,41 @@ mod tests {
         b.observe(&snap("Spotify", "Spotify", 0));
         b.record("played a song");
         b.bind("row", Selector::default());
+        b.note_opened("Spotify");
         b.reset_context();
         assert!(b.recent.is_empty());
         assert!(b.binds.is_empty());
+        assert!(b.opened.is_empty());
         assert_eq!(b.focus_app.as_deref(), Some("Spotify"));
+    }
+
+    #[test]
+    fn note_opened_dedups_case_insensitively_and_moves_to_recent() {
+        let mut b = Blackboard::new();
+        b.note_opened("Chrome");
+        b.note_opened("Microsoft Word");
+        b.note_opened("chrome"); // same app, different case
+        // Chrome collapses to one entry, now most-recent.
+        assert_eq!(b.opened, vec!["Microsoft Word".to_string(), "chrome".to_string()]);
+    }
+
+    #[test]
+    fn note_opened_ignores_blank_and_caps_history() {
+        let mut b = Blackboard::new();
+        b.note_opened("   ");
+        assert!(b.opened.is_empty());
+        for i in 0..(OPENED_CAP + 3) {
+            b.note_opened(format!("app {i}"));
+        }
+        assert_eq!(b.opened.len(), OPENED_CAP);
+        assert_eq!(b.opened.first().unwrap(), &format!("app {}", 3));
+    }
+
+    #[test]
+    fn context_summary_lists_already_open_apps() {
+        let mut b = Blackboard::new();
+        b.note_opened("Microsoft Word");
+        let s = b.context_summary();
+        assert!(s.contains("already_open: Microsoft Word"));
     }
 }

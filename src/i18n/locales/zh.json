@@ -498,7 +498,14 @@
     "actFollowupGemini": "Gemini（默认）",
     "actFollowupCerebras": "Cerebras — 更快",
     "actFollowupHint": "第一次调用始终使用 Gemini（它听取你的语音）。后续步骤可以使用更快的模型。",
-    "cerebrasApiKey": "Cerebras API 密钥"
+    "cerebrasApiKey": "Cerebras API 密钥",
+    "generalDesc": "快捷键、听写行为以及转写文本的落点。",
+    "speechRecognitionDesc": "选择转写引擎并连接其 API 密钥。",
+    "aiPolishDesc": "清理转写文本，并选择用于润色和 Act 的模型。",
+    "actModeDesc": "启用 Act 时你能说的一切——打开、搜索和控制应用。",
+    "dictionaryDesc": "应用于每次转写的自定义词汇和文本替换。",
+    "scenesDesc": "各应用的写作模式和你自己的自定义场景。",
+    "aboutDesc": "版本、更新和项目信息。"
   },
   "act": {
     "armed": "Act 已就绪",

@@ -395,6 +395,10 @@ pub struct AppConfig {
     pub auto_start: bool,
     pub close_to_tray: bool,
     pub start_minimized: bool,
+    /// Hard safety backstop (seconds) after which an in-progress recording is
+    /// auto-stopped, even in hold/toggle mode with VAD off. This is a runaway
+    /// guard, not an expected endpoint — keep it well above a normal dictation
+    /// (a minute-plus paragraph) so it never cuts a user off mid-sentence.
     pub max_recording_seconds: u32,
     pub history_enabled: bool,
     pub history_retention_days: u32,
@@ -457,7 +461,7 @@ impl Default for AppConfig {
             auto_start: true,
             close_to_tray: true,
             start_minimized: false,
-            max_recording_seconds: 30,
+            max_recording_seconds: 300,
             history_enabled: true,
             history_retention_days: 0,
             history_max_entries: DEFAULT_HISTORY_MAX_ENTRIES,

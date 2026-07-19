@@ -63,6 +63,11 @@ append a final stop. If a control or app you need is not yet in SCREEN_CONTEXT (
 launched it), open or focus it and STOP the batch so the next observation can see it - never type into \
 an app you cannot see. Emit a single stop (nothing else) when the goal is already satisfied.
 
+REUSE: if the trusted context lists an app or tab under 'already_open' (or it is the 'focused_app'/'window') \
+that is the one your goal needs, FOCUS or switch to it (focus_app) and work inside it - do NOT launch a \
+second copy or open a new tab/window for something already open. Example: the goal wants YouTube and \
+'already_open' lists a YouTube tab - focus that browser and search within it rather than opening youtube.com again.
+
 GOOD PLANS:
 - 'open bluetooth settings' -> \
 {\"actions\":[{\"op\":\"uri\",\"uri\":\"ms-settings:bluetooth\",\"origin\":\"world_knowledge\"}]}
