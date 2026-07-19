@@ -871,24 +871,6 @@ body,
 }
 
 /* ── Act-armed dot badge ── */
-.capsule-badge-dot {
-  position: absolute;
-  bottom: 0;
-  right: 1px;
-  width: 7px;
-  height: 7px;
-  border-radius: 9999px;
-  background: #a78bfa;
-  /* Separator ring must match the capsule SURFACE, not a fixed near-black — on
-     the pale/glass Act-armed capsule a dark ring reads as a black spot in the
-     corner. Light ring on the light shell; dark ring only on the dark shell. */
-  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
-  z-index: 4;
-}
-.dark .capsule-badge-dot {
-  box-shadow: 0 0 0 1.5px #0c111b;
-}
-
 /* ── Recording pulse dot (red, with halo) ── */
 .capsule-rec-dot {
   position: relative;

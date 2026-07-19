@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, Check, Loader2, Pin, Radio, X } from 'lucide-react'
+import { Bot, Check, ChevronRight, Loader2, Pin, Radio, X } from 'lucide-react'
 import { useState } from 'react'
 import { useActTasks, type ActTask } from '../../hooks/useActTasks'
 
@@ -99,11 +99,13 @@ export function PanelHeader({
   counts,
   pinned,
   onTogglePin,
+  onCollapse,
 }: {
   total: number
   counts: StatusTally
   pinned: boolean
   onTogglePin: () => void
+  onCollapse?: () => void
 }) {
   const running = counts.running > 0
   const parts: string[] = []
@@ -156,6 +158,16 @@ export function PanelHeader({
         >
           <Pin size={13} strokeWidth={pinned ? 2.4 : 2} />
         </button>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Collapse agents panel"
+            className="flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border border-transparent text-text-tertiary transition-colors hover:bg-bg-tertiary hover:text-text-secondary"
+          >
+            <ChevronRight size={14} strokeWidth={2.2} />
+          </button>
+        )}
       </div>
     </div>
   )

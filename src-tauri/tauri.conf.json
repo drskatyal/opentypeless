@@ -81,8 +81,8 @@
       {
         "label": "agents",
         "title": "FlowRad Agents",
-        "width": 56,
-        "height": 148,
+        "width": 132,
+        "height": 44,
         "resizable": false,
         "decorations": false,
         "transparent": true,
