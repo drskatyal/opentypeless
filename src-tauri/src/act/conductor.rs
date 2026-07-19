@@ -13,7 +13,7 @@
 //! safety discipline (capability gate, kill switch, injection fences), plus the
 //! drawer and the cross-dictation loop.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use super::action::{Action, ActionPlan};
@@ -707,6 +707,10 @@ impl Conductor {
         // (first planned-action signature, snapshot fingerprint) of the previous
         // iteration — the no-progress guard aborts if both repeat unchanged.
         let mut prev_sig: Option<(String, String)> = None;
+        // Normalized URIs already opened during THIS goal. Feeds the anti-re-
+        // navigation guard so the planner can't reopen a page (and spawn another
+        // browser tab) it already navigated to earlier in the same loop.
+        let mut visited_uris: HashSet<String> = HashSet::new();
 
         for iter in 0..MAX_NOVEL_ITERS {
             // (a) Fresh snapshot -> grounding packet + a cheap fingerprint. A
@@ -784,6 +788,11 @@ impl Conductor {
                     return Step::Next;
                 }
             };
+
+            // Anti-re-navigation guard: drop any `uri` to a page we already opened
+            // this goal (which would spawn another tab and reset progress). If that
+            // empties the batch, it becomes a short wait + re-observe instead.
+            let plan = dedupe_navigation(plan, &mut visited_uris, &mut history);
 
             // No-progress guard: identical first action AND unchanged screen two
             // iterations running means the loop is stuck — bail with a clear result
@@ -1071,6 +1080,59 @@ fn push_progress(history: &mut Vec<String>, note: String) {
     if overflow > 0 {
         history.drain(0..overflow);
     }
+}
+
+/// Normalize a URI for "have we already opened this?" comparison: trimmed,
+/// lowercased, fragment stripped, no trailing slash. Deliberately lenient — two
+/// URIs that differ only in case, a trailing slash, or a `#fragment` are the same
+/// destination for the purpose of not opening it twice.
+fn normalize_uri(uri: &str) -> String {
+    let base = uri.split('#').next().unwrap_or(uri);
+    base.trim().trim_end_matches('/').to_lowercase()
+}
+
+/// Strip redundant navigations from a freshly planned batch.
+///
+/// The planner occasionally re-issues a `uri` to a page it already opened during
+/// THIS goal — a transient blank/loading frame or a focus blip makes the current
+/// screen look "wrong", so it tries to open the destination again. On Windows
+/// every such re-open spawns a NEW browser tab and throws away the progress
+/// already made, which is exactly the tab-spawning loop users hit ("it opens
+/// YouTube, then opens YouTube again, and never plays").
+///
+/// So: drop any `uri` whose normalized destination is already in `visited`, and
+/// record the ones we keep. If dropping empties the batch, fall back to a single
+/// short `wait` — the page we already opened is almost certainly still settling,
+/// and re-observing after a beat is strictly better than opening it a third time.
+fn dedupe_navigation(
+    plan: ActionPlan,
+    visited: &mut HashSet<String>,
+    history: &mut Vec<String>,
+) -> ActionPlan {
+    let mut kept: Vec<Action> = Vec::with_capacity(plan.actions.len());
+    let mut dropped_nav = false;
+    for action in plan.actions {
+        match &action {
+            Action::Uri { uri, .. } => {
+                let key = normalize_uri(uri);
+                // Empty (defensive) or first-seen this goal -> allow the open.
+                if key.is_empty() || visited.insert(key) {
+                    kept.push(action);
+                } else {
+                    dropped_nav = true;
+                }
+            }
+            _ => kept.push(action),
+        }
+    }
+    if kept.is_empty() && dropped_nav {
+        push_progress(
+            history,
+            "already on that page — waiting for it to load".into(),
+        );
+        return ActionPlan::new(vec![Action::Wait { ms: 1200 }]);
+    }
+    ActionPlan::new(kept)
 }
 
 /// A trusted, PHI-free one-line note for a completed action, fed back to the
@@ -1722,6 +1784,71 @@ mod tests {
         let resolved =
             strip_unresolved_tokens(&substitute_value("take a note {text}", &slots, &filters));
         assert_eq!(resolved, "take a note pineapple 1234 test");
+    }
+
+    #[test]
+    fn dedupe_navigation_drops_repeat_uri_and_waits() {
+        // The tab-spawning loop: the planner re-issues a `uri` to a page it already
+        // opened this goal. First open is allowed; the re-open is dropped, and since
+        // that empties the batch it becomes a short wait so the loop re-observes
+        // instead of spawning another browser tab.
+        let mut visited = HashSet::new();
+        let mut history = Vec::new();
+        let url = "https://www.youtube.com/results?search_query=hotel+california";
+
+        let first = dedupe_navigation(
+            ActionPlan::new(vec![Action::Uri {
+                uri: url.into(),
+                origin: Default::default(),
+            }]),
+            &mut visited,
+            &mut history,
+        );
+        assert_eq!(first.actions.len(), 1);
+        assert!(matches!(first.actions[0], Action::Uri { .. }));
+
+        // Same page again (trailing slash + case differ but it's the same target).
+        let again = dedupe_navigation(
+            ActionPlan::new(vec![Action::Uri {
+                uri: "https://www.YouTube.com/results?search_query=hotel+california/".into(),
+                origin: Default::default(),
+            }]),
+            &mut visited,
+            &mut history,
+        );
+        assert_eq!(again.actions.len(), 1);
+        assert!(
+            matches!(again.actions[0], Action::Wait { .. }),
+            "a redundant navigation must collapse to a wait, not a re-open"
+        );
+    }
+
+    #[test]
+    fn dedupe_navigation_keeps_new_uri_and_trailing_actions() {
+        // A batch that opens a *new* page then acts on it is untouched; only an
+        // already-visited destination is stripped.
+        let mut visited = HashSet::new();
+        visited.insert(normalize_uri("https://www.youtube.com"));
+        let mut history = Vec::new();
+
+        let plan = dedupe_navigation(
+            ActionPlan::new(vec![
+                Action::Uri {
+                    uri: "https://www.youtube.com".into(), // already visited -> dropped
+                    origin: Default::default(),
+                },
+                Action::Uri {
+                    uri: "https://www.youtube.com/results?search_query=x".into(), // new -> kept
+                    origin: Default::default(),
+                },
+                Action::Wait { ms: 500 },
+            ]),
+            &mut visited,
+            &mut history,
+        );
+        assert_eq!(plan.actions.len(), 2);
+        assert!(matches!(plan.actions[0], Action::Uri { .. }));
+        assert!(matches!(plan.actions[1], Action::Wait { .. }));
     }
 
     #[test]
