@@ -651,7 +651,7 @@ impl Executor {
         let kill = self.kill.clone();
         match action {
             Action::Wait { ms } => {
-                let dur = std::time::Duration::from_millis((*ms).min(15_000) as u64);
+                let dur = std::time::Duration::from_millis(clamp_wait_ms(*ms) as u64);
                 tokio::select! {
                     biased;
                     _ = kill.wait_tripped() => Ok(Execution::Aborted),
@@ -1112,6 +1112,20 @@ enum Execution {
 fn target_is_url(target: &str) -> bool {
     let lower = target.trim().to_ascii_lowercase();
     lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+/// Upper bound on a model-emitted `wait`. The planner habitually appends a flat
+/// multi-second `wait` after a navigation ("launch, wait 5000, stop") to let a
+/// page/app appear, which blindly burns the full guess even when the screen
+/// settled in a fraction of it. Clamping keeps a genuine pause honest while
+/// capping the worst case; the Conductor's adaptive post-navigation settle (poll
+/// the snapshot fingerprint, proceed on first change) recovers the rest.
+const WAIT_CEIL_MS: u32 = 2500;
+
+/// Clamp a model-emitted wait to [`WAIT_CEIL_MS`]. A short, deliberate pause is
+/// preserved; a multi-second guess is bounded.
+fn clamp_wait_ms(ms: u32) -> u32 {
+    ms.min(WAIT_CEIL_MS)
 }
 
 /// Whether an action is a "script primitive" (OS/shell op) rather than an
@@ -2256,6 +2270,19 @@ mod tests {
     }
 
     // ---- Script primitives (launch / uri / shell / wait / focus_app / clipboard) ----
+
+    #[test]
+    fn clamp_wait_bounds_long_model_waits_but_keeps_short_ones() {
+        // A short, deliberate pause is preserved exactly.
+        assert_eq!(clamp_wait_ms(0), 0);
+        assert_eq!(clamp_wait_ms(800), 800);
+        assert_eq!(clamp_wait_ms(WAIT_CEIL_MS), WAIT_CEIL_MS);
+        // A multi-second guess ("wait 5000" after a navigation) is capped.
+        assert_eq!(clamp_wait_ms(5000), WAIT_CEIL_MS);
+        assert_eq!(clamp_wait_ms(15_000), WAIT_CEIL_MS);
+        assert_eq!(clamp_wait_ms(u32::MAX), WAIT_CEIL_MS);
+        assert!(WAIT_CEIL_MS <= 2500, "ceiling stays a sane sub-3s bound");
+    }
 
     #[tokio::test]
     async fn wait_and_focus_app_are_allowed_and_execute() {

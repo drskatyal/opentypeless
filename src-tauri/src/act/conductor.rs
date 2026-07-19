@@ -27,7 +27,9 @@ use super::flow_registry::FlowRegistry;
 use super::flow_runner::{
     substitute_value, FlowOutcome, FlowRunError, FlowRunner, Resume, ResumeDecision,
 };
-use super::grounding_packet::{GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS};
+use super::grounding_packet::{
+    GroundingPacket, DEFAULT_MAX_ELEMENTS, DEFAULT_MAX_NAME_CHARS, SCREENSHOT_MAX_ELEMENTS,
+};
 use super::llm::LlmClient;
 use super::plan_mode::PlanMode;
 use super::planner::{Perception, PlanRequest, PlanSource, Planner, CONTINUATION_MARKER};
@@ -46,6 +48,15 @@ const MAX_NOVEL_ITERS: usize = 8;
 
 /// Cap on the trusted per-goal progress history carried between iterations.
 const NOVEL_HISTORY_CAP: usize = 16;
+
+/// How long the adaptive post-navigation settle polls the screen before it stops
+/// waiting and re-plans anyway. A page/app usually repaints well under this; we
+/// proceed on the FIRST snapshot that differs from the pre-navigation screen, so
+/// this is only the worst-case ceiling, not a flat wait.
+const NAV_SETTLE_BUDGET_MS: u64 = 1800;
+
+/// Poll cadence while waiting for the screen to change after a navigation.
+const NAV_SETTLE_POLL_MS: u64 = 120;
 
 /// Where the Conductor is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -721,11 +732,16 @@ impl Conductor {
                 Ok(snap) => {
                     self.board.observe(&snap);
                     let fp = snapshot_fingerprint(&snap);
-                    let packet = GroundingPacket::from_snapshot(
-                        &snap,
-                        DEFAULT_MAX_ELEMENTS,
-                        DEFAULT_MAX_NAME_CHARS,
-                    );
+                    // A screenshot turn (hybrid / vision) leans on the image and
+                    // often acts by coordinate, so serialize a leaner tree; tree
+                    // mode keeps the full budget.
+                    let max_elems = if self.plan_mode.needs_screenshot() {
+                        SCREENSHOT_MAX_ELEMENTS
+                    } else {
+                        DEFAULT_MAX_ELEMENTS
+                    };
+                    let packet =
+                        GroundingPacket::from_snapshot(&snap, max_elems, DEFAULT_MAX_NAME_CHARS);
                     (packet, fp)
                 }
                 Err(e) => {
@@ -794,6 +810,19 @@ impl Conductor {
             // empties the batch, it becomes a short wait + re-observe instead.
             let plan = dedupe_navigation(plan, &mut visited_uris, &mut history);
 
+            // Adaptive wait: a batch that navigates (uri / launch) usually carries a
+            // trailing flat `wait` the model guessed to let the page/app appear. Drop
+            // that blind sleep and instead poll the screen after execution (see
+            // `settle_after_nav`), proceeding on the first change. `fingerprint` (this
+            // iteration's pre-execution screen) is the baseline the poll compares
+            // against.
+            let navigated = plan_navigates(&plan);
+            let plan = if navigated {
+                strip_trailing_nav_waits(plan)
+            } else {
+                plan
+            };
+
             // No-progress guard: identical first action AND unchanged screen two
             // iterations running means the loop is stuck — bail with a clear result
             // rather than spinning.
@@ -802,7 +831,7 @@ impl Conductor {
                 .first()
                 .map(action_signature)
                 .unwrap_or_default();
-            let sig = (first_sig, fingerprint);
+            let sig = (first_sig, fingerprint.clone());
             if prev_sig.as_ref() == Some(&sig) {
                 tracing::warn!(
                     iter,
@@ -841,6 +870,12 @@ impl Conductor {
                     return step;
                 }
                 LoopStep::Continue => {
+                    // If this batch navigated, adaptively settle before re-planning:
+                    // poll until the screen changes from `fingerprint` (or the budget
+                    // elapses) instead of trusting the model's flat wait.
+                    if navigated {
+                        self.settle_after_nav(&fingerprint).await;
+                    }
                     tracing::info!(iter, "act novel: adapting — re-observing and re-planning");
                     continue;
                 }
@@ -859,6 +894,31 @@ impl Conductor {
         self.finish_task(false, &summary, events);
         events.push(ActEvent::Result { ok: false, summary });
         Step::Next
+    }
+
+    /// Adaptive post-navigation settle: after a batch that opened a URL or launched
+    /// an app, poll the snapshot fingerprint and return as soon as the screen
+    /// differs from `baseline_fp` (the page/app has appeared), or after
+    /// [`NAV_SETTLE_BUDGET_MS`]. This replaces the model's blind flat `wait` (which
+    /// burns its full guess even when the page painted in a fraction of it) with an
+    /// adaptive one: a screen that settles in 300ms proceeds in ~300ms. The freshly
+    /// observed snapshot is folded into the blackboard so the next plan grounds on
+    /// the settled screen.
+    async fn settle_after_nav(&mut self, baseline_fp: &str) {
+        let start = std::time::Instant::now();
+        let budget = std::time::Duration::from_millis(NAV_SETTLE_BUDGET_MS);
+        loop {
+            if let Ok(snap) = self.backend.snapshot().await {
+                if snapshot_fingerprint(&snap) != baseline_fp {
+                    self.board.observe(&snap);
+                    return;
+                }
+            }
+            if start.elapsed() >= budget {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(NAV_SETTLE_POLL_MS)).await;
+        }
     }
 
     /// Classify one iteration's executor result and update the trusted `history`.
@@ -1132,6 +1192,47 @@ fn dedupe_navigation(
         );
         return ActionPlan::new(vec![Action::Wait { ms: 1200 }]);
     }
+    ActionPlan::new(kept)
+}
+
+/// Whether a batch performs a navigation — opens a URL or launches an app. These
+/// are the actions after which a page/app needs a beat to appear, so a navigating
+/// batch triggers the adaptive settle (and the trailing-wait strip) in the loop.
+fn plan_navigates(plan: &ActionPlan) -> bool {
+    plan.actions
+        .iter()
+        .any(|a| matches!(a, Action::Uri { .. } | Action::Launch { .. }))
+}
+
+/// Drop the blind flat `wait` the model appends after a navigation, so the
+/// Conductor's adaptive settle governs the pause instead. Only waits that TRAIL
+/// the final navigation with nothing but more waits / a `stop` after them are
+/// removed — the canonical "launch, wait 5000, stop" tail. A `wait` that gates a
+/// later interactive step in the SAME batch (e.g. `uri, wait, type`) is kept,
+/// since dropping it would type into a page that hasn't loaded.
+fn strip_trailing_nav_waits(plan: ActionPlan) -> ActionPlan {
+    let actions = plan.actions;
+    let Some(nav_idx) = actions
+        .iter()
+        .rposition(|a| matches!(a, Action::Uri { .. } | Action::Launch { .. }))
+    else {
+        return ActionPlan::new(actions);
+    };
+    // Only strip when everything after the last navigation is inert (wait / stop);
+    // otherwise a later action depends on the wait and it must stay.
+    let inert_tail = actions
+        .iter()
+        .skip(nav_idx + 1)
+        .all(|a| matches!(a, Action::Wait { .. } | Action::Stop));
+    if !inert_tail {
+        return ActionPlan::new(actions);
+    }
+    let kept: Vec<Action> = actions
+        .into_iter()
+        .enumerate()
+        .filter(|(i, a)| !(*i > nav_idx && matches!(a, Action::Wait { .. })))
+        .map(|(_, a)| a)
+        .collect();
     ActionPlan::new(kept)
 }
 
@@ -1849,6 +1950,72 @@ mod tests {
         assert_eq!(plan.actions.len(), 2);
         assert!(matches!(plan.actions[0], Action::Uri { .. }));
         assert!(matches!(plan.actions[1], Action::Wait { .. }));
+    }
+
+    #[test]
+    fn plan_navigates_detects_uri_and_launch() {
+        assert!(plan_navigates(&ActionPlan::new(vec![Action::Uri {
+            uri: "https://youtube.com".into(),
+            origin: Default::default(),
+        }])));
+        assert!(plan_navigates(&ActionPlan::new(vec![Action::Launch {
+            target: "spotify".into(),
+            origin: Default::default(),
+        }])));
+        assert!(!plan_navigates(&ActionPlan::new(vec![
+            Action::Key {
+                combo: "ctrl+a".into()
+            },
+            Action::Wait { ms: 500 },
+        ])));
+    }
+
+    #[test]
+    fn strip_trailing_nav_waits_drops_the_blind_post_nav_wait() {
+        // The canonical "launch, wait 5000, stop": the trailing wait is the model's
+        // blind guess, replaced by the adaptive settle — it is removed; the launch
+        // and stop stay.
+        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+            Action::Launch {
+                target: "spotify".into(),
+                origin: Default::default(),
+            },
+            Action::Wait { ms: 5000 },
+            Action::Stop,
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["launch", "stop"]);
+    }
+
+    #[test]
+    fn strip_trailing_nav_waits_keeps_a_wait_that_gates_a_later_step() {
+        // `uri, wait, type`: the wait gates the type (which needs the page loaded),
+        // so it must NOT be stripped — the tail is not inert.
+        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+            Action::Uri {
+                uri: "https://example.com".into(),
+                origin: Default::default(),
+            },
+            Action::Wait { ms: 800 },
+            Action::Type {
+                text: "hello".into(),
+                clear: false,
+            },
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["uri", "wait", "type"]);
+    }
+
+    #[test]
+    fn strip_trailing_nav_waits_is_a_noop_without_navigation() {
+        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+            Action::Key {
+                combo: "ctrl+a".into(),
+            },
+            Action::Wait { ms: 500 },
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["key", "wait"]);
     }
 
     #[test]
