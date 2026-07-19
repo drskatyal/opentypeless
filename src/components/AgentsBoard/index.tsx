@@ -1,48 +1,57 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Loader2, X } from 'lucide-react'
+import { Bot, Check, Loader2, Pin, X } from 'lucide-react'
 import { useState } from 'react'
 import { useActTasks, type ActTask } from '../../hooks/useActTasks'
 
 /**
- * The live Agents rail: while an Act command runs, each of its missions shows
- * as a small status indicator in a compact vertical strip pinned to the right
- * edge of the screen (running → done ✓ / failed ✗), so the user can fire several
- * tasks and watch each check itself off at a glance.
+ * The live Agents dock: a persistent tab pinned to the right edge of the screen
+ * that is ALWAYS present. Hover peeks the panel open; a click PINS it open so it
+ * stays while you read. The panel header shows how many agents are running /
+ * done / failed, and each agent (an Act mission) gets a card with its current
+ * activity and final result.
  *
- * Collapsed, it's a click-through strip of dots. Hovering expands it leftward
- * into the full task cards (icon, label, progress line, status badge). It shows
- * only the CURRENT command's missions — the board clears per command.
- * Non-modal: `pointer-events-none` on the container so it never blocks the
- * user's work; only the rail itself is interactive.
+ * Non-modal: `pointer-events-none` on the outer container so it never blocks the
+ * user's work; only the tab and panel themselves are interactive.
  */
 export function AgentsBoard() {
   const tasks = useActTasks()
-  const [expanded, setExpanded] = useState(false)
-  if (tasks.length === 0) return null
+  const [hovered, setHovered] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const open = hovered || pinned
+
+  const counts = tallyStatuses(tasks)
 
   return (
     <div className="pointer-events-none fixed top-1/2 right-0 z-[9990] -translate-y-1/2">
       <div
         className="pointer-events-auto relative flex justify-end"
-        onMouseEnter={() => setExpanded(true)}
-        onMouseLeave={() => setExpanded(false)}
-        onFocus={() => setExpanded(true)}
-        onBlur={() => setExpanded(false)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
-        {/* Collapsed rail — the persistent hover surface. Fades out (but keeps
-            its footprint on the edge) while the expanded panel is shown. */}
-        <motion.div
-          aria-hidden={expanded}
-          animate={{ opacity: expanded ? 0 : 1 }}
+        {/* Persistent edge tab — always present. Fades out (keeping its edge
+            footprint) while the panel is open. Click pins the panel open. */}
+        <motion.button
+          type="button"
+          aria-hidden={open}
+          aria-label={`Agents${tasks.length ? ` — ${tasks.length} active` : ''}`}
+          onClick={() => setPinned(true)}
+          onFocus={() => setHovered(true)}
+          animate={{ opacity: open ? 0 : 1 }}
           transition={{ duration: 0.15 }}
-          className="flex flex-col items-center gap-1.5 rounded-l-[14px] border border-r-0 border-border bg-bg-secondary/80 px-2 py-2.5 shadow-md backdrop-blur"
+          className="flex cursor-pointer flex-col items-center gap-1.5 rounded-l-[14px] border border-r-0 border-border bg-bg-secondary/80 px-2 py-2.5 shadow-md backdrop-blur"
         >
-          <CollapsedRail tasks={tasks} />
-        </motion.div>
+          {tasks.length === 0 ? (
+            <span className="flex h-5 w-5 items-center justify-center text-text-tertiary">
+              <Bot size={15} strokeWidth={2} />
+            </span>
+          ) : (
+            <CollapsedRail tasks={tasks} />
+          )}
+        </motion.button>
 
-        {/* Expanded panel — full task cards, springs in leftward on hover. */}
+        {/* Panel — full agent cards + counts header, springs in leftward. */}
         <AnimatePresence>
-          {expanded && (
+          {open && (
             <motion.div
               key="panel"
               initial={{ opacity: 0, x: 24, scale: 0.96 }}
@@ -50,15 +59,102 @@ export function AgentsBoard() {
               exit={{ opacity: 0, x: 24, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 420, damping: 34 }}
               style={{ transformOrigin: 'right center' }}
-              className="absolute top-1/2 right-0 flex max-h-[78vh] w-[300px] -translate-y-1/2 flex-col gap-2 overflow-y-auto pr-1.5 pl-1"
+              className="absolute top-1/2 right-0 flex max-h-[80vh] w-[308px] -translate-y-1/2 flex-col overflow-hidden rounded-[16px] border border-border bg-bg-secondary/95 shadow-float backdrop-blur"
             >
-              {tasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
-              ))}
+              <PanelHeader
+                total={tasks.length}
+                counts={counts}
+                pinned={pinned}
+                onTogglePin={() => setPinned((p) => !p)}
+              />
+              <div className="flex flex-col gap-2 overflow-y-auto px-2.5 pt-1 pb-2.5">
+                {tasks.length === 0 ? (
+                  <EmptyState />
+                ) : (
+                  tasks.map((task) => <TaskCard key={task.id} task={task} />)
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+    </div>
+  )
+}
+
+interface StatusTally {
+  running: number
+  done: number
+  failed: number
+}
+
+function tallyStatuses(tasks: ActTask[]): StatusTally {
+  return tasks.reduce(
+    (acc, t) => {
+      acc[t.status] += 1
+      return acc
+    },
+    { running: 0, done: 0, failed: 0 } as StatusTally,
+  )
+}
+
+function PanelHeader({
+  total,
+  counts,
+  pinned,
+  onTogglePin,
+}: {
+  total: number
+  counts: StatusTally
+  pinned: boolean
+  onTogglePin: () => void
+}) {
+  const parts: string[] = []
+  if (counts.running) parts.push(`${counts.running} running`)
+  if (counts.done) parts.push(`${counts.done} done`)
+  if (counts.failed) parts.push(`${counts.failed} failed`)
+  const subtitle = total === 0 ? 'No agents running' : parts.join(' · ')
+
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3.5 py-2.5">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-accent/12 text-accent-text">
+          <Bot size={15} strokeWidth={2.2} />
+        </span>
+        <div className="leading-tight">
+          <p className="text-[13px] font-semibold text-text-primary">
+            Agents{total > 0 && <span className="ml-1 text-text-tertiary">· {total}</span>}
+          </p>
+          <p className="text-[11px] text-text-secondary">{subtitle}</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onTogglePin}
+        aria-pressed={pinned}
+        aria-label={pinned ? 'Unpin agents panel' : 'Keep agents panel open'}
+        className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border transition-colors ${
+          pinned
+            ? 'border-accent/40 bg-accent/12 text-accent-text'
+            : 'border-transparent text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary'
+        }`}
+      >
+        {pinned ? <Pin size={13} strokeWidth={2.4} /> : <Pin size={13} strokeWidth={2} />}
+      </button>
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary text-text-tertiary">
+        <Bot size={18} strokeWidth={1.8} />
+      </span>
+      <p className="text-[12.5px] font-medium text-text-secondary">No agents yet</p>
+      <p className="text-[11px] leading-relaxed text-text-tertiary">
+        Fire an Act command and each task shows up here with live status.
+      </p>
     </div>
   )
 }
@@ -151,7 +247,7 @@ function TaskCard({ task }: { task: ActTask }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-      className="pointer-events-auto relative flex-none overflow-hidden rounded-[12px] border border-border bg-bg-secondary/95 px-3 py-2.5 shadow-float backdrop-blur"
+      className="pointer-events-auto relative flex-none overflow-hidden rounded-[12px] border border-border bg-bg-tertiary/60 px-3 py-2.5"
     >
       <span className={`absolute inset-y-0 left-0 w-[3px] ${DOT[task.status]}`} />
 

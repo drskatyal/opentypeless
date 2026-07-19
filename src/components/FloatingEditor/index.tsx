@@ -78,8 +78,8 @@ export function FloatingEditor() {
   }, [])
 
   return (
-    <div className="h-screen w-screen bg-transparent p-2 text-text-primary">
-      <section className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-border bg-bg-primary shadow-float">
+    <div className="h-screen w-screen bg-transparent p-4 text-text-primary">
+      <section className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-border bg-bg-primary shadow-[0_4px_12px_rgba(0,0,0,0.22)]">
         {/* Draggable title bar */}
         <div
           onMouseDown={startDrag}
