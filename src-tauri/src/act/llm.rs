@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 use crate::error::AppError;
 
@@ -30,6 +31,22 @@ pub trait LlmClient: Send + Sync {
         user: &str,
         schema: Option<&serde_json::Value>,
     ) -> Result<String, AppError>;
+
+    /// Like [`generate_json`](Self::generate_json), but with an optional PNG
+    /// screenshot for the `hybrid` / `vision` plan modes. The default **ignores**
+    /// the image and delegates to the text path, so a text-only transport
+    /// (Cerebras `gpt-oss-120b`, the test fixture) can never "see" — only a
+    /// multimodal transport ([`GeminiLlmClient`]) overrides this to attach the
+    /// image. See `docs/act-screen-aware-design.md`.
+    async fn generate_json_multimodal(
+        &self,
+        system: &str,
+        user: &str,
+        _image_png: Option<&[u8]>,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
+        self.generate_json(system, user, schema).await
+    }
 }
 
 /// Production transport: cloud `generateContent` with `responseMimeType:
@@ -65,6 +82,30 @@ impl LlmClient for GeminiLlmClient {
         user: &str,
         schema: Option<&serde_json::Value>,
     ) -> Result<String, AppError> {
+        self.generate_inner(system, user, None, schema).await
+    }
+
+    async fn generate_json_multimodal(
+        &self,
+        system: &str,
+        user: &str,
+        image_png: Option<&[u8]>,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
+        self.generate_inner(system, user, image_png, schema).await
+    }
+}
+
+impl GeminiLlmClient {
+    /// Shared request path for the text and multimodal calls. When `image_png` is
+    /// `Some`, a PNG `inlineData` part is attached alongside the user text.
+    async fn generate_inner(
+        &self,
+        system: &str,
+        user: &str,
+        image_png: Option<&[u8]>,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
         if self.api_key.trim().is_empty() {
             return Err(AppError::Auth("Act planner API key is empty".into()));
         }
@@ -86,13 +127,19 @@ impl LlmClient for GeminiLlmClient {
             sanitize_gemini_schema(&mut sanitized);
             generation_config["responseSchema"] = sanitized;
         }
+        let mut parts = vec![serde_json::json!({ "text": user })];
+        if let Some(png) = image_png {
+            parts.push(serde_json::json!({
+                "inlineData": { "mimeType": "image/png", "data": STANDARD.encode(png) }
+            }));
+        }
         let body = serde_json::json!({
             "systemInstruction": { "parts": [{ "text": system }] },
-            "contents": [{ "role": "user", "parts": [{ "text": user }] }],
+            "contents": [{ "role": "user", "parts": parts }],
             "generationConfig": generation_config,
         });
 
-        tracing::debug!(model = %self.model, "Act LLM request");
+        tracing::debug!(model = %self.model, has_image = image_png.is_some(), "Act LLM request");
         let resp = self
             .client
             .post(&url)

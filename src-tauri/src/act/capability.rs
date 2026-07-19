@@ -77,6 +77,7 @@ pub fn required_capability(action: &Action) -> Capability {
         | Action::Scroll { .. }
         | Action::SelectMenu { .. } => Capability::A11yInvoke,
         Action::Launch { .. } => Capability::AppLaunch,
+        Action::Click { .. } => Capability::InputMouse,
         Action::Uri { .. } => Capability::NetNavigate,
         Action::Shell { .. } => Capability::ShellExec,
         Action::FocusApp { .. } => Capability::WindowManage,

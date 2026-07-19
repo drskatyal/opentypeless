@@ -96,6 +96,10 @@ pub enum Action {
         #[serde(default)]
         origin: Origin,
     },
+    /// Click at an absolute screen coordinate (logical pixels). Emitted only by
+    /// the `vision` plan mode, whose grounding is the screenshot rather than the
+    /// accessibility tree; every other mode targets element paths.
+    Click { x: i32, y: i32 },
     /// Pause the plan for a fixed number of milliseconds.
     Wait { ms: u32 },
     /// Bring a named application's window to the foreground.
@@ -137,6 +141,7 @@ impl Action {
             Action::Launch { .. } => "launch",
             Action::Uri { .. } => "uri",
             Action::Shell { .. } => "shell",
+            Action::Click { .. } => "click",
             Action::Wait { .. } => "wait",
             Action::FocusApp { .. } => "focus_app",
             Action::Clipboard { .. } => "clipboard",

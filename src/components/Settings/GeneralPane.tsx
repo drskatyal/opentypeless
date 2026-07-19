@@ -2,7 +2,13 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, MessageCircle } from 'lucide-react'
 import { isMacPlatform, useAppStore } from '../../stores/appStore'
-import type { ActModelTier, HotkeyMode, OutputMode, ShortcutBinding } from '../../stores/appStore'
+import type {
+  ActModelTier,
+  ActPlanMode,
+  HotkeyMode,
+  OutputMode,
+  ShortcutBinding,
+} from '../../stores/appStore'
 import {
   actSetEnabled,
   getPlatformCapabilities,
@@ -299,6 +305,24 @@ export function GeneralPane() {
                   value={config.act_model_tier}
                   onChange={(v) => updateConfig({ act_model_tier: v as ActModelTier })}
                 />
+              </div>
+              <div>
+                <p className="mb-1.5 text-[12px] text-text-secondary">
+                  Perception mode (experimental)
+                </p>
+                <SegmentedControl
+                  options={[
+                    { value: 'tree', label: 'Tree' },
+                    { value: 'hybrid', label: 'Hybrid' },
+                    { value: 'vision', label: 'Vision' },
+                  ]}
+                  value={config.act_plan_mode}
+                  onChange={(v) => updateConfig({ act_plan_mode: v as ActPlanMode })}
+                />
+                <p className="mt-1 text-[11px] leading-relaxed text-text-tertiary">
+                  How Act sees the screen — Tree (accessibility, fastest), Hybrid (tree +
+                  screenshot), or Vision (screenshot only). Hybrid and Vision run on Gemini.
+                </p>
               </div>
               <p className="text-[11px] leading-relaxed text-text-tertiary">
                 {t('settings.actSeeAllHint')}

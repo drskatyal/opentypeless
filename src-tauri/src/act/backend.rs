@@ -63,5 +63,23 @@ pub trait AccessibilityBackend: Send + Sync {
     /// Overwrite the system clipboard with `text`.
     async fn clipboard_set(&self, text: &str) -> Result<(), AppError>;
 
+    /// Capture a PNG screenshot of the foreground window for the screen-aware
+    /// (`hybrid` / `vision`) plan modes. Returns `Ok(None)` when the platform has
+    /// no capture implementation (the default), so callers degrade to the a11y
+    /// `tree` mode rather than failing. See `docs/act-screen-aware-design.md`.
+    async fn capture_screen(&self) -> Result<Option<Vec<u8>>, AppError> {
+        Ok(None)
+    }
+
+    /// Click at an absolute screen coordinate (logical pixels). Used by the
+    /// `vision` mode, whose plans target coordinates rather than element paths.
+    /// The default is unsupported so a backend that hasn't implemented pointer
+    /// synthesis fails the step cleanly instead of silently no-oping.
+    async fn click_point(&self, _x: i32, _y: i32) -> Result<(), AppError> {
+        Err(AppError::Config(
+            "coordinate click is not supported by this backend".into(),
+        ))
+    }
+
     fn name(&self) -> &str;
 }

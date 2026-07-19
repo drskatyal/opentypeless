@@ -626,6 +626,17 @@ impl Executor {
                     _ = tokio::time::sleep(dur) => Ok(Execution::Ok),
                 }
             }
+            Action::Click { x, y } => {
+                // `vision`-mode coordinate click. The focus guard (armed by an
+                // earlier launch/focus in this run) still applies to the app that
+                // owns the coordinate, and the kill switch pre-empts it.
+                let res = tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    r = self.backend.click_point(*x, *y) => r,
+                };
+                Ok(res.map_or_else(|e| Execution::Failed(e.to_string()), |()| Execution::Ok))
+            }
             Action::Launch { target, .. } => {
                 // A web URL handed to `launch` can't be started as an application
                 // (terminator fails with "Failed to launch application 'https://…'").
@@ -881,6 +892,7 @@ impl Executor {
             | Action::Uri { .. }
             | Action::Shell { .. }
             | Action::Wait { .. }
+            | Action::Click { .. }
             | Action::FocusApp { .. }
             | Action::Clipboard { .. } => {
                 return Ok(Execution::Failed(
@@ -1060,6 +1072,7 @@ fn is_script_primitive(action: &Action) -> bool {
             | Action::Uri { .. }
             | Action::Shell { .. }
             | Action::Wait { .. }
+            | Action::Click { .. }
             | Action::FocusApp { .. }
             | Action::Clipboard { .. }
     )

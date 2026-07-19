@@ -1035,6 +1035,7 @@ fn done_summary(action: &Action) -> Option<String> {
         Action::Invoke { .. } => "activated a control".into(),
         Action::Focus { .. } => "moved focus".into(),
         Action::FocusApp { name } => format!("focused {}", short_goal(name)),
+        Action::Click { x, y } => format!("clicked at ({x}, {y})"),
         Action::SelectMenu { .. } => "selected a menu item".into(),
         Action::Scroll { .. } => "scrolled".into(),
         Action::Clipboard { .. } => "used the clipboard".into(),

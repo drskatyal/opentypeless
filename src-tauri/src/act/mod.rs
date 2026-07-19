@@ -30,6 +30,7 @@ pub mod grounding_packet;
 pub mod killswitch;
 pub mod llm;
 pub mod mock_backend;
+pub mod plan_mode;
 pub mod planner;
 pub mod seed;
 pub mod selection;
