@@ -1684,7 +1684,10 @@ mod tests {
             .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("docx"))
             .collect();
         assert_eq!(saved.len(), 1, "one report should be saved, got {saved:?}");
-        assert!(std::fs::read(&saved[0]).unwrap().starts_with(b"PK"), "a real .docx");
+        assert!(
+            std::fs::read(&saved[0]).unwrap().starts_with(b"PK"),
+            "a real .docx"
+        );
 
         // No app automation at all: nothing launched, focused, typed, or pasted.
         assert!(backend.launched().is_empty());
@@ -1721,7 +1724,10 @@ mod tests {
         c.set_documents_dir(docs.clone());
         c.arm();
 
-        let events = c.on_transcript("write a report on anything".into()).await.unwrap();
+        let events = c
+            .on_transcript("write a report on anything".into())
+            .await
+            .unwrap();
         let count = std::fs::read_dir(&docs).unwrap().count();
         assert_eq!(count, 0, "nothing saved on generation failure");
         assert!(backend.typed().is_empty());

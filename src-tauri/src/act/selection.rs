@@ -778,7 +778,11 @@ mod tests {
     }
 
     fn note_file() -> FlowFile {
-        file("take_a_note", "open Notepad and jot down a note", vec![slot("text")])
+        file(
+            "take_a_note",
+            "open Notepad and jot down a note",
+            vec![slot("text")],
+        )
     }
 
     #[tokio::test]
@@ -822,7 +826,9 @@ mod tests {
         ]}"#
         .into())]);
         let reg = FlowRegistry::from_files([note_file()]);
-        let sel = select(&llm, &reg, "note down buy milk", None).await.unwrap();
+        let sel = select(&llm, &reg, "note down buy milk", None)
+            .await
+            .unwrap();
         assert_eq!(sel.missions.len(), 1);
         match &sel.missions[0] {
             Mission::OpenFlow { id, slots, .. } => {
@@ -842,7 +848,9 @@ mod tests {
         ]}"#
         .into())]);
         let reg = FlowRegistry::from_files([note_file()]);
-        let sel = select(&llm, &reg, "write something up", None).await.unwrap();
+        let sel = select(&llm, &reg, "write something up", None)
+            .await
+            .unwrap();
         match &sel.missions[0] {
             Mission::Compose { topic, kind, .. } => {
                 assert_eq!(topic, "write something up");

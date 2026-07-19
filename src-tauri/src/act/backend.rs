@@ -232,16 +232,32 @@ mod tests {
     #[test]
     fn console_foreground_refocuses_toward_target() {
         // Console in front but Chrome is the intended app → refocus Chrome.
-        assert!(should_refocus("Windows PowerShell", "powershell", Some("Google Chrome")));
+        assert!(should_refocus(
+            "Windows PowerShell",
+            "powershell",
+            Some("Google Chrome")
+        ));
     }
 
     #[test]
     fn correct_target_already_front_is_a_noop() {
         // The intended app is already foreground (matched via title or proc stem):
         // no refocus, so we don't thrash a window that's already correct.
-        assert!(!should_refocus("Google Chrome", "chrome", Some("Google Chrome")));
-        assert!(!should_refocus("New Tab - Google Chrome", "chrome", Some("chrome.exe")));
-        assert!(!should_refocus("Spotify Premium", "spotify", Some("Spotify")));
+        assert!(!should_refocus(
+            "Google Chrome",
+            "chrome",
+            Some("Google Chrome")
+        ));
+        assert!(!should_refocus(
+            "New Tab - Google Chrome",
+            "chrome",
+            Some("chrome.exe")
+        ));
+        assert!(!should_refocus(
+            "Spotify Premium",
+            "spotify",
+            Some("Spotify")
+        ));
     }
 
     #[test]
