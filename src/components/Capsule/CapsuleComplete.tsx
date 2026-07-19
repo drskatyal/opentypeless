@@ -19,13 +19,14 @@ export function CapsuleComplete() {
   }, [resetRecording, setPipelineState])
 
   return (
-    <motion.div className="relative z-10 flex items-center gap-1.5 h-9 px-3">
+    <motion.div className="relative z-10 flex items-center justify-center gap-1.5 h-9 px-3">
       <motion.div
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={spring.smooth}
+        className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/25"
       >
-        <Check size={14} className="text-white" />
+        <Check size={12} className="text-white" strokeWidth={2.8} />
       </motion.div>
       <span className="text-[11px] text-white font-medium">{t('capsule.done')}</span>
     </motion.div>

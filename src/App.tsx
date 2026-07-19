@@ -25,8 +25,10 @@ import { HomePage } from './components/HomePage'
 import { UpgradePage } from './components/UpgradePage'
 import { AccountPage } from './components/AccountPage'
 import { AskPanel } from './components/AskPanel'
+import { FloatingEditor } from './components/FloatingEditor'
 import { ToastContainer } from './components/Toast'
-import { UpdatePrompt } from './components/UpdatePrompt'
+import { ActHud } from './components/ActHud'
+import { AgentsBoard } from './components/AgentsBoard'
 
 function CapsuleApp() {
   useTauriEvents()
@@ -81,6 +83,11 @@ function AskApp() {
       <ToastContainer />
     </>
   )
+}
+
+function EditorApp() {
+  useTheme()
+  return <FloatingEditor />
 }
 
 function MainApp() {
@@ -223,8 +230,9 @@ function MainApp() {
       {route === 'history' && <History />}
       {route === 'upgrade' && <UpgradePage />}
       {route === 'account' && <AccountPage />}
-      <UpdatePrompt />
       <ToastContainer />
+      <ActHud />
+      <AgentsBoard />
     </MainLayout>
   )
 }
@@ -233,6 +241,7 @@ function App() {
   // Capsule window loads with #capsule hash — detect synchronously, no race condition
   if (window.location.hash === '#capsule') return <CapsuleApp />
   if (window.location.hash === '#ask') return <AskApp />
+  if (window.location.hash === '#editor') return <EditorApp />
   return <MainApp />
 }
 

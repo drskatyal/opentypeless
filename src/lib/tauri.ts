@@ -192,6 +192,7 @@ export type HotkeyRole =
   | 'editSelection'
   | 'switchScene'
   | 'openApp'
+  | 'act'
 
 export interface HotkeyStatusError {
   code: string
@@ -371,6 +372,10 @@ export async function showAskWindow(): Promise<void> {
   return invoke('show_ask_window')
 }
 
+export async function showEditorWindow(): Promise<void> {
+  return invoke('show_editor_window')
+}
+
 export async function startAskFlow(): Promise<void> {
   return invoke('start_ask_flow')
 }
@@ -442,6 +447,41 @@ export async function abortAskDictation(): Promise<void> {
 
 export async function takePendingAskMessage(): Promise<PendingAskMessage | null> {
   return invoke('take_pending_ask_message')
+}
+
+// Act mode (voice-driven OS automation)
+export async function actSetEnabled(enabled: boolean): Promise<void> {
+  return invoke('act_set_enabled', { enabled })
+}
+
+export async function actGetState(): Promise<string> {
+  return invoke('act_get_state')
+}
+
+/** A drawer recipe, as summarized by the backend for the Settings list. */
+export interface ActFlowInfo {
+  id: string
+  name: string
+  description: string
+  /** Example spoken phrases that trigger it. */
+  aliases: string[]
+  /** 'leaf' (deterministic) or 'branch' (planner-assisted). */
+  kind: 'leaf' | 'branch'
+  /** The slots the user fills by voice (e.g. the song, the query). */
+  slots: string[]
+}
+
+/** List the built-in drawer recipes so Settings can show what Act can do. */
+export async function actListFlows(): Promise<ActFlowInfo[]> {
+  return invoke('act_list_flows')
+}
+
+export async function actUserDecision(decision: string, index?: number): Promise<void> {
+  return invoke('act_user_decision', { decision, index })
+}
+
+export async function actAbort(): Promise<void> {
+  return invoke('act_abort')
 }
 
 // History

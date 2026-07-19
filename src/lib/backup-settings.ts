@@ -16,6 +16,12 @@ type SafeScalarKey =
   | 'stt_custom_preset'
   | 'stt_custom_base_url'
   | 'stt_custom_model'
+  | 'stt_gemini_model'
+  | 'stt_mode'
+  | 'stt_vad_threshold'
+  | 'stt_vad_min_silence_ms'
+  | 'stt_vad_min_speech_ms'
+  | 'stt_vad_speech_pad_ms'
   | 'stt_volcengine_resource_id'
   | 'llm_provider'
   | 'llm_model'
@@ -47,6 +53,8 @@ type SafeScalarKey =
   | 'history_max_entries'
   | 'ui_language'
   | 'capsule_auto_hide'
+  | 'act_enabled'
+  | 'act_model_tier'
 
 export type BackupSettings = Partial<Pick<AppConfig, SafeScalarKey>> & {
   voice_routing_flags?: VoiceRoutingFlags
@@ -73,6 +81,12 @@ export function createBackupSettings(config: AppConfig): BackupSettings {
     stt_custom_preset: config.stt_custom_preset,
     stt_custom_base_url: config.stt_custom_base_url,
     stt_custom_model: config.stt_custom_model,
+    stt_gemini_model: config.stt_gemini_model,
+    stt_mode: config.stt_mode,
+    stt_vad_threshold: config.stt_vad_threshold,
+    stt_vad_min_silence_ms: config.stt_vad_min_silence_ms,
+    stt_vad_min_speech_ms: config.stt_vad_min_speech_ms,
+    stt_vad_speech_pad_ms: config.stt_vad_speech_pad_ms,
     stt_volcengine_resource_id: config.stt_volcengine_resource_id,
     llm_provider: config.llm_provider,
     llm_model: config.llm_model,
@@ -153,6 +167,7 @@ export function createBackupSettings(config: AppConfig): BackupSettings {
           editSelection: safeBinding(config.hotkeys.editSelection),
           switchScene: safeBinding(config.hotkeys.switchScene),
           openApp: safeBinding(config.hotkeys.openApp),
+          act: safeBinding(config.hotkeys.act),
           dictationMode: config.hotkeys.dictationMode,
         }
       : undefined,
@@ -173,6 +188,8 @@ export function createBackupSettings(config: AppConfig): BackupSettings {
     history_max_entries: config.history_max_entries,
     ui_language: config.ui_language,
     capsule_auto_hide: config.capsule_auto_hide,
+    act_enabled: config.act_enabled,
+    act_model_tier: config.act_model_tier,
   }
 
   if (config.voice_routing_flags) {
@@ -193,6 +210,12 @@ const SAFE_SCALAR_KEYS: readonly SafeScalarKey[] = [
   'stt_custom_preset',
   'stt_custom_base_url',
   'stt_custom_model',
+  'stt_gemini_model',
+  'stt_mode',
+  'stt_vad_threshold',
+  'stt_vad_min_silence_ms',
+  'stt_vad_min_speech_ms',
+  'stt_vad_speech_pad_ms',
   'stt_volcengine_resource_id',
   'llm_provider',
   'llm_model',
@@ -224,6 +247,8 @@ const SAFE_SCALAR_KEYS: readonly SafeScalarKey[] = [
   'history_max_entries',
   'ui_language',
   'capsule_auto_hide',
+  'act_enabled',
+  'act_model_tier',
 ]
 
 function isRecord(value: unknown): value is Record<string, unknown> {

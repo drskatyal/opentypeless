@@ -169,7 +169,7 @@ fn update_runtime_caches(
     *hotkey_mode_cache
         .0
         .lock()
-        .unwrap_or_else(|e| e.into_inner()) = config.hotkey_mode.clone();
+        .unwrap_or_else(|e| e.into_inner()) = config.effective_hotkey_mode();
     *ask_cache.0.lock().unwrap_or_else(|e| e.into_inner()) = config.ask_hotkey.clone();
     *role_cache.0.lock().unwrap_or_else(|e| e.into_inner()) =
         crate::hotkey::hotkey_registration_plan_from_config(&config.hotkeys).unwrap_or_default();
@@ -215,6 +215,7 @@ pub async fn update_config(
     hotkey_supervisor: tauri::State<'_, crate::hotkey::HotkeySupervisor>,
     role_cache: tauri::State<'_, HotkeyRoleCache>,
     close_tray_cache: tauri::State<'_, CloseToTrayCache>,
+    act_state: tauri::State<'_, crate::commands::act::ActState>,
     config: storage::AppConfig,
 ) -> Result<(), String> {
     let previous = state.load().await.map_err(|e| e.to_string())?;
@@ -262,6 +263,14 @@ pub async fn update_config(
     if patch.get("ui_language").is_some() || patch.get("capsule_auto_hide").is_some() {
         crate::refresh_tray(&app);
     }
+
+    // Apply an Act follow-up provider/tier change LIVE (no restart). Self-guarded:
+    // a no-op unless Act is armed AND the effective follow-up provider/model/key
+    // actually changed, so unrelated settings saves never rebuild the Conductor.
+    // Provider-key changes take the separate `set_credential` path. `config` here
+    // still carries any plaintext keys (they are only cleared in the persisted
+    // clone), so a key entered on this save is picked up too.
+    crate::commands::act::refresh_followup_if_changed(&act_state, &config).await;
     Ok(())
 }
 

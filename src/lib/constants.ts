@@ -12,7 +12,7 @@ export const UI_LANGUAGES = [
   { value: 'it', label: 'Italiano' },
 ] as const
 
-export const APP_NAME = 'OpenTypeless'
+export const APP_NAME = 'FlowRad Mic'
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? 'v0.1.42'
 export const CLIENT_VERSION_HEADER = 'X-OpenTypeless-Version'
 export const APP_VERSION_HEADER_VALUE = APP_VERSION.replace(/^v/i, '')
@@ -107,17 +107,61 @@ export const CUSTOM_STT_PRESETS = [
   },
 ] as const
 
+// FlowRad transcription is handled natively by the FlowRad speech engine.
 export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
-  { value: 'deepgram', labelKey: 'providers.stt.deepgram' },
-  { value: 'assemblyai', labelKey: 'providers.stt.assemblyai' },
-  { value: 'volcengine-doubao', labelKey: 'providers.stt.volcengineDoubao' },
-  { value: 'glm-asr', labelKey: 'providers.stt.glmAsr' },
-  { value: 'openai-whisper', labelKey: 'providers.stt.openaiWhisper' },
-  { value: 'groq-whisper', labelKey: 'providers.stt.groqWhisper' },
-  { value: 'siliconflow', labelKey: 'providers.stt.siliconflow' },
-  { value: APPLE_SPEECH_PROVIDER, labelKey: 'providers.stt.appleSpeech' },
-  { value: CUSTOM_WHISPER_PROVIDER, labelKey: 'providers.stt.customWhisper' },
-  { value: 'cloud', labelKey: 'providers.stt.cloud' },
+  { value: 'gemini', labelKey: 'providers.stt.gemini' },
+] as const
+
+// Public FlowRad tiers. `value` is the internal engine model id (used for the
+// API call); `label` is the proprietary FlowRad name shown in the UI.
+export const GEMINI_STT_MODELS = [
+  { value: 'gemini-3.1-flash-lite', label: 'FlowRad Fast' },
+  { value: 'gemini-3.5-flash', label: 'FlowRad Precise' },
+] as const
+
+export const GEMINI_STT_DEFAULT_MODEL = GEMINI_STT_MODELS[0].value
+
+// Transcription mode: Batch (whole-clip, most accurate) vs Real-time (Silero VAD).
+export const STT_MODES = [
+  { value: 'batch', labelKey: 'settings.sttModeBatch' },
+  { value: 'realtime', labelKey: 'settings.sttModeRealtime' },
+] as const
+
+// Silero VAD tuning params (only used in Real-time mode). Scaffolded UI;
+// the engine that consumes them lands in a later step.
+export const VAD_PARAMS = [
+  {
+    key: 'stt_vad_threshold',
+    labelKey: 'settings.vadThreshold',
+    min: 0,
+    max: 1,
+    step: 0.05,
+    unit: '',
+  },
+  {
+    key: 'stt_vad_min_silence_ms',
+    labelKey: 'settings.vadMinSilence',
+    min: 0,
+    max: 2000,
+    step: 50,
+    unit: 'ms',
+  },
+  {
+    key: 'stt_vad_min_speech_ms',
+    labelKey: 'settings.vadMinSpeech',
+    min: 0,
+    max: 1000,
+    step: 25,
+    unit: 'ms',
+  },
+  {
+    key: 'stt_vad_speech_pad_ms',
+    labelKey: 'settings.vadSpeechPad',
+    min: 0,
+    max: 500,
+    step: 10,
+    unit: 'ms',
+  },
 ] as const
 
 export const VOLCENGINE_STT_RESOURCES = [
@@ -138,20 +182,9 @@ export const ONBOARDING_STT_PROVIDERS = STT_PROVIDERS.filter(
     provider.value !== 'cloud',
 )
 
+// The optional cleanup pass is served by the same FlowRad engine.
 export const LLM_PROVIDERS: { value: string; labelKey: string }[] = [
-  { value: 'zhipu', labelKey: 'providers.llm.zhipu' },
-  { value: 'deepseek', labelKey: 'providers.llm.deepseek' },
-  { value: 'siliconflow', labelKey: 'providers.llm.siliconflow' },
-  { value: 'openai', labelKey: 'providers.llm.openai' },
   { value: 'gemini', labelKey: 'providers.llm.gemini' },
-  { value: 'moonshot', labelKey: 'providers.llm.moonshot' },
-  { value: 'doubao', labelKey: 'providers.llm.doubao' },
-  { value: 'qwen', labelKey: 'providers.llm.qwen' },
-  { value: 'groq', labelKey: 'providers.llm.groq' },
-  { value: 'claude', labelKey: 'providers.llm.claude' },
-  { value: 'ollama', labelKey: 'providers.llm.ollama' },
-  { value: 'openrouter', labelKey: 'providers.llm.openrouter' },
-  { value: 'cloud', labelKey: 'providers.llm.cloud' },
 ] as const
 
 export const ONBOARDING_LLM_PROVIDERS = LLM_PROVIDERS.filter(
@@ -165,7 +198,7 @@ export const LLM_DEFAULT_CONFIG: Record<string, { baseUrl: string; model: string
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.1-flash-lite',
   },
   moonshot: { baseUrl: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
   doubao: {

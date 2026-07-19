@@ -205,6 +205,13 @@ pub fn migrate_legacy_config_secrets<V: CredentialVault + CredentialSecretReader
             config.llm_api_key.clone(),
         ));
     }
+    if !config.cerebras_api_key.trim().is_empty() {
+        pending.push((
+            "llm".to_string(),
+            "cerebras".to_string(),
+            config.cerebras_api_key.clone(),
+        ));
+    }
 
     for (namespace, provider, secret) in &pending {
         vault.set_secret(namespace, provider, secret)?;
@@ -228,8 +235,17 @@ pub fn migrate_legacy_config_secrets<V: CredentialVault + CredentialSecretReader
     {
         config.stt_custom_api_key.clear();
     }
-    if pending.iter().any(|(namespace, _, _)| namespace == "llm") {
+    if pending
+        .iter()
+        .any(|(namespace, provider, _)| namespace == "llm" && provider != "cerebras")
+    {
         config.llm_api_key.clear();
+    }
+    if pending
+        .iter()
+        .any(|(namespace, provider, _)| namespace == "llm" && provider == "cerebras")
+    {
+        config.cerebras_api_key.clear();
     }
 
     Ok(CredentialMigrationReport {
@@ -282,6 +298,17 @@ pub fn resolve_llm_config_secret<V: CredentialSecretReader>(
     vault: &V,
 ) -> Result<String> {
     resolve_config_secret(&config.llm_api_key, "llm", &config.llm_provider, vault)
+}
+
+/// Resolve the Cerebras API key used for Act's follow-up calls. Namespaced under
+/// "llm"/"cerebras" (a follow-up LLM provider), mirroring
+/// [`resolve_llm_config_secret`]: prefer the (usually cleared) plaintext field,
+/// else read the OS credential vault.
+pub fn resolve_cerebras_config_secret<V: CredentialSecretReader>(
+    config: &AppConfig,
+    vault: &V,
+) -> Result<String> {
+    resolve_config_secret(&config.cerebras_api_key, "llm", "cerebras", vault)
 }
 
 #[cfg(test)]
@@ -542,5 +569,39 @@ mod tests {
         let secret = resolve_llm_config_secret(&config, &vault).unwrap();
 
         assert_eq!(secret, "llm-secret");
+    }
+
+    #[test]
+    fn resolves_cerebras_secret_from_vault() {
+        let config = AppConfig::default();
+        let vault = MemoryVault::default();
+        vault
+            .set_secret("llm", "cerebras", "cerebras-secret")
+            .unwrap();
+
+        let secret = resolve_cerebras_config_secret(&config, &vault).unwrap();
+
+        assert_eq!(secret, "cerebras-secret");
+    }
+
+    #[test]
+    fn migrates_cerebras_plaintext_key_and_clears_config() {
+        let mut config = AppConfig {
+            cerebras_api_key: "cerebras-secret".to_string(),
+            ..AppConfig::default()
+        };
+        let vault = MemoryVault::default();
+
+        let report = migrate_legacy_config_secrets(&mut config, &vault).unwrap();
+
+        assert!(report.migrated.contains(&CredentialRef {
+            namespace: "llm".to_string(),
+            provider: "cerebras".to_string(),
+        }));
+        assert_eq!(
+            vault.get_secret("llm", "cerebras").unwrap().as_deref(),
+            Some("cerebras-secret")
+        );
+        assert!(config.cerebras_api_key.is_empty());
     }
 }

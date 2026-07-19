@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { abortRecording } from '../../lib/tauri'
 import { useAppStore } from '../../stores/appStore'
@@ -8,7 +8,6 @@ import { CapsuleWorkIndicator } from './CapsuleWorkIndicator'
 export function CapsuleProcessing() {
   const { t } = useTranslation()
   const partialTranscript = useAppStore((s) => s.partialTranscript)
-  const reduced = useReducedMotion()
 
   const displayText = partialTranscript || t('capsule.transcribing')
 
@@ -26,22 +25,22 @@ export function CapsuleProcessing() {
   }
 
   return (
-    <motion.div className="relative z-10 flex items-center gap-2 h-9 px-3">
-      <CapsuleWorkIndicator tone="steady" />
-      <p className="text-[11px] text-white leading-snug truncate flex-1 min-w-0">
+    <motion.div
+      className="relative z-10 flex h-9 items-center gap-2 px-3"
+      role="status"
+      aria-label={t('capsule.transcribing')}
+    >
+      <span className="capsule-spinner" aria-hidden="true" />
+      <p className="min-w-0 flex-1 truncate text-[11px] font-medium leading-snug text-white">
         {displayText}
-        <motion.span
-          className="inline-block w-[2px] h-[11px] bg-white/60 ml-0.5 align-middle"
-          animate={reduced ? undefined : { opacity: [1, 0, 1] }}
-          transition={{ repeat: Infinity, duration: 0.8 }}
-        />
       </p>
+      <CapsuleWorkIndicator tone="steady" />
       <button
         onPointerDown={stopPointerPropagation}
         onPointerUp={stopPointerPropagation}
         onClick={handleCancel}
         aria-label={t('capsule.cancelProcessing')}
-        className="flex-shrink-0 p-1 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors bg-transparent border-none cursor-pointer"
+        className="flex-shrink-0 cursor-pointer rounded-full border-none bg-transparent p-1 text-white/70 transition-colors hover:bg-white/15 hover:text-white"
       >
         <X size={12} />
       </button>

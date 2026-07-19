@@ -1030,6 +1030,8 @@ pub(crate) async fn start_reserved_ask_dictation(
             &config.stt_provider,
             custom_whisper_config,
             Some(client.inner().clone()),
+            Some(config.stt_gemini_model.clone()),
+            None,
         )
         .map_err(|e| e.to_string())?;
         provider

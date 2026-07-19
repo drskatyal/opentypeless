@@ -136,6 +136,10 @@ pub struct HotkeyConfig {
     pub edit_selection: Option<ShortcutBinding>,
     pub switch_scene: Option<ShortcutBinding>,
     pub open_app: Option<ShortcutBinding>,
+    /// The Act / Task hotkey: hold it to drive the voice Conductor (drawer +
+    /// actions) instead of transcribing. Distinct from Dictation so the key you
+    /// press picks the role — no global mode to toggle.
+    pub act: Option<ShortcutBinding>,
     pub dictation_mode: String,
 }
 
@@ -174,6 +178,7 @@ impl HotkeyConfig {
             edit_selection: None,
             switch_scene: None,
             open_app: None,
+            act: None,
             dictation_mode,
         }
     }
@@ -336,7 +341,28 @@ pub struct AppConfig {
     pub stt_custom_preset: String,
     pub stt_custom_base_url: String,
     pub stt_custom_model: String,
+    pub stt_gemini_model: String,
+    /// Transcription mode: "batch" (whole-clip, most accurate) or "realtime"
+    /// (Silero VAD segment-and-send). VAD params below apply only in realtime.
+    pub stt_mode: String,
+    pub stt_vad_threshold: f32,
+    pub stt_vad_min_silence_ms: u32,
+    pub stt_vad_min_speech_ms: u32,
+    pub stt_vad_speech_pad_ms: u32,
     pub stt_volcengine_resource_id: String,
+    /// Act mode: voice-driven OS automation. Opt-in and off by default; when on,
+    /// a final transcript is planned + executed instead of inserted as text.
+    pub act_enabled: bool,
+    /// Act planner model tier: "fast" (default) or "precise".
+    pub act_model_tier: String,
+    /// Provider for Act's text-only FOLLOW-UP calls (selection routing, planner,
+    /// answer): "gemini" (default) or "cerebras". The first/audio call always
+    /// stays on Gemini.
+    pub act_followup_provider: String,
+    /// Legacy plaintext Cerebras API key. Migrated into the OS credential vault on
+    /// load (namespace "llm", provider "cerebras") and cleared, exactly like the
+    /// other API keys.
+    pub cerebras_api_key: String,
     pub llm_provider: String,
     pub llm_api_key: String,
     pub llm_model: String,
@@ -369,6 +395,10 @@ pub struct AppConfig {
     pub auto_start: bool,
     pub close_to_tray: bool,
     pub start_minimized: bool,
+    /// Hard safety backstop (seconds) after which an in-progress recording is
+    /// auto-stopped, even in hold/toggle mode with VAD off. This is a runaway
+    /// guard, not an expected endpoint — keep it well above a normal dictation
+    /// (a minute-plus paragraph) so it never cuts a user off mid-sentence.
     pub max_recording_seconds: u32,
     pub history_enabled: bool,
     pub history_retention_days: u32,
@@ -380,20 +410,30 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            stt_provider: "glm-asr".to_string(),
+            stt_provider: "gemini".to_string(),
             stt_api_key: String::new(),
             stt_custom_api_key: String::new(),
             stt_language: "multi".to_string(),
             stt_custom_preset: crate::stt::config::CUSTOM_WHISPER_PRESET_SPEACHES.to_string(),
             stt_custom_base_url: crate::stt::config::DEFAULT_CUSTOM_WHISPER_BASE_URL.to_string(),
             stt_custom_model: crate::stt::config::DEFAULT_CUSTOM_WHISPER_MODEL.to_string(),
+            stt_gemini_model: crate::stt::gemini::DEFAULT_MODEL.to_string(),
+            stt_mode: "batch".to_string(),
+            stt_vad_threshold: 0.5,
+            stt_vad_min_silence_ms: 700,
+            stt_vad_min_speech_ms: 250,
+            stt_vad_speech_pad_ms: 120,
             stt_volcengine_resource_id: crate::stt::volcengine::VOLCENGINE_SEEDASR_RESOURCE_ID
                 .to_string(),
-            llm_provider: "openrouter".to_string(),
+            act_enabled: false,
+            act_model_tier: "fast".to_string(),
+            act_followup_provider: "gemini".to_string(),
+            cerebras_api_key: String::new(),
+            llm_provider: "gemini".to_string(),
             llm_api_key: String::new(),
-            llm_model: "google/gemini-2.5-flash".to_string(),
-            llm_base_url: "https://openrouter.ai/api/v1".to_string(),
-            polish_enabled: true,
+            llm_model: "gemini-3.1-flash-lite".to_string(),
+            llm_base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
+            polish_enabled: false,
             context_adaptation_enabled: true,
             voice_routing_flags: crate::voice_intent::VoiceRoutingFlags::default(),
             polish_style: "clean".to_string(),
@@ -421,7 +461,7 @@ impl Default for AppConfig {
             auto_start: true,
             close_to_tray: true,
             start_minimized: false,
-            max_recording_seconds: 30,
+            max_recording_seconds: 300,
             history_enabled: true,
             history_retention_days: 0,
             history_max_entries: DEFAULT_HISTORY_MAX_ENTRIES,
@@ -436,6 +476,21 @@ impl AppConfig {
         Self {
             capsule_auto_hide: true,
             ..Self::default()
+        }
+    }
+
+    /// Effective dictation hotkey behaviour.
+    ///
+    /// Real-time (VAD) dictation is hands-free — you push once to start and push
+    /// again to stop, and speech is segmented automatically — so hold-to-talk
+    /// does not apply and the mode is always "toggle" regardless of the stored
+    /// `hotkey_mode`. Batch (non-VAD) dictation honours the user's stored choice
+    /// of "hold" or "toggle".
+    pub fn effective_hotkey_mode(&self) -> String {
+        if self.stt_mode == "realtime" {
+            "toggle".to_string()
+        } else {
+            self.hotkey_mode.clone()
         }
     }
 
@@ -2075,6 +2130,23 @@ fn correction_identity_exists(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn effective_hotkey_mode_forces_toggle_in_realtime() {
+        let mut config = AppConfig::default();
+
+        // Batch mode honours the stored choice (both hold and toggle allowed).
+        config.stt_mode = "batch".to_string();
+        config.hotkey_mode = "hold".to_string();
+        assert_eq!(config.effective_hotkey_mode(), "hold");
+        config.hotkey_mode = "toggle".to_string();
+        assert_eq!(config.effective_hotkey_mode(), "toggle");
+
+        // Real-time (VAD) is hands-free: always toggle, even if "hold" is stored.
+        config.stt_mode = "realtime".to_string();
+        config.hotkey_mode = "hold".to_string();
+        assert_eq!(config.effective_hotkey_mode(), "toggle");
+    }
 
     #[test]
     fn app_config_defaults_missing_custom_stt_api_key() {

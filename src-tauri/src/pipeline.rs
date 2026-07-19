@@ -633,6 +633,9 @@ fn take_matching_stt_error(
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PipelineStartOptions {
     pub force_translate: bool,
+    /// This recording was started by the Act hotkey — route its final transcript
+    /// to the voice Conductor instead of dictating it.
+    pub act: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -689,6 +692,9 @@ pub struct PipelineHandle {
     stt_error: Arc<Mutex<Option<(u64, crate::error::UserError)>>>,
     active_stt_session_id: Arc<AtomicU64>,
     abort_flag: Arc<AtomicBool>,
+    /// True while the current run was started by the Act hotkey (route its final
+    /// transcript to the Conductor). Set per-run in `start_with_options`.
+    act_run: Arc<AtomicBool>,
     preloaded_config: Arc<Mutex<Option<storage::AppConfig>>>,
     preloaded_app_ctx: Arc<Mutex<Option<RecordingContext>>>,
     preloaded_dictionary: Arc<Mutex<Option<Vec<String>>>>,
@@ -898,6 +904,7 @@ impl PipelineHandle {
             stt_error: Arc::new(Mutex::new(None)),
             active_stt_session_id: Arc::new(AtomicU64::new(0)),
             abort_flag: Arc::new(AtomicBool::new(false)),
+            act_run: Arc::new(AtomicBool::new(false)),
             preloaded_config: Arc::new(Mutex::new(None)),
             preloaded_app_ctx: Arc::new(Mutex::new(None)),
             preloaded_dictionary: Arc::new(Mutex::new(None)),
@@ -1020,6 +1027,20 @@ impl PipelineHandle {
         }
     }
 
+    /// Terminal cleanup for a stop() that was consumed by the Act fork.
+    ///
+    /// Mirrors the tail of the normal dictation path (minus paste/history): clears
+    /// the finished STT session and drives the pipeline back to Idle. The
+    /// `set_state(Idle)` emits the FSM-terminal `pipeline:state` = idle and
+    /// `pipeline:voice_mode` = null events the recording indicator and the hotkey
+    /// release handler wait on, so neither gets stuck after an Act command.
+    fn finish_act_command(&self, stt_control: &Option<SttTaskControl>) {
+        if let Some(control) = stt_control {
+            self.clear_stt_session(control.id);
+        }
+        self.set_state(PipelineState::Idle);
+    }
+
     /// Capture selected text from the foreground app by simulating Ctrl+C / Cmd+C.
     /// Must be called when no hotkey modifier keys are physically held down.
     /// Called from async context via block_in_place, so std::thread::sleep is acceptable.
@@ -1047,6 +1068,9 @@ impl PipelineHandle {
 
         // Reset abort flag for new recording
         self.abort_flag.store(false, Ordering::SeqCst);
+        // Tag this run's role: the Act hotkey routes its transcript to the
+        // Conductor; any other start (dictation, translate) does not.
+        self.act_run.store(options.act, Ordering::SeqCst);
 
         // Atomic CAS: only one caller can transition Idle → Preparing. Recording is emitted only
         // after audio capture is ready, so the capsule does not tell users to speak too early.
@@ -1246,10 +1270,24 @@ impl PipelineHandle {
             operation_id: Some(cloud_operation_id),
         };
 
+        // Realtime (energy-VAD streaming) mode for the native Gemini provider.
+        let gemini_realtime = if config_data.stt_mode == "realtime" {
+            Some(stt::gemini::RealtimeVad {
+                threshold: config_data.stt_vad_threshold,
+                min_silence_ms: config_data.stt_vad_min_silence_ms,
+                min_speech_ms: config_data.stt_vad_min_speech_ms,
+                speech_pad_ms: config_data.stt_vad_speech_pad_ms,
+            })
+        } else {
+            None
+        };
+
         let mut provider = match stt::create_provider(
             &config_data.stt_provider,
             custom_whisper_config,
             Some(self.shared_client.clone()),
+            Some(config_data.stt_gemini_model.clone()),
+            gemini_realtime,
         ) {
             Ok(provider) => provider,
             Err(e) => {
@@ -1760,6 +1798,123 @@ impl PipelineHandle {
                 self.clear_stt_session(control.id);
             }
             return Ok(());
+        }
+
+        // ── Act fork ───────────────────────────────────────────────────
+        // When Act mode is armed, the final transcript drives OS automation
+        // instead of being polished and inserted as dictation. This is the
+        // single choke point: `raw_text` is the completed final transcript, the
+        // abort check above has already run, and no output has happened yet.
+        //
+        // If Act is off (state absent), the session is `None`, or it is not
+        // armed, this is a zero-behavior-change no-op and dictation proceeds
+        // exactly as before.
+        if let Some(act_state) = self
+            .app_handle
+            .try_state::<crate::commands::act::ActState>()
+        {
+            // P1-5: never block the pipeline on a prior Act command. `try_lock`
+            // fails only when a previous command still holds the session (Act
+            // busy) — a VAD storm or a double release. In that case we do the
+            // terminal cleanup and bail rather than parking the audio thread.
+            match act_state.session.try_lock() {
+                Ok(mut act_guard) => {
+                    // Route this transcript to Act when the Conductor is armed AND
+                    // either (a) this run was started by the dedicated Act hotkey, or
+                    // (b) no dedicated Act hotkey is configured — in which case the
+                    // Act toggle routes every armed recording (the simple model). So
+                    // if the user bound a separate Act key it purely picks the role;
+                    // if they didn't, toggling Act on is enough.
+                    let session_present = act_guard.is_some();
+                    let is_armed = act_guard.as_ref().is_some_and(|s| s.is_armed());
+                    let act_run = self.act_run.load(Ordering::SeqCst);
+                    let has_act_hotkey = act_state.has_act_hotkey.load(Ordering::SeqCst);
+                    let armed = is_armed && (act_run || !has_act_hotkey);
+                    tracing::info!(
+                        session_present,
+                        is_armed,
+                        act_run,
+                        has_act_hotkey,
+                        route_to_act = armed,
+                        "Act fork routing decision"
+                    );
+                    // The confusing failure: the user pressed the Act key (or has
+                    // Act toggled on) but there is no armed session to receive it,
+                    // so it silently dictates. Call it out explicitly.
+                    if !armed && (act_run || !has_act_hotkey) && !is_armed {
+                        tracing::warn!(
+                            session_present,
+                            "Act was requested but no armed session — falling back to dictation. \
+                             Toggle Act off/on in Settings, or check that a Gemini key is set."
+                        );
+                    }
+                    if armed {
+                        // (a) Run the command, capturing the Result. The session
+                        // lock is held only for this await; `act_abort` trips the
+                        // ActState-held kill switch clone WITHOUT this lock.
+                        let result = act_guard
+                            .as_mut()
+                            .expect("armed implies Some")
+                            .on_transcript(raw_text.clone())
+                            .await;
+                        drop(act_guard);
+
+                        // (b) ALWAYS clear STT + return the pipeline to Idle and
+                        // emit the terminal UI events the normal stop() path emits
+                        // after the final transcript (minus paste/history). The
+                        // only FSM-terminal events the recording indicator and
+                        // hotkey release handler depend on are `pipeline:state` =
+                        // idle and `pipeline:voice_mode` = null, both emitted by
+                        // set_state(Idle). This runs on BOTH success and error so a
+                        // planner/exec failure can never strand the pipeline.
+                        self.finish_act_command(&stt_control);
+
+                        // (c) Forward the engine's events, or surface a hard
+                        // session error as an Act error event.
+                        match result {
+                            Ok(events) => {
+                                for event in &events {
+                                    let _ =
+                                        self.app_handle.emit(crate::act::events::ACT_EVENT, event);
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!("Act session rejected transcript: {e}");
+                                let _ = self.app_handle.emit(
+                                    crate::act::events::ACT_EVENT,
+                                    &crate::act::events::ActEvent::Error {
+                                        message: e.to_string(),
+                                    },
+                                );
+                            }
+                        }
+                        // (d) Act consumed this transcript: do NOT dictate.
+                        return Ok(());
+                    }
+                    // None or disarmed: release the guard and fall through to
+                    // normal dictation exactly as before.
+                }
+                Err(_)
+                    if self.act_run.load(Ordering::SeqCst)
+                        || !act_state.has_act_hotkey.load(Ordering::SeqCst) =>
+                {
+                    // This transcript would route to Act, but Act is busy with a
+                    // prior command. Clean up without blocking and surface a
+                    // best-effort busy notice; do NOT fall through to dictation.
+                    self.finish_act_command(&stt_control);
+                    let _ = self.app_handle.emit(
+                        crate::act::events::ACT_EVENT,
+                        &crate::act::events::ActEvent::Error {
+                            message: "Act is busy".to_string(),
+                        },
+                    );
+                    return Ok(());
+                }
+                Err(_) => {
+                    // A dictation recording while Act happens to be busy: don't
+                    // touch Act — fall through to normal dictation.
+                }
+            }
         }
 
         // ── Phase 2: LLM polish + output ───────────────────────────────
@@ -3018,6 +3173,7 @@ mod tests {
             config.clone(),
             PipelineStartOptions {
                 force_translate: true,
+                act: false,
             },
         );
 

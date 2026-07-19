@@ -1,7 +1,9 @@
+pub mod act;
 pub mod app_detector;
 pub mod audio;
 pub mod commands;
 pub mod credentials;
+pub mod dev_relay;
 pub mod dictionary_io;
 pub mod error;
 pub mod hotkey;
@@ -229,6 +231,68 @@ pub fn show_ask_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::
     let _ = window.show();
     let _ = window.set_focus();
     Ok(window)
+}
+
+fn build_editor_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    if let Some(config) = handle
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == "editor")
+    {
+        return tauri::WebviewWindowBuilder::from_config(handle, config)?.build();
+    }
+
+    tauri::WebviewWindowBuilder::new(
+        handle,
+        "editor",
+        tauri::WebviewUrl::App("index.html#editor".into()),
+    )
+    .title("OpenTypeless Editor")
+    .inner_size(420.0, 520.0)
+    .min_inner_size(320.0, 360.0)
+    .resizable(true)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .center()
+    .visible(false)
+    .build()
+}
+
+pub fn ensure_editor_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    if let Some(window) = handle.get_webview_window("editor") {
+        return Ok(window);
+    }
+
+    match build_editor_window(handle) {
+        Ok(window) => Ok(window),
+        Err(error) => {
+            if let Some(window) = handle.get_webview_window("editor") {
+                Ok(window)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+pub fn show_editor_popup_window(handle: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    let window = ensure_editor_window(handle)?;
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(window)
+}
+
+#[tauri::command]
+async fn show_editor_window(app: tauri::AppHandle) -> Result<(), String> {
+    show_editor_popup_window(&app)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -796,12 +860,13 @@ pub fn run() {
             app.manage(history_store);
             app.manage(dictionary_store);
             app.manage(app_mapping_store);
+            app.manage(commands::act::ActState::new(shared_client.clone()));
             app.manage(shared_client);
             app.manage(context_detector);
             app.manage(pipeline_handle);
             app.manage(commands::ask::AskDictationState::default());
             app.manage(HotkeyModeCache(Arc::new(Mutex::new(
-                initial_config.hotkey_mode.clone(),
+                initial_config.effective_hotkey_mode(),
             ))));
             app.manage(AskHotkeyCache(Arc::new(Mutex::new(
                 initial_config.ask_hotkey.clone(),
@@ -819,6 +884,24 @@ pub fn run() {
                 initial_config.close_to_tray,
             ))));
             app.manage(SessionTokenStore(Arc::new(Mutex::new(String::new()))));
+
+            // Rehydrate the Act runtime from persisted config: `act_enabled`
+            // survives restarts, but the live Conductor is in-memory only and is
+            // otherwise built solely when the toggle is flipped. Without this, a
+            // launch with Act already on has no armed session, so every recording
+            // (even an Act-hotkey one) falls back to plain dictation.
+            {
+                let act_state = app.state::<commands::act::ActState>();
+                tauri::async_runtime::block_on(commands::act::rehydrate_if_enabled(
+                    &act_state,
+                    &initial_config,
+                ));
+            }
+
+            // Dev-loop bridge: in debug builds with the relay env vars set, connect
+            // outbound to the hosted relay so Act can be driven + observed remotely
+            // during development. Inert in release and unless explicitly opted in.
+            dev_relay::start_if_enabled(&app_handle);
 
             // Register global shortcut from config
             let handler = hotkey::build_shortcut_handler(app_handle.clone());
@@ -1069,6 +1152,7 @@ pub fn run() {
             commands::app_mappings::reset_custom_app_mappings,
             commands::app_mappings::set_family_scene_assignment,
             show_ask_window,
+            show_editor_window,
             commands::misc::check_accessibility_permission,
             commands::misc::request_accessibility_permission,
             commands::misc::request_browser_access,
@@ -1114,6 +1198,12 @@ pub fn run() {
             commands::config::set_auto_start,
             commands::config::set_capsule_auto_hide,
             commands::config::set_session_token,
+            commands::act::act_set_enabled,
+            commands::act::act_get_state,
+            commands::act::act_list_flows,
+            commands::act::act_user_decision,
+            commands::act::act_abort,
+            commands::act::act_undo,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

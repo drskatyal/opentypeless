@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, MessageCircle } from 'lucide-react'
 import { isMacPlatform, useAppStore } from '../../stores/appStore'
-import type { HotkeyMode, OutputMode, ShortcutBinding } from '../../stores/appStore'
+import type { ActModelTier, HotkeyMode, OutputMode, ShortcutBinding } from '../../stores/appStore'
 import {
+  actSetEnabled,
   getPlatformCapabilities,
   getHotkeyStatus,
   resumeHotkey,
@@ -12,6 +13,7 @@ import {
 import type { HotkeyStatus } from '../../lib/tauri'
 import { SegmentedControl } from './shared/SegmentedControl'
 import { Toggle } from './shared/Toggle'
+import { SettingSection } from './shared/SettingSection'
 import { ShortcutBindingList } from './ShortcutBindingList'
 
 const MAC_ACCESSIBILITY_HOTKEY_ERROR = 'Accessibility permission may be denied'
@@ -86,6 +88,16 @@ export function GeneralPane() {
     })
   }, [])
 
+  const handleActEnabledChange = useCallback(
+    (checked: boolean) => {
+      updateConfig({ act_enabled: checked })
+      actSetEnabled(checked).catch((err) => {
+        console.error('Failed to toggle Act mode:', err)
+      })
+    },
+    [updateConfig],
+  )
+
   const hotkeyStatusMessage = hotkeyStatus?.conflict
     ? t('settings.hotkeyConflict')
     : hotkeyStatus && (!hotkeyStatus.dictation.valid || !hotkeyStatus.ask.valid)
@@ -105,19 +117,21 @@ export function GeneralPane() {
   const askBindings = config.hotkeys.askBindings ?? (config.hotkeys.ask ? [config.hotkeys.ask] : [])
   const translateBindings =
     config.hotkeys.translateBindings ?? (config.hotkeys.translate ? [config.hotkeys.translate] : [])
-  const secondaryBindings = [
+  const actBindings = config.hotkeys.act ? [config.hotkeys.act] : []
+  const otherSecondaryBindings = [
     config.hotkeys.editSelection,
     config.hotkeys.switchScene,
     config.hotkeys.openApp,
   ].filter((binding): binding is ShortcutBinding => Boolean(binding))
-  const otherBindingsFor = (role: 'dictation' | 'ask' | 'translate') => [
+  const otherBindingsFor = (role: 'dictation' | 'ask' | 'translate' | 'act') => [
     ...(role === 'dictation' ? [] : dictationBindings),
     ...(role === 'ask' ? [] : askBindings),
     ...(role === 'translate' ? [] : translateBindings),
-    ...secondaryBindings,
+    ...(role === 'act' ? [] : actBindings),
+    ...otherSecondaryBindings,
   ]
   const updateCoreBindings = (
-    role: 'dictation' | 'ask' | 'translate',
+    role: 'dictation' | 'ask' | 'translate' | 'act',
     bindings: ShortcutBinding[],
   ) => {
     const nextHotkeys = { ...config.hotkeys }
@@ -128,9 +142,12 @@ export function GeneralPane() {
     } else if (role === 'ask') {
       nextHotkeys.askBindings = bindings
       nextHotkeys.ask = bindings[0] ?? null
-    } else {
+    } else if (role === 'translate') {
       nextHotkeys.translateBindings = bindings
       nextHotkeys.translate = bindings[0] ?? null
+    } else {
+      // Act is a single optional binding (like the other secondary roles).
+      nextHotkeys.act = bindings[0] ?? null
     }
     updateConfig({ hotkeys: nextHotkeys })
   }
@@ -177,6 +194,15 @@ export function GeneralPane() {
             specialOptions={translateSpecialOptions}
             onChange={(bindings) => updateCoreBindings('translate', bindings)}
           />
+          <ShortcutBindingList
+            role="act"
+            label={t('settings.actHotkey')}
+            bindings={actBindings}
+            otherBindings={otherBindingsFor('act')}
+            required={false}
+            specialOptions={[]}
+            onChange={(bindings) => updateCoreBindings('act', bindings)}
+          />
         </div>
         {platformCapabilities && !platformCapabilities.globalHotkeyReliable && (
           <p className="mt-2 rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
@@ -196,14 +222,32 @@ export function GeneralPane() {
       </Section>
 
       <Section title={t('settings.dictationMode')}>
-        <SegmentedControl
-          options={[
-            { value: 'hold', label: t('settings.holdToTalk') },
-            { value: 'toggle', label: t('settings.toggleOnOff') },
-          ]}
-          value={config.hotkey_mode}
-          onChange={(v) => updateConfig({ hotkey_mode: v as HotkeyMode })}
-        />
+        {config.stt_mode === 'realtime' ? (
+          <>
+            <SegmentedControl
+              options={[{ value: 'toggle', label: t('settings.toggleOnOff') }]}
+              value="toggle"
+              onChange={() => {}}
+            />
+            <p className="mt-1.5 text-[11px] text-text-tertiary">
+              {t('settings.dictationModeRealtimeHint')}
+            </p>
+          </>
+        ) : (
+          <>
+            <SegmentedControl
+              options={[
+                { value: 'hold', label: t('settings.holdToTalk') },
+                { value: 'toggle', label: t('settings.toggleOnOff') },
+              ]}
+              value={config.hotkey_mode}
+              onChange={(v) => updateConfig({ hotkey_mode: v as HotkeyMode })}
+            />
+            <p className="mt-1.5 text-[11px] text-text-tertiary">
+              {t('settings.dictationModeBatchHint')}
+            </p>
+          </>
+        )}
       </Section>
 
       <Section title={t('settings.outputMode')}>
@@ -228,6 +272,40 @@ export function GeneralPane() {
               {t('settings.waylandClipboardCopyOnly')}
             </p>
           )}
+      </Section>
+
+      <Section title={t('settings.actMode')}>
+        <div className="space-y-3">
+          <Toggle
+            checked={config.act_enabled}
+            onChange={handleActEnabledChange}
+            label={t('settings.actEnable')}
+          />
+          <p className="text-[11px] leading-relaxed text-text-tertiary">
+            {t('settings.actExperimentalHint')}
+          </p>
+          {config.act_enabled && (
+            <div className="space-y-3 pt-1">
+              <p className="text-[11px] leading-relaxed text-text-tertiary">
+                {t('settings.actFollowsDictationMode')}
+              </p>
+              <div>
+                <p className="mb-1.5 text-[12px] text-text-secondary">{t('settings.actTier')}</p>
+                <SegmentedControl
+                  options={[
+                    { value: 'fast', label: t('settings.actTierFast') },
+                    { value: 'precise', label: t('settings.actTierPrecise') },
+                  ]}
+                  value={config.act_model_tier}
+                  onChange={(v) => updateConfig({ act_model_tier: v as ActModelTier })}
+                />
+              </div>
+              <p className="text-[11px] leading-relaxed text-text-tertiary">
+                {t('settings.actSeeAllHint')}
+              </p>
+            </div>
+          )}
+        </div>
       </Section>
 
       <div>
@@ -270,11 +348,8 @@ export function GeneralPane() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h3 className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider mb-2.5">
-        {title}
-      </h3>
-      {children}
-    </div>
+    <SettingSection title={title}>
+      <div className="px-[18px] pb-4 pt-1">{children}</div>
+    </SettingSection>
   )
 }

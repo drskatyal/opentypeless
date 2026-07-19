@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "AI音声入力"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "OpenTypelessへようこそ",
+    "welcome": "FlowRad Micへようこそ",
     "description": "{{hotkey}}を長押しして音声録音を開始します。音声が文字起こしされ、AIによる整形が行われます。",
     "totalRecordings": "総録音回数",
     "today": "今日",
@@ -102,7 +102,8 @@
       "testButton": "接続テスト",
       "connectionOk": "接続に成功しました",
       "connectionFail": "接続に失敗しました",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "AI整形サービス",
@@ -115,15 +116,16 @@
       "modelsAvailable": "件のモデルが利用可能",
       "baseUrlLabel": "ベースURL",
       "connectionOk": "接続に成功しました",
-      "connectionFail": "接続に失敗しました"
+      "connectionFail": "接続に失敗しました",
+      "geminiKeyHint": "You can reuse the same FlowRad API key."
     },
     "steps": {
       "welcome": "ようこそ",
-      "welcomeSub": "いくつかのステップでOpenTypelessを設定しましょう",
+      "welcomeSub": "いくつかのステップでFlowRad Micを設定しましょう",
       "signIn": "サインイン",
       "signInSub": "アカウントに接続して始めましょう",
       "chooseMode": "モードを選択",
-      "chooseModeSub": "OpenTypelessの使用方法を選択してください",
+      "chooseModeSub": "FlowRad Micの使用方法を選択してください",
       "speechRecognition": "音声認識",
       "speechRecognitionSub": "STTサービスを設定します",
       "aiPolish": "AI整形",
@@ -188,7 +190,7 @@
       "appWritingModesSub": "Scenesでメール、チャット、ドキュメントなどの既定の書き方を編集できます。"
     },
     "permissions": {
-      "subtitle": "OpenTypelessは機能に必要なときだけアクセスを求めます。",
+      "subtitle": "FlowRad Micは機能に必要なときだけアクセスを求めます。",
       "microphone": "マイク",
       "microphoneDesc": "音声を録音します。",
       "textOutput": "テキスト出力",
@@ -328,6 +330,7 @@
     "customSttBaseUrl": "Base URL",
     "customSttBaseUrlPlaceholder": "http://localhost:8000/v1",
     "customSttModel": "Model",
+    "geminiSttModel": "Model",
     "customSttModelPlaceholder": "Systran/faster-whisper-large-v3",
     "customSttApiKeyOptional": "API Key (optional)",
     "customSttSetupHint": "Start your local OpenAI-compatible STT server first, then test the connection here.",
@@ -348,7 +351,7 @@
     "test": "テスト",
     "connectionSuccess": "接続に成功しました",
     "connectionFailed": "接続に失敗しました",
-    "storedLocally": "お使いのデバイスにローカル保存されます。OpenTypelessサーバーには送信されません。",
+    "storedLocally": "お使いのデバイスにローカル保存されます。FlowRad Micサーバーには送信されません。",
     "credentialSaveFailed": "APIキーをOSの資格情報ストアに保存できませんでした。{{details}}",
     "sttLanguage": "言語",
     "model": "モデル",
@@ -460,7 +463,58 @@
     "mappingResetConfirm": "Delete all device-only app mappings?",
     "mappingResetConfirmAction": "Reset mappings",
     "mappingNoMappings": "No custom app mappings",
-    "dictationMode": "ディクテーションモード"
+    "dictationMode": "ディクテーションモード",
+    "sttMode": "Transcription mode",
+    "sttModeBatch": "Batch",
+    "sttModeRealtime": "Real-time",
+    "sttModeHint": "Batch waits until you finish, then transcribes the whole clip — most accurate. Real-time transcribes as you pause.",
+    "vadParams": "Voice detection (real-time)",
+    "vadThreshold": "Speech threshold",
+    "vadMinSilence": "Min silence",
+    "vadMinSpeech": "Min speech",
+    "vadSpeechPad": "Speech padding",
+    "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
+    "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free.",
+    "actMode": "Act モード",
+    "actEnable": "Act モード — 音声でコンピューターを操作",
+    "actExperimentalHint": "Act は実験的機能で、現在は Windows のみ対応しています。",
+    "actFollowsDictationMode": "Act は音声入力モード（押して話す／ハンズフリー）に従います。",
+    "actTier": "プランナー",
+    "actTierFast": "高速",
+    "actTierPrecise": "高精度",
+    "actHotkey": "Actホットキー",
+    "actFlowsShow": "Act でできることをすべて見る",
+    "actFlowsCount": "組み込みアクション {{count}} 件",
+    "actFlowsSearch": "アクションを検索…",
+    "actFlowsEmpty": "検索に一致するアクションはありません。",
+    "actFlowsLoadError": "アクション一覧を読み込めませんでした。",
+    "actFlowsExample": "話しかけてみる",
+    "actFlowsFills": "あなたの発話",
+    "actFlowsBranch": "アシスト",
+    "actFlowsIntro": "Act が有効なときに話せる内容の一覧です。Act キーを押して自然に話しかけてください。以下の言い回しどおりでなくても大丈夫です。",
+    "actSeeAllHint": "Act でできることの全一覧は Act タブで確認できます。",
+    "actFollowupModel": "Act のフォローアップモデル",
+    "actFollowupGemini": "Gemini（デフォルト）",
+    "actFollowupCerebras": "Cerebras — 高速",
+    "actFollowupHint": "最初の呼び出しは常に Gemini を使います（音声を聞き取ります）。以降のステップはより高速なモデルで実行できます。",
+    "cerebrasApiKey": "Cerebras API キー",
+    "generalDesc": "ショートカット、ディクテーションの動作、文字起こしテキストの出力先。",
+    "speechRecognitionDesc": "文字起こしエンジンを選び、APIキーを接続します。",
+    "aiPolishDesc": "文字起こしを整え、推敲とActに使うモデルを選びます。",
+    "actModeDesc": "Act有効時に話せる操作のすべて — アプリを開く・検索・操作。",
+    "dictionaryDesc": "すべての文字起こしに適用されるカスタム単語とテキスト置換。",
+    "scenesDesc": "アプリごとの書き込みモードと自分だけのカスタムシーン。",
+    "aboutDesc": "バージョン、アップデート、プロジェクト情報。"
+  },
+  "act": {
+    "armed": "Act 待機中",
+    "confirmTitle": "操作の確認",
+    "allow": "許可",
+    "deny": "拒否",
+    "cancel": "キャンセル",
+    "working": "実行中…",
+    "dismiss": "閉じる"
   },
   "contextFamilies": {
     "email": "Email",
@@ -795,6 +849,7 @@
     "stt": {
       "deepgram": "Deepgram Nova-3",
       "assemblyai": "AssemblyAI",
+      "gemini": "FlowRad",
       "volcengineDoubao": "Volcengine Doubao Realtime ASR",
       "glmAsr": "GLM-ASR (Zhipu)",
       "openaiWhisper": "OpenAI Whisper",
@@ -802,14 +857,14 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
       "deepseek": "DeepSeek",
       "siliconflow": "SiliconFlow",
       "openai": "OpenAI",
-      "gemini": "Google Gemini",
+      "gemini": "FlowRad",
       "moonshot": "Moonshot (Kimi)",
       "doubao": "Doubao (Volcengine)",
       "qwen": "Qwen",
@@ -817,7 +872,7 @@
       "claude": "Claude",
       "ollama": "Ollama (ローカル)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

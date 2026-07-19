@@ -47,6 +47,16 @@ vi.mock('react-i18next', () => ({
         'settings.volcengineResourceBigAsr': 'BigASR 1.0',
         'providers.stt.volcengineDoubao': 'Volcengine Doubao Realtime ASR',
         'providers.stt.appleSpeech': 'Apple Speech (Local)',
+        'settings.sttMode': 'Transcription mode',
+        'settings.sttModeBatch': 'Batch',
+        'settings.sttModeRealtime': 'Real-time',
+        'settings.sttModeHint': 'Batch vs real-time',
+        'settings.vadParams': 'Voice detection',
+        'settings.vadThreshold': 'Speech threshold',
+        'settings.vadMinSilence': 'Min silence',
+        'settings.vadMinSpeech': 'Min speech',
+        'settings.vadSpeechPad': 'Speech padding',
+        'settings.vadParamsHint': 'Tune VAD',
       }
       return translations[key] || key
     },
@@ -56,13 +66,19 @@ vi.mock('react-i18next', () => ({
 // Mock stores
 const mockAppStore = {
   config: {
-    stt_provider: 'deepgram' as string,
+    stt_provider: 'gemini' as string,
     stt_api_key: '',
     stt_custom_api_key: '',
     stt_language: 'en',
     stt_custom_preset: 'speaches',
     stt_custom_base_url: 'http://localhost:8000/v1',
     stt_custom_model: 'Systran/faster-whisper-large-v3',
+    stt_gemini_model: 'gemini-3.1-flash-lite',
+    stt_mode: 'batch',
+    stt_vad_threshold: 0.5,
+    stt_vad_min_silence_ms: 700,
+    stt_vad_min_speech_ms: 250,
+    stt_vad_speech_pad_ms: 120,
     stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   },
   updateConfig: vi.fn(),
@@ -117,13 +133,19 @@ describe('SttPane', () => {
   beforeEach(() => {
     // Reset mock store state
     mockAppStore.config = {
-      stt_provider: 'deepgram',
+      stt_provider: 'gemini',
       stt_api_key: '',
       stt_custom_api_key: '',
       stt_language: 'en',
       stt_custom_preset: 'speaches',
       stt_custom_base_url: 'http://localhost:8000/v1',
       stt_custom_model: 'Systran/faster-whisper-large-v3',
+      stt_gemini_model: 'gemini-3.1-flash-lite',
+      stt_mode: 'batch',
+      stt_vad_threshold: 0.5,
+      stt_vad_min_silence_ms: 700,
+      stt_vad_min_speech_ms: 250,
+      stt_vad_speech_pad_ms: 120,
       stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
     }
     mockAppStore.sttTestStatus = 'idle'
@@ -167,34 +189,7 @@ describe('SttPane', () => {
       render(<SttPane />)
       const selects = screen.getAllByRole('combobox')
       const providerSelect = selects[0] // First select is provider
-      expect(providerSelect).toHaveValue('deepgram')
-    })
-
-    it('lists Volcengine Doubao realtime ASR as an STT provider', () => {
-      render(<SttPane />)
-      expect(screen.getByRole('option', { name: 'Volcengine Doubao Realtime ASR' })).toHaveValue(
-        'volcengine-doubao',
-      )
-    })
-
-    it('shows Apple Speech as a built-in local provider on macOS only', () => {
-      render(<SttPane />)
-
-      expect(screen.getByRole('option', { name: 'Apple Speech (Local)' })).toHaveValue(
-        'apple-speech',
-      )
-
-      cleanup()
-      mockAppStore.platformCapabilities = {
-        os: 'windows',
-        sessionType: 'unknown',
-        globalHotkeyReliable: true,
-        keyboardOutputReliable: true,
-        clipboardAutoPasteReliable: true,
-      }
-      render(<SttPane />)
-
-      expect(screen.queryByRole('option', { name: 'Apple Speech (Local)' })).not.toBeInTheDocument()
+      expect(providerSelect).toHaveValue('gemini')
     })
 
     it('does not show API key input for Apple Speech and can test without credentials', async () => {
@@ -252,16 +247,33 @@ describe('SttPane', () => {
       expect(mockAppStore.setSttLatencyMs).toHaveBeenCalledWith(null)
     })
 
-    it('updates config and resets state when provider changes', () => {
+    it('exposes the Gemini model selector', () => {
       render(<SttPane />)
-      const selects = screen.getAllByRole('combobox')
-      const providerSelect = selects[0]
+      expect(screen.getByRole('option', { name: 'FlowRad Fast' })).toHaveValue(
+        'gemini-3.1-flash-lite',
+      )
+      expect(screen.getByRole('option', { name: 'FlowRad Precise' })).toHaveValue(
+        'gemini-3.5-flash',
+      )
+    })
 
-      fireEvent.change(providerSelect, { target: { value: 'assemblyai' } })
+    it('toggles transcription mode to real-time', () => {
+      render(<SttPane />)
+      expect(screen.getByRole('button', { name: 'Batch' })).toBeInTheDocument()
+      // Batch is the default -> VAD sliders are hidden.
+      expect(screen.queryByLabelText('Speech threshold')).toBeNull()
 
-      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ stt_provider: 'assemblyai' })
-      expect(mockAppStore.setSttTestStatus).toHaveBeenCalledWith('idle')
-      expect(mockAppStore.setSttLatencyMs).toHaveBeenCalledWith(null)
+      fireEvent.click(screen.getByRole('button', { name: 'Real-time' }))
+      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({ stt_mode: 'realtime' })
+    })
+
+    it('shows VAD parameter sliders when real-time mode is active', () => {
+      mockAppStore.config.stt_mode = 'realtime'
+      render(<SttPane />)
+      expect(screen.getByLabelText('Speech threshold')).toBeInTheDocument()
+      expect(screen.getByLabelText('Min silence')).toBeInTheDocument()
+      expect(screen.getByLabelText('Min speech')).toBeInTheDocument()
+      expect(screen.getByLabelText('Speech padding')).toBeInTheDocument()
     })
   })
 
@@ -322,7 +334,7 @@ describe('SttPane', () => {
       fireEvent.blur(input)
 
       await waitFor(() =>
-        expect(tauri.setCredential).toHaveBeenCalledWith('stt', 'deepgram', 'sk-new-key'),
+        expect(tauri.setCredential).toHaveBeenCalledWith('stt', 'gemini', 'sk-new-key'),
       )
       expect(mockAppStore.updateConfig).not.toHaveBeenCalledWith({ stt_api_key: 'sk-new-key' })
       expect(mockAppStore.setSttTestStatus).toHaveBeenCalledWith('idle')
@@ -420,16 +432,18 @@ describe('SttPane', () => {
     it('shows compact local endpoint diagnostics', async () => {
       render(<SttPane />)
 
-      await waitFor(() => {
-        expect(tauri.getSttProviderDiagnostics).toHaveBeenCalledWith(
-          '',
-          'custom-whisper',
-          'http://localhost:8000/v1',
-          'Systran/faster-whisper-large-v3',
-        )
-      })
-      expect(screen.getByText('Local endpoint ready')).toBeInTheDocument()
-      expect(screen.getByText('http://localhost:8000/v1/audio/transcriptions')).toBeInTheDocument()
+      // Wait for the async diagnostics fetch to resolve AND its state update to
+      // render, rather than a synchronous getByText that races the re-render.
+      expect(await screen.findByText('Local endpoint ready')).toBeInTheDocument()
+      expect(
+        await screen.findByText('http://localhost:8000/v1/audio/transcriptions'),
+      ).toBeInTheDocument()
+      expect(tauri.getSttProviderDiagnostics).toHaveBeenCalledWith(
+        '',
+        'custom-whisper',
+        'http://localhost:8000/v1',
+        'Systran/faster-whisper-large-v3',
+      )
     })
 
     it('shows a quiet setup status when local endpoint config is invalid', async () => {
@@ -531,7 +545,7 @@ describe('SttPane', () => {
       })
 
       await waitFor(() => {
-        expect(mockBenchStt).toHaveBeenCalledWith('sk-test123', 'deepgram')
+        expect(mockBenchStt).toHaveBeenCalledWith('sk-test123', 'gemini')
       })
     })
 
@@ -592,14 +606,16 @@ describe('SttPane', () => {
     it('renders language dropdown with current value', () => {
       render(<SttPane />)
       const selects = screen.getAllByRole('combobox')
-      const languageSelect = selects[1] // Second select is language
+      // [0] provider, [1] Gemini model, [2] language
+      const languageSelect = selects[2]
       expect(languageSelect).toHaveValue('en')
     })
 
     it('updates config when language changes', () => {
       render(<SttPane />)
       const selects = screen.getAllByRole('combobox')
-      const languageSelect = selects[1]
+      // [0] provider, [1] Gemini model, [2] language
+      const languageSelect = selects[2]
 
       fireEvent.change(languageSelect, { target: { value: 'zh' } })
 

@@ -24,12 +24,17 @@ export function CapsuleRecording() {
   }
 
   return (
-    <motion.div className="relative z-10 flex items-center gap-2 h-9 px-3">
-      {/* White pulse dot — gentle opacity loop */}
-      <motion.div
-        className="w-2 h-2 rounded-full bg-white/80 flex-shrink-0"
-        animate={reduced ? undefined : { opacity: [1, 0.5, 1] }}
-        transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+    <motion.div
+      className="relative z-10 flex h-9 items-center gap-2.5 pl-3 pr-2.5"
+      role="status"
+      aria-label={t('capsule.cancelRecording')}
+    >
+      {/* Pulsing red level indicator */}
+      <motion.span
+        className="capsule-rec-dot"
+        aria-hidden="true"
+        animate={reduced ? undefined : { scale: [1, 1.18, 1], opacity: [1, 0.75, 1] }}
+        transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
       />
       <Waveform />
       <TranslateTargetChip />
@@ -40,7 +45,7 @@ export function CapsuleRecording() {
         onPointerUp={stopPointerPropagation}
         onClick={handleCancel}
         aria-label={t('capsule.cancelRecording')}
-        className="flex-shrink-0 p-1 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors bg-transparent border-none cursor-pointer"
+        className="flex-shrink-0 cursor-pointer rounded-full border-none bg-transparent p-1 text-white/70 transition-colors hover:bg-white/15 hover:text-white"
       >
         <X size={12} />
       </button>

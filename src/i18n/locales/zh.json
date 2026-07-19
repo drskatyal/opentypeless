@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "AI 语音输入"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "已复制到剪贴板。Wayland 下需要手动粘贴。"
   },
   "home": {
-    "welcome": "欢迎使用 OpenTypeless",
+    "welcome": "欢迎使用 FlowRad Mic",
     "description": "使用 {{hotkey}} 开始语音录制。语音将被转录并可选择由 AI 润色。",
     "totalRecordings": "总录音数",
     "today": "今日",
@@ -102,7 +102,8 @@
       "testButton": "测试连接",
       "connectionOk": "连接成功",
       "connectionFail": "连接失败",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "AI 润色服务",
@@ -115,15 +116,16 @@
       "modelsAvailable": "个模型可用",
       "baseUrlLabel": "Base URL",
       "connectionOk": "连接成功",
-      "connectionFail": "连接失败"
+      "connectionFail": "连接失败",
+      "geminiKeyHint": "You can reuse the same FlowRad API key."
     },
     "steps": {
       "welcome": "欢迎",
-      "welcomeSub": "几步完成 OpenTypeless 设置",
+      "welcomeSub": "几步完成 FlowRad Mic 设置",
       "signIn": "登录",
       "signInSub": "连接你的账户以开始使用",
       "chooseMode": "选择模式",
-      "chooseModeSub": "选择你想如何使用 OpenTypeless",
+      "chooseModeSub": "选择你想如何使用 FlowRad Mic",
       "speechRecognition": "语音识别",
       "speechRecognitionSub": "配置你的 STT 服务",
       "aiPolish": "AI 润色",
@@ -188,7 +190,7 @@
       "appWritingModesSub": "在 Scenes 里编辑邮件、聊天、文档等默认写法。"
     },
     "permissions": {
-      "subtitle": "OpenTypeless 只会在功能需要时请求权限。",
+      "subtitle": "FlowRad Mic 只会在功能需要时请求权限。",
       "microphone": "麦克风",
       "microphoneDesc": "用于录下你的语音。",
       "textOutput": "文本输出",
@@ -326,6 +328,7 @@
     "customSttBaseUrl": "Base URL",
     "customSttBaseUrlPlaceholder": "http://localhost:8000/v1",
     "customSttModel": "模型",
+    "geminiSttModel": "模型",
     "customSttModelPlaceholder": "Systran/faster-whisper-large-v3",
     "customSttApiKeyOptional": "API Key（可选）",
     "customSttSetupHint": "请先启动本地 OpenAI 兼容 STT 服务，然后在这里测试连接。",
@@ -346,7 +349,7 @@
     "test": "测试",
     "connectionSuccess": "连接成功",
     "connectionFailed": "连接失败",
-    "storedLocally": "存储在本地设备上。绝不会发送到 OpenTypeless 服务器。",
+    "storedLocally": "存储在本地设备上。绝不会发送到 FlowRad Mic 服务器。",
     "credentialSaveFailed": "无法保存 API Key 到系统凭据库。{{details}}",
     "sttLanguage": "语言",
     "model": "模型",
@@ -460,7 +463,58 @@
     "mappingResetConfirm": "删除所有仅保存在本机的应用映射？",
     "mappingResetConfirmAction": "重置映射",
     "mappingNoMappings": "暂无自定义应用映射",
-    "dictationMode": "听写触发方式"
+    "dictationMode": "听写触发方式",
+    "sttMode": "Transcription mode",
+    "sttModeBatch": "Batch",
+    "sttModeRealtime": "Real-time",
+    "sttModeHint": "Batch waits until you finish, then transcribes the whole clip — most accurate. Real-time transcribes as you pause.",
+    "vadParams": "Voice detection (real-time)",
+    "vadThreshold": "Speech threshold",
+    "vadMinSilence": "Min silence",
+    "vadMinSpeech": "Min speech",
+    "vadSpeechPad": "Speech padding",
+    "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
+    "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free.",
+    "actMode": "Act 模式",
+    "actEnable": "Act 模式 — 用语音控制你的电脑",
+    "actExperimentalHint": "Act 为实验性功能，目前仅支持 Windows。",
+    "actFollowsDictationMode": "Act 会遵循你的听写模式（按住说话或免提）。",
+    "actTier": "规划器",
+    "actTierFast": "快速",
+    "actTierPrecise": "精确",
+    "actHotkey": "Act 快捷键",
+    "actFlowsShow": "查看 Act 能做的一切",
+    "actFlowsCount": "{{count}} 个内置操作",
+    "actFlowsSearch": "搜索操作…",
+    "actFlowsEmpty": "没有匹配的操作。",
+    "actFlowsLoadError": "无法加载操作列表。",
+    "actFlowsExample": "试着说",
+    "actFlowsFills": "你说",
+    "actFlowsBranch": "辅助",
+    "actFlowsIntro": "Act 启用时你可以说的所有内容。按下 Act 键后自然说话即可，不必照搬下面的措辞。",
+    "actSeeAllHint": "在 Act 标签页查看 Act 能做的完整列表。",
+    "actFollowupModel": "Act 后续模型",
+    "actFollowupGemini": "Gemini（默认）",
+    "actFollowupCerebras": "Cerebras — 更快",
+    "actFollowupHint": "第一次调用始终使用 Gemini（它听取你的语音）。后续步骤可以使用更快的模型。",
+    "cerebrasApiKey": "Cerebras API 密钥",
+    "generalDesc": "快捷键、听写行为以及转写文本的落点。",
+    "speechRecognitionDesc": "选择转写引擎并连接其 API 密钥。",
+    "aiPolishDesc": "清理转写文本，并选择用于润色和 Act 的模型。",
+    "actModeDesc": "启用 Act 时你能说的一切——打开、搜索和控制应用。",
+    "dictionaryDesc": "应用于每次转写的自定义词汇和文本替换。",
+    "scenesDesc": "各应用的写作模式和你自己的自定义场景。",
+    "aboutDesc": "版本、更新和项目信息。"
+  },
+  "act": {
+    "armed": "Act 已就绪",
+    "confirmTitle": "确认操作",
+    "allow": "允许",
+    "deny": "拒绝",
+    "cancel": "取消",
+    "working": "处理中…",
+    "dismiss": "关闭"
   },
   "contextFamilies": {
     "email": "邮件",
@@ -795,6 +849,7 @@
     "stt": {
       "deepgram": "Deepgram Nova-3",
       "assemblyai": "AssemblyAI",
+      "gemini": "FlowRad",
       "volcengineDoubao": "火山引擎豆包实时语音识别",
       "glmAsr": "智谱 GLM-ASR",
       "openaiWhisper": "OpenAI Whisper",
@@ -802,14 +857,14 @@
       "siliconflow": "硅基流动 SiliconFlow",
       "appleSpeech": "Apple Speech（本地）",
       "customWhisper": "本地 / 自定义 Whisper",
-      "cloud": "OpenTypeless 云服务"
+      "cloud": "FlowRad Mic 云服务"
     },
     "llm": {
       "zhipu": "智谱",
       "deepseek": "DeepSeek",
       "siliconflow": "硅基流动 SiliconFlow",
       "openai": "OpenAI",
-      "gemini": "Google Gemini",
+      "gemini": "FlowRad",
       "moonshot": "Moonshot (Kimi)",
       "doubao": "豆包（火山引擎）",
       "qwen": "通义千问",
@@ -817,7 +872,7 @@
       "claude": "Claude",
       "ollama": "Ollama (本地)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless 云服务"
+      "cloud": "FlowRad Mic 云服务"
     }
   }
 }

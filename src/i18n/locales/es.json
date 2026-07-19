@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "OpenTypeless",
+    "name": "FlowRad Mic",
     "tagline": "Entrada de voz con IA"
   },
   "nav": {
@@ -53,7 +53,7 @@
     "output_wayland_clipboard_copy_only": "Copied to clipboard. Paste manually on Wayland."
   },
   "home": {
-    "welcome": "Bienvenido a OpenTypeless",
+    "welcome": "Bienvenido a FlowRad Mic",
     "description": "Mantén presionado {{hotkey}} para iniciar la grabación de voz. Tu habla será transcrita y opcionalmente pulida por IA.",
     "totalRecordings": "Grabaciones totales",
     "today": "Hoy",
@@ -102,7 +102,8 @@
       "testButton": "Probar conexión",
       "connectionOk": "Conexión exitosa",
       "connectionFail": "Error de conexión",
-      "customWhisperConfigured": "Custom Whisper"
+      "customWhisperConfigured": "Custom Whisper",
+      "geminiKeyHint": "Get a free key at aistudio.google.com/apikey"
     },
     "llm": {
       "serviceLabel": "Servicio de pulido con IA",
@@ -115,15 +116,16 @@
       "modelsAvailable": "modelos disponibles",
       "baseUrlLabel": "URL base",
       "connectionOk": "Conexión exitosa",
-      "connectionFail": "Error de conexión"
+      "connectionFail": "Error de conexión",
+      "geminiKeyHint": "You can reuse the same FlowRad API key."
     },
     "steps": {
       "welcome": "Bienvenido",
-      "welcomeSub": "Configura OpenTypeless en unos pocos pasos",
+      "welcomeSub": "Configura FlowRad Mic en unos pocos pasos",
       "signIn": "Iniciar sesión",
       "signInSub": "Conecta tu cuenta para comenzar",
       "chooseMode": "Elegir modo",
-      "chooseModeSub": "Selecciona cómo quieres usar OpenTypeless",
+      "chooseModeSub": "Selecciona cómo quieres usar FlowRad Mic",
       "speechRecognition": "Reconocimiento de voz",
       "speechRecognitionSub": "Configura tu servicio STT",
       "aiPolish": "Pulido con IA",
@@ -188,7 +190,7 @@
       "appWritingModesSub": "Edita en Escenas los modos predeterminados para email, chat, documentos y otros formatos."
     },
     "permissions": {
-      "subtitle": "OpenTypeless solo pide acceso cuando una función lo necesita.",
+      "subtitle": "FlowRad Mic solo pide acceso cuando una función lo necesita.",
       "microphone": "Micrófono",
       "microphoneDesc": "Captura tu voz.",
       "textOutput": "Salida de texto",
@@ -328,6 +330,7 @@
     "customSttBaseUrl": "Base URL",
     "customSttBaseUrlPlaceholder": "http://localhost:8000/v1",
     "customSttModel": "Model",
+    "geminiSttModel": "Model",
     "customSttModelPlaceholder": "Systran/faster-whisper-large-v3",
     "customSttApiKeyOptional": "API Key (optional)",
     "customSttSetupHint": "Start your local OpenAI-compatible STT server first, then test the connection here.",
@@ -348,7 +351,7 @@
     "test": "Probar",
     "connectionSuccess": "Conexión exitosa",
     "connectionFailed": "Error de conexión",
-    "storedLocally": "Almacenada localmente en tu dispositivo. Nunca se envía a los servidores de OpenTypeless.",
+    "storedLocally": "Almacenada localmente en tu dispositivo. Nunca se envía a los servidores de FlowRad Mic.",
     "credentialSaveFailed": "No se pudo guardar la clave API en la bóveda del sistema. {{details}}",
     "sttLanguage": "Idioma",
     "model": "Modelo",
@@ -460,7 +463,58 @@
     "mappingResetConfirm": "Delete all device-only app mappings?",
     "mappingResetConfirmAction": "Reset mappings",
     "mappingNoMappings": "No custom app mappings",
-    "dictationMode": "Modo de dictado"
+    "dictationMode": "Modo de dictado",
+    "sttMode": "Transcription mode",
+    "sttModeBatch": "Batch",
+    "sttModeRealtime": "Real-time",
+    "sttModeHint": "Batch waits until you finish, then transcribes the whole clip — most accurate. Real-time transcribes as you pause.",
+    "vadParams": "Voice detection (real-time)",
+    "vadThreshold": "Speech threshold",
+    "vadMinSilence": "Min silence",
+    "vadMinSpeech": "Min speech",
+    "vadSpeechPad": "Speech padding",
+    "vadParamsHint": "Tune how eagerly recording starts and stops on your voice.",
+    "dictationModeRealtimeHint": "Real-time mode is hands-free: press once to start, press again to stop. Speech is segmented automatically.",
+    "dictationModeBatchHint": "Hold to Talk gives you manual control and the most accurate results. Press to start/stop is hands-free.",
+    "actMode": "Modo Act",
+    "actEnable": "Modo Act — controla tu ordenador con la voz",
+    "actExperimentalHint": "Act es experimental y por ahora solo funciona en Windows.",
+    "actFollowsDictationMode": "Act sigue tu modo de dictado (mantén para hablar o manos libres).",
+    "actTier": "Planificador",
+    "actTierFast": "Rápido",
+    "actTierPrecise": "Preciso",
+    "actHotkey": "Atajo de Act",
+    "actFlowsShow": "Ver todo lo que Act puede hacer",
+    "actFlowsCount": "{{count}} acciones integradas",
+    "actFlowsSearch": "Buscar acciones…",
+    "actFlowsEmpty": "Ninguna acción coincide con tu búsqueda.",
+    "actFlowsLoadError": "No se pudo cargar la lista de acciones.",
+    "actFlowsExample": "Prueba a decir",
+    "actFlowsFills": "Tú dices",
+    "actFlowsBranch": "Asistido",
+    "actFlowsIntro": "Todo lo que puedes decir cuando Act está activo. Pulsa tu tecla de Act y habla con naturalidad — no necesitas las palabras exactas.",
+    "actSeeAllHint": "Consulta la lista completa de lo que Act puede hacer en la pestaña Act.",
+    "actFollowupModel": "Modelo de seguimiento de Act",
+    "actFollowupGemini": "Gemini (predeterminado)",
+    "actFollowupCerebras": "Cerebras — más rápido",
+    "actFollowupHint": "La primera llamada siempre usa Gemini (escucha tu voz). Los pasos siguientes pueden ejecutarse en un modelo más rápido.",
+    "cerebrasApiKey": "Clave API de Cerebras",
+    "generalDesc": "Atajos, comportamiento del dictado y dónde llega el texto transcrito.",
+    "speechRecognitionDesc": "Elige tu motor de transcripción y conecta su clave API.",
+    "aiPolishDesc": "Depura las transcripciones y elige los modelos para el pulido y Act.",
+    "actModeDesc": "Todo lo que puedes decir con Act activado: abrir, buscar y controlar apps.",
+    "dictionaryDesc": "Palabras personalizadas y reemplazos de texto aplicados a cada transcripción.",
+    "scenesDesc": "Modos de escritura por app y tus propias escenas personalizadas.",
+    "aboutDesc": "Versión, actualizaciones e información del proyecto."
+  },
+  "act": {
+    "armed": "Act activado",
+    "confirmTitle": "Confirmar acción",
+    "allow": "Permitir",
+    "deny": "Denegar",
+    "cancel": "Cancelar",
+    "working": "Trabajando…",
+    "dismiss": "Descartar"
   },
   "contextFamilies": {
     "email": "Email",
@@ -795,6 +849,7 @@
     "stt": {
       "deepgram": "Deepgram Nova-3",
       "assemblyai": "AssemblyAI",
+      "gemini": "FlowRad",
       "volcengineDoubao": "Volcengine Doubao Realtime ASR",
       "glmAsr": "GLM-ASR (Zhipu)",
       "openaiWhisper": "OpenAI Whisper",
@@ -802,14 +857,14 @@
       "siliconflow": "SiliconFlow",
       "appleSpeech": "Apple Speech (Local)",
       "customWhisper": "Local / Custom Whisper",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     },
     "llm": {
       "zhipu": "Zhipu",
       "deepseek": "DeepSeek",
       "siliconflow": "SiliconFlow",
       "openai": "OpenAI",
-      "gemini": "Google Gemini",
+      "gemini": "FlowRad",
       "moonshot": "Moonshot (Kimi)",
       "doubao": "Doubao (Volcengine)",
       "qwen": "Qwen",
@@ -817,7 +872,7 @@
       "claude": "Claude",
       "ollama": "Ollama (Local)",
       "openrouter": "OpenRouter",
-      "cloud": "OpenTypeless Cloud"
+      "cloud": "FlowRad Mic Cloud"
     }
   }
 }

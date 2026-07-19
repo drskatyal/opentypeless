@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FlowRad — Transcribe + Act. The fastest voice layer for your computer.</title>
+    <meta
+      name="description"
+      content="FlowRad turns your voice into text anywhere — and can act on your computer. Dictate at the speed of thought, or just tell it what to do. Clinician-grade accuracy, private by design."
+    />
+    <style>
+      :root {
+        --void: #05070c;
+        --ground: #070a11;
+        --panel: #0c111b;
+        --raised: #111826;
+        --sunk: #090d15;
+        --line: #1b2331;
+        --line-2: #232d3d;
+        --rim: rgba(255, 255, 255, 0.05);
+        --text: #d6dce8;
+        --text-2: #9aa3b4;
+        --muted: #6e7889;
+        --faint: #47505f;
+        --accent: #6fe7cb;
+        --accent-2: #57c9ae;
+        --accent-glow: rgba(111, 231, 203, 0.55);
+        --accent-wash: rgba(111, 231, 203, 0.1);
+        --accent-line: rgba(111, 231, 203, 0.28);
+        --amber: #e7b980;
+        --pill: #030507;
+        --pill-hi: rgba(255, 255, 255, 0.1);
+        --maxw: 1080px;
+        --mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--void);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      .cosmos {
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        pointer-events: none;
+        background:
+          radial-gradient(1100px 700px at 78% -6%, rgba(111, 231, 203, 0.055), transparent 60%),
+          radial-gradient(900px 900px at 8% 108%, rgba(96, 120, 200, 0.05), transparent 60%),
+          var(--void);
+      }
+      .stardust {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        opacity: 0.8;
+        background-repeat: no-repeat;
+        background-image: radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.55), transparent),
+          radial-gradient(1px 1px at 27% 62%, rgba(255, 255, 255, 0.35), transparent),
+          radial-gradient(1px 1px at 43% 12%, rgba(190, 220, 255, 0.45), transparent),
+          radial-gradient(1px 1px at 61% 78%, rgba(255, 255, 255, 0.3), transparent),
+          radial-gradient(1px 1px at 73% 33%, rgba(255, 255, 255, 0.4), transparent),
+          radial-gradient(1px 1px at 88% 66%, rgba(190, 220, 255, 0.35), transparent),
+          radial-gradient(1.4px 1.4px at 18% 45%, rgba(111, 231, 203, 0.4), transparent),
+          radial-gradient(1px 1px at 67% 8%, rgba(255, 255, 255, 0.3), transparent);
+      }
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 28px;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0;
+      }
+
+      /* nav */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(10px);
+        background: rgba(5, 7, 12, 0.6);
+        border-bottom: 1px solid var(--line);
+      }
+      nav .wrap {
+        display: flex;
+        align-items: center;
+        height: 62px;
+      }
+      .wordmark {
+        font-size: 14px;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .wordmark span {
+        color: var(--accent);
+      }
+      .wordmark svg {
+        flex: none;
+      }
+      nav .spacer {
+        flex: 1;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 18px;
+        border-radius: 10px;
+        border: 1px solid var(--accent-line);
+        background: linear-gradient(180deg, rgba(111, 231, 203, 0.16), rgba(111, 231, 203, 0.06));
+        color: var(--accent);
+        font-family: var(--sans);
+        font-size: 13.5px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+      .btn.ghost {
+        background: transparent;
+        border-color: var(--line-2);
+        color: var(--text-2);
+        font-weight: 500;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* hero */
+      .hero {
+        padding: 110px 0 70px;
+        text-align: center;
+      }
+      .mode-chips {
+        display: inline-flex;
+        gap: 8px;
+        margin-bottom: 30px;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-2);
+        border: 1px solid var(--line-2);
+        border-radius: 999px;
+        padding: 7px 14px;
+        background: rgba(255, 255, 255, 0.01);
+      }
+      .chip b {
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .hero h1 {
+        font-size: clamp(40px, 6vw, 66px);
+        line-height: 1.03;
+        letter-spacing: -0.035em;
+        margin: 0 auto 22px;
+        max-width: 16ch;
+        font-weight: 600;
+      }
+      .hero h1 em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      .lede {
+        color: var(--text-2);
+        font-size: 18px;
+        max-width: 54ch;
+        margin: 0 auto 34px;
+      }
+      .hero-cta {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .os-note {
+        margin-top: 16px;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      /* mic pill (signature) */
+      .pill {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        height: 56px;
+        padding: 0 24px 0 20px;
+        border-radius: 999px;
+        background: radial-gradient(120% 160% at 26% 8%, rgba(255, 255, 255, 0.09), transparent 46%),
+          linear-gradient(180deg, #0b0f16, var(--pill));
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow: inset 0 1px 0 var(--pill-hi), inset 0 -6px 14px rgba(0, 0, 0, 0.6),
+          0 12px 30px rgba(0, 0, 0, 0.55);
+        cursor: pointer;
+        user-select: none;
+      }
+      .pill .core {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex: none;
+        background: radial-gradient(circle at 40% 35%, #3a4453, #1a212c);
+      }
+      .pill.rec {
+        border-color: var(--accent-line);
+        box-shadow: inset 0 1px 0 var(--pill-hi), 0 0 0 1px rgba(111, 231, 203, 0.06),
+          0 10px 34px rgba(111, 231, 203, 0.14);
+      }
+      .pill.rec .core {
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-wash), 0 0 12px var(--accent-glow);
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      .pill .label {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-2);
+      }
+      .wave {
+        display: none;
+        align-items: center;
+        gap: 3px;
+        height: 20px;
+      }
+      .pill.rec .wave {
+        display: inline-flex;
+      }
+      .pill.rec .label {
+        display: none;
+      }
+      .wave i {
+        width: 3px;
+        border-radius: 2px;
+        background: linear-gradient(180deg, var(--accent), var(--accent-2));
+        animation: eq 1.05s ease-in-out infinite;
+      }
+      .wave i:nth-child(1) {
+        height: 7px;
+        animation-delay: -0.9s;
+      }
+      .wave i:nth-child(2) {
+        height: 15px;
+        animation-delay: -0.2s;
+      }
+      .wave i:nth-child(3) {
+        height: 20px;
+        animation-delay: -0.6s;
+      }
+      .wave i:nth-child(4) {
+        height: 11px;
+        animation-delay: -0.05s;
+      }
+      .wave i:nth-child(5) {
+        height: 18px;
+        animation-delay: -0.4s;
+      }
+
+      /* demo */
+      section {
+        padding: 70px 0;
+      }
+      .sec-eyebrow {
+        text-align: center;
+        margin-bottom: 12px;
+      }
+      .sec-title {
+        text-align: center;
+        font-size: 30px;
+        letter-spacing: -0.02em;
+        margin: 0 0 10px;
+        font-weight: 600;
+      }
+      .sec-sub {
+        text-align: center;
+        color: var(--text-2);
+        max-width: 52ch;
+        margin: 0 auto 40px;
+      }
+      .demo {
+        max-width: 720px;
+        margin: 0 auto;
+        border: 1px solid var(--line-2);
+        border-radius: 20px;
+        background: linear-gradient(180deg, var(--panel), var(--ground));
+        box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.8);
+        overflow: hidden;
+      }
+      .demo-bar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+        flex-wrap: wrap;
+      }
+      .seg {
+        display: inline-flex;
+        padding: 3px;
+        border-radius: 10px;
+        border: 1px solid var(--line-2);
+        background: var(--sunk);
+        gap: 3px;
+      }
+      .seg button {
+        border: 0;
+        cursor: pointer;
+        font-family: var(--sans);
+        font-size: 12.5px;
+        padding: 7px 13px;
+        border-radius: 7px;
+        color: var(--text-2);
+        background: transparent;
+      }
+      .seg button.on {
+        background: linear-gradient(180deg, #14202a, #0e161e);
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px var(--accent-line);
+      }
+      select.lang {
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid var(--line-2);
+        background: var(--sunk);
+        color: var(--text);
+        font-size: 12.5px;
+        padding: 0 10px;
+        font-family: var(--sans);
+      }
+      .demo-bar .grow {
+        flex: 1;
+      }
+      .demo-stage {
+        padding: 34px 24px 28px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+      .demo-hint {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .transcript {
+        width: 100%;
+        min-height: 96px;
+        margin-top: 6px;
+        border-top: 1px solid var(--line);
+        padding: 20px 24px 24px;
+        font-size: 16px;
+        line-height: 1.7;
+        color: var(--text);
+        white-space: pre-wrap;
+      }
+      .transcript.empty {
+        color: var(--faint);
+      }
+      .demo-foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        flex-wrap: wrap;
+      }
+      .demo-foot .ml {
+        margin-left: auto;
+      }
+      .err {
+        color: var(--amber);
+      }
+
+      /* two modes */
+      .modes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      @media (max-width: 760px) {
+        .modes {
+          grid-template-columns: 1fr;
+        }
+      }
+      .mode-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(180deg, var(--panel), var(--ground));
+        padding: 28px 26px;
+      }
+      .mode-card .k {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .mode-card h3 {
+        margin: 10px 0 8px;
+        font-size: 21px;
+        letter-spacing: -0.01em;
+      }
+      .mode-card p {
+        color: var(--text-2);
+        margin: 0 0 14px;
+      }
+      .mode-card .ex {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--text);
+        background: var(--sunk);
+        border: 1px solid var(--line-2);
+        border-radius: 10px;
+        padding: 12px 14px;
+        line-height: 1.6;
+      }
+      .mode-card .ex .you {
+        color: var(--accent);
+      }
+      .soon {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        color: var(--amber);
+        border: 1px solid rgba(231, 185, 128, 0.3);
+        padding: 2px 6px;
+        border-radius: 5px;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+
+      /* trust row */
+      .trust {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+        max-width: 940px;
+        margin: 0 auto;
+      }
+      @media (max-width: 760px) {
+        .trust {
+          grid-template-columns: 1fr;
+        }
+      }
+      .trust .t {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.008);
+      }
+      .trust .t h4 {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      .trust .t p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 13.5px;
+      }
+      .trust .t code {
+        font-family: var(--mono);
+        color: var(--accent);
+        font-size: 12.5px;
+      }
+
+      footer {
+        padding: 54px 0 70px;
+        border-top: 1px solid var(--line);
+        text-align: center;
+        color: var(--muted);
+        margin-top: 40px;
+      }
+      footer .fm {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--text-2);
+      }
+      footer .fm span {
+        color: var(--accent);
+      }
+      footer .fs {
+        font-size: 12px;
+        margin-top: 10px;
+        color: var(--faint);
+      }
+
+      @keyframes eq {
+        0%,
+        100% {
+          transform: scaleY(0.42);
+        }
+        50% {
+          transform: scaleY(1);
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 3px var(--accent-wash), 0 0 8px var(--accent-glow);
+        }
+        50% {
+          box-shadow: 0 0 0 6px rgba(111, 231, 203, 0.05), 0 0 16px var(--accent-glow);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="cosmos"></div>
+    <div class="stardust"></div>
+
+    <nav>
+      <div class="wrap">
+        <a class="wordmark" href="#top">
+          <svg width="24" height="24" viewBox="0 0 30 30" fill="none">
+            <circle cx="15" cy="15" r="13.5" stroke="#6FE7CB" stroke-opacity=".35" />
+            <circle cx="15" cy="15" r="4" fill="#6FE7CB" />
+            <path d="M15 1.5 A13.5 13.5 0 0 1 27.5 10" stroke="#6FE7CB" stroke-width="1.4" stroke-linecap="round" />
+          </svg>
+          Flow<span>Rad</span>
+        </a>
+        <div class="spacer"></div>
+        <a class="btn ghost" href="#demo">Demo</a>
+        <a class="btn" href="#download" style="margin-left: 10px">Download</a>
+      </div>
+    </nav>
+
+    <header class="hero wrap" id="top">
+      <div class="mode-chips">
+        <span class="chip"><b>Transcribe</b> — available now</span>
+        <span class="chip"><b>Act</b> — beta, rolling out</span>
+      </div>
+      <h1>Your voice, everywhere you <em>type</em>.</h1>
+      <p class="lede">
+        FlowRad turns speech into text in any app — with accuracy that nails the hardest words.
+        Dictate a report, draft a reply, fill a form. And <em>Act mode</em> — voice-driven control of
+        your computer — is rolling out. Built for clinicians, fast enough for everyone.
+      </p>
+      <div class="hero-cta">
+        <a class="btn" href="#download">Download for Mac &amp; Windows</a>
+        <a class="btn ghost" href="#demo">Try the live demo</a>
+      </div>
+      <div class="os-note">No account. No API key. Runs on your machine.</div>
+    </header>
+
+    <!-- LIVE DEMO -->
+    <section id="demo">
+      <p class="eyebrow sec-eyebrow">Live demo</p>
+      <h2 class="sec-title">Hear it transcribe — right here.</h2>
+      <p class="sec-sub">
+        Tap the pill, speak a sentence, tap again — nothing is saved. Try a hard one:
+        <em>“rhombencephalosynapsis with associated ventriculomegaly.”</em>
+      </p>
+
+      <div class="demo">
+        <div class="demo-bar">
+          <div class="seg" id="tierSeg" role="group" aria-label="Model">
+            <button data-tier="fast" class="on" title="Lower latency">Fast</button>
+            <button data-tier="precise" title="Best for hard vocabulary">Precise</button>
+          </div>
+          <select class="lang" id="lang" aria-label="Language">
+            <option value="">Auto-detect language</option>
+            <option value="English (United States)">English</option>
+            <option value="Spanish">Español</option>
+            <option value="French">Français</option>
+            <option value="German">Deutsch</option>
+            <option value="Hindi">हिन्दी</option>
+          </select>
+          <div class="grow"></div>
+          <span class="demo-hint" id="mode">Batch</span>
+        </div>
+
+        <div class="demo-stage">
+          <div class="pill" id="pill" role="button" tabindex="0" aria-label="Record">
+            <span class="core"></span>
+            <span class="label" id="pillLabel">Tap to speak</span>
+            <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="demo-hint" id="hint">Up to 20 seconds per clip</div>
+        </div>
+
+        <div class="transcript empty" id="transcript">Your transcript will appear here.</div>
+
+        <div class="demo-foot">
+          <span id="status">Ready</span>
+          <span class="ml" id="limitNote">Nothing is saved · demo clips limited · download for unlimited use.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TWO MODES -->
+    <section>
+      <p class="eyebrow sec-eyebrow">Two modes, one voice</p>
+      <h2 class="sec-title">Transcribe, or act.</h2>
+      <p class="sec-sub">
+        The same push-to-talk pill does both. Dictate text into whatever you’re looking at — or hand
+        the machine a task and let FlowRad carry it out.
+      </p>
+      <div class="modes">
+        <div class="mode-card">
+          <span class="k">Mode 01</span>
+          <h3>Transcribe</h3>
+          <p>
+            Voice-to-text in any field, at the speed of thought. Context-aware formatting shapes the
+            output to where you’re typing — a structured note, a tidy message, plain text — without
+            ever screenshotting your screen.
+          </p>
+          <div class="ex"><span class="you">You:</span> “Impression — no acute intracranial abnormality.”</div>
+        </div>
+        <div class="mode-card">
+          <span class="k">Mode 02<span class="soon">Rolling out</span></span>
+          <h3>Act</h3>
+          <p>
+            Tell your computer what to do and it does it — open apps, navigate, fill fields, run your
+            workflows. You stay in control: FlowRad confirms before it sends, submits, or deletes.
+          </p>
+          <div class="ex"><span class="you">You:</span> “Open Chrome and go to my dashboard, then start a new report.”</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUST -->
+    <section>
+      <p class="eyebrow sec-eyebrow">Why it holds up</p>
+      <h2 class="sec-title">Reliable out of the box.</h2>
+      <div class="trust">
+        <div class="t">
+          <h4>Nails hard vocabulary</h4>
+          <p>
+            Handles the words other tools mangle — <code>rhombencephalosynapsis</code>,
+            <code>leptomeningeal</code>, <code>cholecystectomy</code>. Built to a clinical accuracy bar,
+            useful for everyone.
+          </p>
+        </div>
+        <div class="t">
+          <h4>Private by design</h4>
+          <p>
+            FlowRad reads context through system accessibility APIs — it never screenshots your
+            screen. Act mode always confirms before it sends, submits, or deletes.
+          </p>
+        </div>
+        <div class="t">
+          <h4>Fast &amp; cross-platform</h4>
+          <p>
+            A single push-to-talk pill, always on top, draggable anywhere. Runs on macOS and Windows.
+            Batch for accuracy, real-time for speed.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DOWNLOAD -->
+    <section id="download" style="text-align: center">
+      <p class="eyebrow sec-eyebrow">Get FlowRad</p>
+      <h2 class="sec-title">Bring your voice to your desktop.</h2>
+      <p class="sec-sub">Free to start. No account required to try. Download and dictate in minutes.</p>
+      <div class="hero-cta">
+        <a class="btn" href="#" data-dl="mac">Download for macOS</a>
+        <a class="btn ghost" href="#" data-dl="win">Download for Windows</a>
+      </div>
+      <div class="os-note">Builds coming online — the live demo above works today.</div>
+    </section>
+
+    <footer>
+      <div class="fm">Flow<span>Rad</span></div>
+      <div class="fs">The fastest voice layer for your computer · Transcribe + Act</div>
+    </footer>
+
+    <script>
+      const API_BASE = %FLOWRAD_API_BASE%;
+
+      const pill = document.getElementById("pill");
+      const pillLabel = document.getElementById("pillLabel");
+      const transcriptEl = document.getElementById("transcript");
+      const statusEl = document.getElementById("status");
+      const hintEl = document.getElementById("hint");
+      const langEl = document.getElementById("lang");
+      let tier = "fast";
+      let recording = false;
+      let media, audioCtx, source, processor, chunks, sampleRate;
+      const MAX_SECONDS = 20;
+
+      document.querySelectorAll("#tierSeg button").forEach((b) => {
+        b.addEventListener("click", () => {
+          document.querySelectorAll("#tierSeg button").forEach((x) => x.classList.remove("on"));
+          b.classList.add("on");
+          tier = b.dataset.tier;
+        });
+      });
+
+      document.querySelectorAll("[data-dl]").forEach((a) =>
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          setStatus("Desktop builds are coming online — try the live demo above.", true);
+        }),
+      );
+
+      pill.addEventListener("click", () => (recording ? stop() : start()));
+      pill.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          recording ? stop() : start();
+        }
+      });
+
+      function setStatus(t, isErr) {
+        statusEl.textContent = t;
+        statusEl.className = isErr ? "err" : "";
+      }
+
+      async function start() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setStatus("Microphone not supported in this browser.", true);
+          return;
+        }
+        try {
+          media = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          setStatus("Microphone permission denied.", true);
+          return;
+        }
+        chunks = [];
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        sampleRate = audioCtx.sampleRate;
+        source = audioCtx.createMediaStreamSource(media);
+        processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        processor.onaudioprocess = (e) => {
+          chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+          const secs = (chunks.length * 4096) / sampleRate;
+          if (secs >= MAX_SECONDS) stop();
+        };
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+        recording = true;
+        pill.classList.add("rec");
+        pillLabel.textContent = "Listening…";
+        hintEl.textContent = "Tap again to stop";
+        setStatus("Listening…");
+      }
+
+      async function stop() {
+        if (!recording) return;
+        recording = false;
+        pill.classList.remove("rec");
+        pillLabel.textContent = "Tap to speak";
+        hintEl.textContent = "Up to 20 seconds per clip";
+        try {
+          processor.disconnect();
+          source.disconnect();
+          media.getTracks().forEach((t) => t.stop());
+          await audioCtx.close();
+        } catch {}
+        const wav = encodeWav(mergeChunks(chunks), sampleRate);
+        await transcribe(wav);
+      }
+
+      function mergeChunks(chunks) {
+        let len = 0;
+        for (const c of chunks) len += c.length;
+        const out = new Float32Array(len);
+        let o = 0;
+        for (const c of chunks) {
+          out.set(c, o);
+          o += c.length;
+        }
+        return out;
+      }
+
+      // Downsample to 16k and encode 16-bit PCM WAV.
+      function encodeWav(samples, inRate) {
+        const outRate = 16000;
+        const ratio = inRate / outRate;
+        const outLen = Math.floor(samples.length / ratio);
+        const pcm = new Int16Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+          const s = samples[Math.floor(i * ratio)] || 0;
+          const c = Math.max(-1, Math.min(1, s));
+          pcm[i] = c < 0 ? c * 0x8000 : c * 0x7fff;
+        }
+        const buf = new ArrayBuffer(44 + pcm.length * 2);
+        const v = new DataView(buf);
+        const w = (o, s) => {
+          for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+        };
+        w(0, "RIFF");
+        v.setUint32(4, 36 + pcm.length * 2, true);
+        w(8, "WAVE");
+        w(12, "fmt ");
+        v.setUint32(16, 16, true);
+        v.setUint16(20, 1, true);
+        v.setUint16(22, 1, true);
+        v.setUint32(24, outRate, true);
+        v.setUint32(28, outRate * 2, true);
+        v.setUint16(32, 2, true);
+        v.setUint16(34, 16, true);
+        w(36, "data");
+        v.setUint32(40, pcm.length * 2, true);
+        for (let i = 0; i < pcm.length; i++) v.setInt16(44 + i * 2, pcm[i], true);
+        return new Uint8Array(buf);
+      }
+
+      function toBase64(bytes) {
+        let bin = "";
+        const CH = 0x8000;
+        for (let i = 0; i < bytes.length; i += CH)
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+        return btoa(bin);
+      }
+
+      async function transcribe(wavBytes) {
+        if (!API_BASE) {
+          setStatus("Demo endpoint is coming online — check back shortly.", true);
+          return;
+        }
+        setStatus("Transcribing…");
+        transcriptEl.classList.add("empty");
+        transcriptEl.textContent = "…";
+        try {
+          const resp = await fetch(API_BASE.replace(/\/$/, "") + "/v1/demo/transcribe", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              audio: toBase64(wavBytes),
+              mimeType: "audio/wav",
+              tier,
+              language: langEl.value || undefined,
+            }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            setStatus(data.error || `Error ${resp.status}`, true);
+            transcriptEl.textContent = "Your transcript will appear here.";
+            return;
+          }
+          const text = (data.text || "").trim();
+          transcriptEl.classList.toggle("empty", !text);
+          transcriptEl.textContent = text || "No speech detected — try again.";
+          setStatus("Done");
+        } catch {
+          setStatus("Network error — please retry.", true);
+          transcriptEl.textContent = "Your transcript will appear here.";
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -664,6 +664,23 @@ pub async fn bench_stt_connection(
             check_openai_whisper_model(&client, &api_key).await?;
             Ok(t0.elapsed().as_millis() as u32)
         }
+        "gemini" => {
+            // Gemini transcribes via generateContent (no Whisper endpoint), so
+            // validate the key against the lightweight models list instead.
+            let t0 = std::time::Instant::now();
+            let resp = client
+                .get("https://generativelanguage.googleapis.com/v1beta/models")
+                .header("x-goog-api-key", api_key.trim())
+                .timeout(std::time::Duration::from_secs(10))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+            let elapsed = t0.elapsed().as_millis() as u32;
+            if !resp.status().is_success() {
+                return Err(format!("HTTP {}", resp.status()));
+            }
+            Ok(elapsed)
+        }
         _ => {
             let cfg = resolve_whisper_test_config(&provider, custom_base_url, custom_model)?;
 

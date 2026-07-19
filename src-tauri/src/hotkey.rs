@@ -245,6 +245,8 @@ pub enum HotkeyRole {
     EditSelection,
     SwitchScene,
     OpenApp,
+    /// Drive the voice Conductor (drawer + OS actions) for this recording.
+    Act,
 }
 
 impl HotkeyRole {
@@ -256,6 +258,7 @@ impl HotkeyRole {
             Self::EditSelection => "editSelection",
             Self::SwitchScene => "switchScene",
             Self::OpenApp => "openApp",
+            Self::Act => "act",
         }
     }
 }
@@ -519,6 +522,7 @@ pub(crate) fn hotkey_registration_plan_from_config_for_platform(
         config.open_app.as_ref(),
         platform,
     )?;
+    push_optional_registered_hotkey(&mut plan, HotkeyRole::Act, config.act.as_ref(), platform)?;
 
     Ok(plan)
 }
@@ -630,6 +634,7 @@ pub fn validate_hotkey_pair(
         edit_selection: None,
         switch_scene: None,
         open_app: None,
+        act: None,
         dictation_mode: "hold".to_string(),
     };
 
@@ -925,6 +930,7 @@ pub fn handle_hotkey_role_event(
                 pipeline_state,
                 pipeline::PipelineStartOptions {
                     force_translate: true,
+                    act: false,
                 },
             );
             handle_recording_shortcut(handle, action);
@@ -962,6 +968,27 @@ pub fn handle_hotkey_role_event(
                 event_state,
                 pipeline_state,
                 pipeline::PipelineStartOptions::default(),
+            );
+            handle_recording_shortcut(handle, action);
+        }
+        HotkeyRole::Act => {
+            // Record like Dictation, but tag the run so the pipeline routes the
+            // final transcript to the voice Conductor instead of dictating.
+            let hotkey_mode = handle
+                .state::<HotkeyModeCache>()
+                .0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            let pipeline_state = handle.state::<pipeline::PipelineHandle>().current_state();
+            let action = recording_shortcut_action(
+                &hotkey_mode,
+                event_state,
+                pipeline_state,
+                pipeline::PipelineStartOptions {
+                    act: true,
+                    ..Default::default()
+                },
             );
             handle_recording_shortcut(handle, action);
         }
@@ -1228,6 +1255,7 @@ mod tests {
             edit_selection: None,
             switch_scene: None,
             open_app: None,
+            act: None,
             dictation_mode: "toggle".to_string(),
         };
 
@@ -1241,6 +1269,31 @@ mod tests {
         );
         assert_eq!(plan.global.len(), 1);
         assert_eq!(plan.global[0].role, HotkeyRole::Ask);
+    }
+
+    #[test]
+    fn act_hotkey_registers_as_its_own_role() {
+        let dictation = storage::ShortcutBinding::from_hotkey("Ctrl+Alt+D").unwrap();
+        let config = storage::HotkeyConfig {
+            dictation_bindings: vec![dictation.clone()],
+            ask_bindings: vec![],
+            translate_bindings: vec![],
+            dictation,
+            ask: None,
+            translate: None,
+            edit_selection: None,
+            switch_scene: None,
+            open_app: None,
+            act: storage::ShortcutBinding::from_hotkey("Ctrl+Alt+A"),
+            dictation_mode: "hold".to_string(),
+        };
+        let plan = hotkey_registration_plan_from_config_for_platform(&config, "windows").unwrap();
+        assert!(
+            plan.global.iter().any(|e| e.role == HotkeyRole::Act)
+                || plan.native.iter().any(|e| e.role == HotkeyRole::Act),
+            "the Act binding should register under the Act role"
+        );
+        assert_eq!(HotkeyRole::Act.as_str(), "act");
     }
 
     #[test]
@@ -1258,6 +1311,7 @@ mod tests {
             edit_selection: None,
             switch_scene: None,
             open_app: None,
+            act: None,
             dictation_mode: "toggle".to_string(),
         };
 
@@ -1298,6 +1352,7 @@ mod tests {
             edit_selection: None,
             switch_scene: None,
             open_app: None,
+            act: None,
             dictation_mode: "toggle".to_string(),
         };
 
@@ -1530,11 +1585,13 @@ mod tests {
                 pipeline::PipelineState::Idle,
                 pipeline::PipelineStartOptions {
                     force_translate: true,
+                    act: false,
                 },
             ),
             RecordingShortcutAction::Start {
                 options: pipeline::PipelineStartOptions {
                     force_translate: true,
+                    act: false,
                 },
             }
         );
@@ -1546,6 +1603,7 @@ mod tests {
                 pipeline::PipelineState::Recording,
                 pipeline::PipelineStartOptions {
                     force_translate: true,
+                    act: false,
                 },
             ),
             RecordingShortcutAction::Stop

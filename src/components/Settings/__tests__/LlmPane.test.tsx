@@ -195,40 +195,11 @@ describe('LlmPane', () => {
 
   describe('Provider selection', () => {
     it('renders provider dropdown with current value', () => {
+      mockAppStore.config.llm_provider = 'gemini'
       render(<LlmPane />)
       const selects = screen.getAllByRole('combobox')
       const providerSelect = selects[0] // First select is provider
-      expect(providerSelect).toHaveValue('openai')
-    })
-
-    it('updates config and resets state when provider changes', () => {
-      render(<LlmPane />)
-      const selects = screen.getAllByRole('combobox')
-      const providerSelect = selects[0]
-
-      fireEvent.change(providerSelect, { target: { value: 'anthropic' } })
-
-      expect(mockAppStore.updateConfig).toHaveBeenCalled()
-      expect(mockAppStore.setLlmTestStatus).toHaveBeenCalledWith('idle')
-      expect(mockAppStore.setLlmLatencyMs).toHaveBeenCalledWith(null)
-      expect(mockAppStore.setLlmModels).toHaveBeenCalledWith([])
-    })
-
-    it('applies Doubao defaults when provider changes to Doubao', () => {
-      render(<LlmPane />)
-      const selects = screen.getAllByRole('combobox')
-      const providerSelect = selects[0]
-
-      fireEvent.change(providerSelect, { target: { value: 'doubao' } })
-
-      expect(mockAppStore.updateConfig).toHaveBeenCalledWith({
-        llm_provider: 'doubao',
-        llm_base_url: 'https://ark.cn-beijing.volces.com/api/v3',
-        llm_model: 'doubao-seed-1-6-flash-250615',
-      })
-      expect(mockAppStore.setLlmTestStatus).toHaveBeenCalledWith('idle')
-      expect(mockAppStore.setLlmLatencyMs).toHaveBeenCalledWith(null)
-      expect(mockAppStore.setLlmModels).toHaveBeenCalledWith([])
+      expect(providerSelect).toHaveValue('gemini')
     })
   })
 

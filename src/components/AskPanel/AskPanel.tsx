@@ -408,12 +408,12 @@ export function AskPanel({ embedded = false, showHeader = true, title = 'Ask' }:
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) dismissStandalone(true)
         }}
-        className="min-h-screen w-screen bg-transparent p-3 text-text-primary"
+        className="min-h-screen w-screen bg-transparent p-4 text-text-primary"
       >
         <section
           data-testid="ask-floating-note"
           onMouseDown={startStandaloneDrag}
-          className="flex max-h-[calc(100vh-24px)] w-full flex-col overflow-hidden rounded-[18px] border border-border/80 bg-bg-primary/95 shadow-[0_4px_14px_rgba(15,23,42,0.08)] backdrop-blur"
+          className="flex max-h-[calc(100vh-32px)] w-full flex-col overflow-hidden rounded-[18px] border border-border/80 bg-bg-primary/95 shadow-[0_4px_12px_rgba(15,23,42,0.10)] backdrop-blur"
         >
           <div className="flex min-h-0 flex-col gap-2.5 p-3">
             {!resultText && (

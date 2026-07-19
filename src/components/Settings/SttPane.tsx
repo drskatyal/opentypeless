@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { isMacPlatform, useAppStore } from '../../stores/appStore'
+import { isMacPlatform, useAppStore, type AppConfig } from '../../stores/appStore'
 import { hasManagedCloudAccess, useAuthStore } from '../../stores/authStore'
 import {
   STT_PROVIDERS,
@@ -10,6 +10,10 @@ import {
   CUSTOM_STT_DEFAULTS,
   CUSTOM_STT_PRESETS,
   VOLCENGINE_STT_RESOURCES,
+  GEMINI_STT_MODELS,
+  GEMINI_STT_DEFAULT_MODEL,
+  STT_MODES,
+  VAD_PARAMS,
 } from '../../lib/constants'
 import {
   benchSttConnection,
@@ -19,6 +23,8 @@ import {
   type SttProviderDiagnostics,
 } from '../../lib/tauri'
 import { FormField } from './shared/FormField'
+import { SettingSection } from './shared/SettingSection'
+import { Select } from './shared/Select'
 import { CheckCircle2, XCircle, Loader2, Crown } from 'lucide-react'
 
 export function SttPane() {
@@ -39,6 +45,8 @@ export function SttPane() {
   const isAppleSpeech = config.stt_provider === APPLE_SPEECH_PROVIDER
   const isCustomWhisper = config.stt_provider === CUSTOM_WHISPER_PROVIDER
   const isVolcengineDoubao = config.stt_provider === 'volcengine-doubao'
+  const isGemini = config.stt_provider === 'gemini'
+  const geminiModel = config.stt_gemini_model || GEMINI_STT_DEFAULT_MODEL
   const credentialProvider = isCustomWhisper ? CUSTOM_WHISPER_PROVIDER : config.stt_provider
   const legacyApiKey = isCustomWhisper ? config.stt_custom_api_key : config.stt_api_key
   const volcengineResourceId =
@@ -49,7 +57,13 @@ export function SttPane() {
   const supportsAppleSpeech = platformCapabilities
     ? platformCapabilities.os === 'macos'
     : isMacPlatform()
-  const visibleSttProviders = STT_PROVIDERS.filter(
+  // Groq (whisper-large-v3-turbo) is served by the generic Whisper-compatible
+  // backend; expose it in the picker without duplicating if it is ever added to
+  // the shared STT_PROVIDERS list.
+  const sttProviderOptions = STT_PROVIDERS.some((provider) => provider.value === 'groq-whisper')
+    ? STT_PROVIDERS
+    : [...STT_PROVIDERS, { value: 'groq-whisper', labelKey: 'providers.stt.groqWhisper' }]
+  const visibleSttProviders = sttProviderOptions.filter(
     (provider) => provider.value !== APPLE_SPEECH_PROVIDER || supportsAppleSpeech,
   )
   const appleSpeechReady = sttDiagnostics?.ready === true
@@ -170,9 +184,11 @@ export function SttPane() {
   }
 
   return (
-    <div className="space-y-5">
+    <SettingSection>
+      <div className="space-y-5 p-[18px]">
       <FormField label={t('settings.provider')}>
-        <select
+        <Select
+          fluid
           value={config.stt_provider}
           onChange={(e) => {
             const provider = e.target.value as typeof config.stt_provider
@@ -194,14 +210,13 @@ export function SttPane() {
             setSttLatencyMs(null)
             setTestErrorMessage(null)
           }}
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
           {visibleSttProviders.map((p) => (
             <option key={p.value} value={p.value}>
               {t(p.labelKey)}
             </option>
           ))}
-        </select>
+        </Select>
       </FormField>
 
       {isCloud ? (
@@ -283,7 +298,8 @@ export function SttPane() {
           {isCustomWhisper && (
             <>
               <FormField label={t('settings.customSttPreset')}>
-                <select
+                <Select
+                  fluid
                   value={config.stt_custom_preset}
                   onChange={(e) => {
                     const preset = e.target.value as typeof config.stt_custom_preset
@@ -302,14 +318,13 @@ export function SttPane() {
                     setSttLatencyMs(null)
                     setTestErrorMessage(null)
                   }}
-                  className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
                 >
                   {CUSTOM_STT_PRESETS.map((preset) => (
                     <option key={preset.value} value={preset.value}>
                       {t(preset.labelKey)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </FormField>
 
               <FormField label={t('settings.customSttBaseUrl')}>
@@ -371,9 +386,102 @@ export function SttPane() {
             </>
           )}
 
+          {isGemini && (
+            <FormField label={t('settings.geminiSttModel')}>
+              <Select
+                fluid
+                aria-label={t('settings.geminiSttModel')}
+                value={geminiModel}
+                onChange={(e) => {
+                  updateConfig({ stt_gemini_model: e.target.value })
+                  setSttTestStatus('idle')
+                  setSttLatencyMs(null)
+                  setTestErrorMessage(null)
+                }}
+              >
+                {GEMINI_STT_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          )}
+
+          {isGemini && (
+            <FormField label={t('settings.sttMode')}>
+              <div className="flex gap-2">
+                {STT_MODES.map((m) => {
+                  const active = config.stt_mode === m.value
+                  return (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => updateConfig({ stt_mode: m.value })}
+                      className={`flex-1 px-3 py-2.5 rounded-[10px] text-[13px] border transition-colors ${
+                        active
+                          ? 'border-accent bg-accent/15 text-text-primary font-medium'
+                          : 'border-border bg-bg-secondary text-text-secondary hover:border-border-focus'
+                      }`}
+                      aria-pressed={active}
+                    >
+                      {t(m.labelKey)}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.sttModeHint')}</p>
+            </FormField>
+          )}
+
+          {isGemini && config.stt_mode === 'realtime' && (
+            <FormField label={t('settings.vadParams')}>
+              <div className="space-y-3">
+                {VAD_PARAMS.map((p) => {
+                  const value = config[p.key as keyof AppConfig] as number
+                  return (
+                    <div key={p.key}>
+                      <div className="flex justify-between text-[12px] mb-1">
+                        <span className="text-text-secondary">{t(p.labelKey)}</span>
+                        <span className="text-text-primary font-mono">
+                          {value}
+                          {p.unit}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={p.min}
+                        max={p.max}
+                        step={p.step}
+                        value={value}
+                        aria-label={t(p.labelKey)}
+                        onChange={(e) =>
+                          updateConfig({ [p.key]: Number(e.target.value) } as Partial<AppConfig>)
+                        }
+                        className="w-full accent-accent"
+                      />
+                      <div className="flex justify-between text-[11px] text-text-secondary mt-0.5 font-mono">
+                        <span>
+                          {p.min}
+                          {p.unit}
+                        </span>
+                        <span>
+                          {p.max}
+                          {p.unit}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-text-tertiary mt-1.5">{t('settings.vadParamsHint')}</p>
+            </FormField>
+          )}
+
           {isVolcengineDoubao && (
             <FormField label={t('settings.volcengineResourceId')}>
-              <select
+              <Select
+                fluid
                 aria-label={t('settings.volcengineResourceId')}
                 value={volcengineResourceId}
                 onChange={(e) => {
@@ -383,14 +491,13 @@ export function SttPane() {
                   setTestErrorMessage(null)
                   setCredentialErrorMessage(null)
                 }}
-                className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
               >
                 {VOLCENGINE_STT_RESOURCES.map((resource) => (
                   <option key={resource.value} value={resource.value}>
                     {t(resource.labelKey)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           )}
 
@@ -450,18 +557,19 @@ export function SttPane() {
       )}
 
       <FormField label={t('settings.sttLanguage')}>
-        <select
+        <Select
+          fluid
           value={config.stt_language}
           onChange={(e) => updateConfig({ stt_language: e.target.value })}
-          className="w-full px-3 py-2.5 bg-bg-secondary border border-border rounded-[10px] text-[13px] text-text-primary outline-none focus:border-border-focus transition-colors"
         >
           {LANGUAGES.map((l) => (
             <option key={l.value} value={l.value}>
               {l.labelKey ? t(l.labelKey) : l.label}
             </option>
           ))}
-        </select>
+        </Select>
       </FormField>
-    </div>
+      </div>
+    </SettingSection>
   )
 }

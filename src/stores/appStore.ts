@@ -16,6 +16,7 @@ export type VoiceMode = 'dictate' | 'ask' | 'translate'
 export type SttProvider =
   | 'deepgram'
   | 'assemblyai'
+  | 'gemini'
   | 'volcengine-doubao'
   | 'glm-asr'
   | 'openai-whisper'
@@ -53,6 +54,8 @@ export type Theme = 'light' | 'dark' | 'system'
 export type PolishChineseScript = 'preserve' | 'simplified' | 'traditional'
 export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
 export type SceneSource = 'custom' | 'builtin' | 'cloud'
+export type ActModelTier = 'fast' | 'precise'
+export type ActFollowupProvider = 'gemini' | 'cerebras'
 export type ContextFamily =
   | 'email'
   | 'work_chat'
@@ -82,6 +85,8 @@ export interface HotkeyConfig {
   editSelection: ShortcutBinding | null
   switchScene: ShortcutBinding | null
   openApp: ShortcutBinding | null
+  /** Act / Task hotkey: hold to drive the voice Conductor instead of transcribing. */
+  act: ShortcutBinding | null
   dictationMode: HotkeyMode
 }
 
@@ -192,6 +197,12 @@ export interface AppConfig {
   stt_custom_preset: 'speaches' | 'custom'
   stt_custom_base_url: string
   stt_custom_model: string
+  stt_gemini_model: string
+  stt_mode: 'batch' | 'realtime'
+  stt_vad_threshold: number
+  stt_vad_min_silence_ms: number
+  stt_vad_min_speech_ms: number
+  stt_vad_speech_pad_ms: number
   stt_volcengine_resource_id: string
   stt_language: string
   llm_provider: LlmProvider
@@ -232,6 +243,10 @@ export interface AppConfig {
   history_max_entries: number
   ui_language: string
   capsule_auto_hide: boolean
+  act_enabled: boolean
+  act_model_tier: ActModelTier
+  act_followup_provider: ActFollowupProvider
+  cerebras_api_key: string
 }
 
 export type TestStatus = 'idle' | 'testing' | 'success' | 'error'
@@ -545,6 +560,7 @@ function normalizeHotkeyConfig(config: AppConfig, hotkeysValue: HotkeyConfig): H
     editSelection: normalizeBinding(hotkeys.editSelection),
     switchScene: normalizeBinding(hotkeys.switchScene),
     openApp: normalizeBinding(hotkeys.openApp),
+    act: normalizeBinding(hotkeys.act),
     dictationMode:
       hotkeys.dictationMode === 'toggle'
         ? 'toggle'
@@ -581,6 +597,7 @@ function hotkeyConfigFromLegacy(config: AppConfig): HotkeyConfig {
     editSelection: config.hotkeys?.editSelection ?? null,
     switchScene: config.hotkeys?.switchScene ?? null,
     openApp: config.hotkeys?.openApp ?? null,
+    act: config.hotkeys?.act ?? null,
     dictationMode:
       config.hotkey_mode === 'toggle'
         ? 'toggle'
@@ -704,19 +721,25 @@ function syncHotkeyConfig(previous: AppConfig, partial: Partial<AppConfig>): App
 }
 
 const defaultConfig: AppConfig = {
-  stt_provider: 'glm-asr',
+  stt_provider: 'gemini',
   stt_api_key: '',
   stt_custom_api_key: '',
   stt_custom_preset: 'speaches',
   stt_custom_base_url: 'http://localhost:8000/v1',
   stt_custom_model: 'Systran/faster-whisper-large-v3',
+  stt_gemini_model: 'gemini-3.1-flash-lite',
+  stt_mode: 'batch',
+  stt_vad_threshold: 0.5,
+  stt_vad_min_silence_ms: 700,
+  stt_vad_min_speech_ms: 250,
+  stt_vad_speech_pad_ms: 120,
   stt_volcengine_resource_id: 'volc.seedasr.sauc.duration',
   stt_language: 'multi',
-  llm_provider: 'openrouter',
+  llm_provider: 'gemini',
   llm_api_key: '',
-  llm_model: 'google/gemini-2.5-flash',
-  llm_base_url: 'https://openrouter.ai/api/v1',
-  polish_enabled: true,
+  llm_model: 'gemini-3.1-flash-lite',
+  llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  polish_enabled: false,
   context_adaptation_enabled: true,
   voice_routing_flags: {
     draft_insert: true,
@@ -749,6 +772,7 @@ const defaultConfig: AppConfig = {
     editSelection: null,
     switchScene: null,
     openApp: null,
+    act: null,
     dictationMode: defaultDictationHotkeyMode(),
   },
   output_mode: 'keyboard',
@@ -762,12 +786,16 @@ const defaultConfig: AppConfig = {
   auto_start: true,
   close_to_tray: true,
   start_minimized: false,
-  max_recording_seconds: 30,
+  max_recording_seconds: 300,
   history_enabled: true,
   history_retention_days: 0,
   history_max_entries: 5000,
   ui_language: 'en',
   capsule_auto_hide: true,
+  act_enabled: false,
+  act_model_tier: 'fast',
+  act_followup_provider: 'gemini',
+  cerebras_api_key: '',
 }
 
 export const useAppStore = create<AppState>((set) => ({
