@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, Check, Loader2, Pin, X } from 'lucide-react'
+import { Bot, Check, Loader2, Pin, Radio, X } from 'lucide-react'
 import { useState } from 'react'
 import { useActTasks, type ActTask } from '../../hooks/useActTasks'
 
@@ -67,12 +67,8 @@ export function AgentsBoard() {
                 pinned={pinned}
                 onTogglePin={() => setPinned((p) => !p)}
               />
-              <div className="flex flex-col gap-2 overflow-y-auto px-2.5 pt-1 pb-2.5">
-                {tasks.length === 0 ? (
-                  <EmptyState />
-                ) : (
-                  tasks.map((task) => <TaskCard key={task.id} task={task} />)
-                )}
+              <div className="overflow-y-auto pt-2 pb-2.5">
+                {tasks.length === 0 ? <EmptyState /> : <OrchestrationList tasks={tasks} />}
               </div>
             </motion.div>
           )}
@@ -109,38 +105,89 @@ export function PanelHeader({
   pinned: boolean
   onTogglePin: () => void
 }) {
+  const running = counts.running > 0
   const parts: string[] = []
   if (counts.running) parts.push(`${counts.running} running`)
   if (counts.done) parts.push(`${counts.done} done`)
   if (counts.failed) parts.push(`${counts.failed} failed`)
-  const subtitle = total === 0 ? 'No agents running' : parts.join(' · ')
+  const subtitle =
+    total === 0
+      ? 'No missions running'
+      : `${total} mission${total === 1 ? '' : 's'} · ${parts.join(' · ')}`
 
   return (
     <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3.5 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-accent/12 text-accent-text">
-          <Bot size={15} strokeWidth={2.2} />
+      <div className="flex min-w-0 items-center gap-2.5">
+        {/* The Conductor node — orchestrator of the missions below. Its orb
+            pulses and the waveform animates whenever any mission is running. */}
+        <span className="relative flex h-[28px] w-[28px] flex-none items-center justify-center rounded-[9px] border border-accent/40 bg-accent/12 text-accent">
+          <Radio size={15} strokeWidth={2.2} />
+          {running && (
+            <motion.span
+              className="absolute inset-0 rounded-[9px] ring-1 ring-accent"
+              animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
+            />
+          )}
         </span>
-        <div className="leading-tight">
-          <p className="text-[13px] font-semibold text-text-primary">
-            Agents{total > 0 && <span className="ml-1 text-text-tertiary">· {total}</span>}
-          </p>
-          <p className="text-[11px] text-text-secondary">{subtitle}</p>
+        <div className="min-w-0 leading-tight">
+          <p className="text-[13px] font-semibold text-text-primary">Conductor</p>
+          <p className="truncate text-[11px] text-text-secondary">{subtitle}</p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onTogglePin}
-        aria-pressed={pinned}
-        aria-label={pinned ? 'Unpin agents panel' : 'Keep agents panel open'}
-        className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border transition-colors ${
-          pinned
-            ? 'border-accent/40 bg-accent/12 text-accent-text'
-            : 'border-transparent text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary'
-        }`}
-      >
-        {pinned ? <Pin size={13} strokeWidth={2.4} /> : <Pin size={13} strokeWidth={2} />}
-      </button>
+      <div className="flex flex-none items-center gap-2.5">
+        <span className={`agents-wave ${running ? 'live' : ''}`} aria-hidden="true">
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+        </span>
+        <button
+          type="button"
+          onClick={onTogglePin}
+          aria-pressed={pinned}
+          aria-label={pinned ? 'Unpin agents panel' : 'Keep agents panel open'}
+          className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border transition-colors ${
+            pinned
+              ? 'border-accent/40 bg-accent/12 text-accent-text'
+              : 'border-transparent text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <Pin size={13} strokeWidth={pinned ? 2.4 : 2} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The mission list as an orchestration tree: a vertical spine drops from the
+ * Conductor, a luminous segment flows down it while anything runs, and each
+ * mission taps off it with a status-colored node. Reads as a control graph,
+ * not a flat list.
+ */
+export function OrchestrationList({ tasks }: { tasks: ActTask[] }) {
+  const running = tasks.some((t) => t.status === 'running')
+  return (
+    <div className="relative pl-[26px]">
+      <span
+        className={`absolute top-1.5 bottom-4 left-[10px] w-[2px] ${running ? 'agents-spine flowing' : 'agents-spine'}`}
+        aria-hidden="true"
+      />
+      <div className="flex flex-col gap-2.5">
+        <AnimatePresence initial={false}>
+          {tasks.map((task) => (
+            <div key={task.id} className="relative">
+              <span
+                className={`absolute top-[19px] -left-[20px] z-10 h-[9px] w-[9px] rounded-full ring-[3px] ring-bg-secondary ${STATUS[task.status].dot}`}
+                aria-hidden="true"
+              />
+              <TaskCard task={task} />
+            </div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }
@@ -179,10 +226,34 @@ export function CollapsedRail({ tasks }: { tasks: ActTask[] }) {
   )
 }
 
-const DOT: Record<ActTask['status'], string> = {
-  running: 'bg-[#5aa0ff]',
-  done: 'bg-[#54e0b0]',
-  failed: 'bg-[#ff6b6b]',
+/** Per-status token styling — one source of truth so the rail, cards, pills,
+ *  and stripes all speak the same language: aqua accent = running, success =
+ *  done, error = failed. No hardcoded hexes; everything rides the theme tokens. */
+const STATUS: Record<
+  ActTask['status'],
+  { dot: string; text: string; soft: string; border: string; label: string }
+> = {
+  running: {
+    dot: 'bg-accent',
+    text: 'text-accent',
+    soft: 'bg-accent/12',
+    border: 'border-accent/35',
+    label: 'RUNNING',
+  },
+  done: {
+    dot: 'bg-success',
+    text: 'text-success',
+    soft: 'bg-success/14',
+    border: 'border-success/30',
+    label: 'DONE',
+  },
+  failed: {
+    dot: 'bg-error',
+    text: 'text-error',
+    soft: 'bg-error/12',
+    border: 'border-error/30',
+    label: 'FAILED',
+  },
 }
 
 /** One 16px status indicator in the collapsed rail. */
@@ -199,7 +270,7 @@ function Indicator({ task }: { task: ActTask }) {
       {/* Pulsing halo while running */}
       {task.status === 'running' && (
         <motion.span
-          className="absolute inset-0 rounded-full bg-[#5aa0ff]"
+          className="absolute inset-0 rounded-full bg-accent"
           animate={{ scale: [1, 1.85], opacity: [0.5, 0] }}
           transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -211,7 +282,7 @@ function Indicator({ task }: { task: ActTask }) {
         initial={{ scale: task.status === 'running' ? 1 : 0.4 }}
         animate={{ scale: task.status === 'running' ? 1 : [0.4, 1.35, 1] }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
-        className={`relative flex h-4 w-4 items-center justify-center rounded-full text-white shadow-sm ${DOT[task.status]}`}
+        className={`relative flex h-4 w-4 items-center justify-center rounded-full text-white shadow-sm ${STATUS[task.status].dot}`}
       >
         {task.status === 'done' && <Check size={10} strokeWidth={3.2} />}
         {task.status === 'failed' && <X size={10} strokeWidth={3.2} />}
@@ -224,7 +295,7 @@ function Indicator({ task }: { task: ActTask }) {
 function OverflowChip({ count, tasks }: { count: number; tasks: ActTask[] }) {
   const anyRunning = tasks.some((t) => t.status === 'running')
   const anyFailed = tasks.some((t) => t.status === 'failed')
-  const tint = anyRunning ? 'text-[#5aa0ff]' : anyFailed ? 'text-[#ff6b6b]' : 'text-[#54e0b0]'
+  const tint = anyRunning ? 'text-accent' : anyFailed ? 'text-error' : 'text-success'
   return (
     <motion.div
       layout
@@ -238,7 +309,8 @@ function OverflowChip({ count, tasks }: { count: number; tasks: ActTask[] }) {
 }
 
 export function TaskCard({ task }: { task: ActTask }) {
-  const line = task.status === 'running' ? task.detail : task.summary
+  const running = task.status === 'running'
+  const line = running ? task.detail : task.summary
 
   return (
     <motion.div
@@ -247,29 +319,36 @@ export function TaskCard({ task }: { task: ActTask }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-      className="pointer-events-auto relative flex-none overflow-hidden rounded-[12px] border border-border bg-bg-tertiary/60 px-3 py-2.5"
+      className="pointer-events-auto relative flex-none overflow-hidden rounded-[13px] border border-border bg-bg-elevated px-3 py-2.5 shadow-sm"
     >
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${DOT[task.status]}`} />
+      <span className={`absolute inset-y-0 left-0 w-[3px] ${STATUS[task.status].dot}`} />
 
       <div className="flex items-start gap-2.5 pl-1.5">
         <StatusIcon status={task.status} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[13px] font-medium text-text-primary">{task.label}</p>
+            <p className="truncate text-[13px] font-semibold text-text-primary">{task.label}</p>
             <StatusBadge status={task.status} />
           </div>
           {line && (
-            <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-text-secondary">
+            <p
+              className={`mt-1 line-clamp-2 leading-relaxed ${
+                running
+                  ? 'font-mono text-[11px] text-text-secondary'
+                  : 'text-[11.5px] text-text-secondary'
+              }`}
+            >
+              {running && <span className="mr-1 text-accent">›</span>}
               {line}
             </p>
           )}
         </div>
       </div>
 
-      {task.status === 'running' && (
-        <div className="mt-2 ml-1.5 h-[3px] overflow-hidden rounded-full bg-white/8">
+      {running && (
+        <div className="mt-2.5 ml-1.5 h-[4px] overflow-hidden rounded-full bg-bg-tertiary">
           <motion.div
-            className="h-full w-1/3 rounded-full bg-[#5aa0ff]"
+            className="h-full w-1/3 rounded-full bg-gradient-to-r from-accent-hover to-accent"
             animate={{ x: ['-120%', '340%'] }}
             transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
           />
@@ -280,38 +359,25 @@ export function TaskCard({ task }: { task: ActTask }) {
 }
 
 function StatusIcon({ status }: { status: ActTask['status'] }) {
-  if (status === 'running') {
-    return (
-      <span className="mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[7px] bg-[#5aa0ff]/12 text-[#5aa0ff]">
-        <Loader2 size={13} className="animate-spin" strokeWidth={2.4} />
-      </span>
-    )
-  }
-  if (status === 'done') {
-    return (
-      <span className="mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[7px] bg-[#54e0b0]/14 text-[#54e0b0]">
-        <Check size={13} strokeWidth={2.8} />
-      </span>
-    )
-  }
+  const s = STATUS[status]
   return (
-    <span className="mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[7px] bg-[#ff6b6b]/12 text-[#ff6b6b]">
-      <X size={13} strokeWidth={2.6} />
+    <span
+      className={`mt-0.5 flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[8px] ${s.soft} ${s.text}`}
+    >
+      {status === 'running' && <Loader2 size={13} className="animate-spin" strokeWidth={2.4} />}
+      {status === 'done' && <Check size={13} strokeWidth={2.8} />}
+      {status === 'failed' && <X size={13} strokeWidth={2.6} />}
     </span>
   )
 }
 
 function StatusBadge({ status }: { status: ActTask['status'] }) {
-  const map = {
-    running: { label: 'RUNNING', cls: 'text-[#5aa0ff] bg-[#5aa0ff]/12 border-[#5aa0ff]/35' },
-    done: { label: 'DONE', cls: 'text-[#54e0b0] bg-[#54e0b0]/12 border-[#54e0b0]/32' },
-    failed: { label: 'FAILED', cls: 'text-[#ff6b6b] bg-[#ff6b6b]/12 border-[#ff6b6b]/32' },
-  }[status]
+  const s = STATUS[status]
   return (
     <span
-      className={`flex-none rounded-full border px-2 py-0.5 text-[9.5px] font-semibold tracking-[0.03em] ${map.cls}`}
+      className={`flex-none rounded-full border px-2 py-0.5 text-[9.5px] font-semibold tracking-[0.04em] ${s.text} ${s.soft} ${s.border}`}
     >
-      {map.label}
+      {s.label}
     </span>
   )
 }
