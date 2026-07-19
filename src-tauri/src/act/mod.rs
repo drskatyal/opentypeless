@@ -13,6 +13,7 @@ pub mod audit;
 pub mod backend;
 pub mod blackboard;
 pub mod capability;
+pub mod compose;
 pub mod conductor;
 pub mod destructive;
 #[cfg(test)]

@@ -14,6 +14,7 @@
 //! drawer and the cross-dictation loop.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::action::{Action, ActionPlan};
@@ -135,6 +136,9 @@ pub struct Conductor {
     /// Screen-aware perception mode for novel planning (tree / hybrid / vision).
     /// Set from config after construction; defaults to `Tree`.
     plan_mode: PlanMode,
+    /// Where a composed document is saved. `None` resolves to the OS Documents
+    /// folder at save time; tests override it to a scratch directory.
+    documents_dir: Option<PathBuf>,
 }
 
 /// Where the mission loop lands after one mission.
@@ -177,7 +181,14 @@ impl Conductor {
             pending: None,
             current_task: None,
             plan_mode: PlanMode::Tree,
+            documents_dir: None,
         }
+    }
+
+    /// Override where composed documents are saved (defaults to the OS Documents
+    /// folder). Used by tests to redirect saves to a scratch directory.
+    pub fn set_documents_dir(&mut self, dir: PathBuf) {
+        self.documents_dir = Some(dir);
     }
 
     /// Set the screen-aware perception mode used for novel planning. Called after
@@ -297,6 +308,7 @@ impl Conductor {
             .map(|m| match m {
                 Mission::OpenFlow { id, .. } => format!("open_flow:{id}"),
                 Mission::Novel { .. } => "novel".to_string(),
+                Mission::Compose { .. } => "compose".to_string(),
                 Mission::Answer { .. } => "answer".to_string(),
             })
             .collect();
@@ -482,6 +494,14 @@ impl Conductor {
                 tracing::info!(goal = %goal, "Act running novel goal (planner)");
                 self.run_novel(goal, events).await
             }
+            Mission::Compose {
+                topic,
+                kind,
+                target_app,
+            } => {
+                tracing::info!(kind = %kind, topic = %topic, target_app = ?target_app, "Act composing content");
+                self.run_compose(topic, kind, target_app, events).await
+            }
             Mission::Answer { question } => {
                 tracing::info!(question = %question, "Act answering (talk-back)");
                 self.run_answer(question, events).await
@@ -499,6 +519,11 @@ impl Conductor {
                 .map(|f| f.name.clone())
                 .unwrap_or_else(|| id.clone()),
             Mission::Novel { goal, .. } => short_goal(goal),
+            Mission::Compose { kind, topic, .. } => {
+                let k = kind.trim();
+                let k = if k.is_empty() { "note" } else { k };
+                short_goal(&format!("write a {k}: {topic}"))
+            }
             Mission::Answer { question } => short_goal(question),
         }
     }
@@ -663,6 +688,62 @@ impl Conductor {
                 Step::Next
             }
         }
+    }
+
+    /// Generate substantive document content for an authoring request and SAVE it.
+    ///
+    /// The selection layer routes "write / draft / compose a report / summary /
+    /// letter about X" here (NOT to `take_a_note`, which types a short LITERAL
+    /// snippet). This is a single deterministic pass — generate, then save — with NO
+    /// app automation and NO observe/act/re-plan loop: writing a fresh document must
+    /// never launch Word or Notepad. We GENERATE the body with one LLM call
+    /// ([`super::compose::compose_body`]) and write it as a `.docx` into the user's
+    /// Documents folder ([`super::compose::save_docx`]), reporting the saved path.
+    ///
+    /// `target_app` is intentionally unused: editing into an app's editor is only
+    /// appropriate when that editor is ALREADY the focused, open document (which is a
+    /// Novel/planner intent, not a fresh compose). Fresh creation always saves a file.
+    async fn run_compose(
+        &mut self,
+        topic: String,
+        kind: String,
+        _target_app: Option<String>,
+        events: &mut Vec<ActEvent>,
+    ) -> Step {
+        let body = super::compose::compose_body(self.llm.as_ref(), &topic, &kind).await;
+        if body.trim().is_empty() {
+            let message = format!("Couldn't generate the {}", short_kind(&kind));
+            self.finish_task(false, &message, events);
+            events.push(ActEvent::Error { message });
+            return Step::Next;
+        }
+
+        let dir = self.compose_documents_dir();
+        match super::compose::save_docx(&dir, &topic, &kind, &body) {
+            Ok(path) => {
+                self.board.record(format!("saved a {}", short_kind(&kind)));
+                let summary = format!("Saved the {} to {}", short_kind(&kind), path.display());
+                self.finish_task(true, &summary, events);
+                events.push(ActEvent::Result { ok: true, summary });
+                Step::Next
+            }
+            Err(e) => {
+                let message = format!("Couldn't save the {}: {e}", short_kind(&kind));
+                self.finish_task(false, &message, events);
+                events.push(ActEvent::Error { message });
+                Step::Next
+            }
+        }
+    }
+
+    /// The directory composed documents are saved to: the test/config override if
+    /// set, else the OS Documents folder, else the current directory as a last
+    /// resort (so a headless environment without a home still saves *somewhere*).
+    fn compose_documents_dir(&self) -> PathBuf {
+        self.documents_dir
+            .clone()
+            .or_else(dirs::document_dir)
+            .unwrap_or_else(|| PathBuf::from("."))
     }
 
     /// Plan a novel goal from primitives and execute it.
@@ -1228,6 +1309,17 @@ fn short_goal(goal: &str) -> String {
     }
 }
 
+/// A short, safe label for a composed document kind ("report", "summary", …) for
+/// user-facing result strings, defaulting to "document" when the kind is blank.
+fn short_kind(kind: &str) -> String {
+    let k = kind.trim();
+    if k.is_empty() {
+        "document".to_string()
+    } else {
+        short_goal(k)
+    }
+}
+
 /// A trusted `key=value` context note from a branch's carried slots, handed to
 /// the planner alongside the substituted goal so it can reason over the actual
 /// values (not just their names). `None` when there are no slots.
@@ -1442,6 +1534,98 @@ mod tests {
             .filter(|e| matches!(e, ActEvent::Result { ok: true, .. }))
             .count();
         assert_eq!(results, 2);
+    }
+
+    fn scratch_docs_dir() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("otl-conductor-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn compose_generates_a_report_and_saves_a_docx_no_app_automation() {
+        // The real bug: "write a detailed report in Notepad on X" typed the LITERAL
+        // instruction. Compose must instead GENERATE a body and SAVE it as a .docx —
+        // no app automation, no clipboard, no keystrokes, in a single pass.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let docs = scratch_docs_dir();
+
+        let report =
+            "MRI of the Right Foot: Morton Neuroma\n\nTechnique: ...\n\nFindings: A well-defined \
+             mass is seen in the third intermetatarsal space.\n\nImpression: Findings consistent \
+             with a Morton neuroma.";
+        // Two LLM turns share the fixture: (1) selection routes to compose, (2)
+        // compose_body returns the generated report.
+        let selection = r#"{"missions":[
+            {"type":"compose","topic":"MRI right foot, imaging features of Morton neuroma","kind":"report","target_app":"Notepad"}
+        ]}"#;
+        let compose = format!(r#"{{"body":{report:?}}}"#);
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(compose)],
+            backend.clone(),
+        );
+        c.set_documents_dir(docs.clone());
+        c.arm();
+
+        let events = c
+            .on_transcript(
+                "write a detailed report in Notepad on MRI right foot with imaging features of Morton neuroma".into(),
+            )
+            .await
+            .unwrap();
+
+        // Exactly one .docx was saved to the Documents dir.
+        let saved: Vec<_> = std::fs::read_dir(&docs)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("docx"))
+            .collect();
+        assert_eq!(saved.len(), 1, "one report should be saved, got {saved:?}");
+        assert!(std::fs::read(&saved[0]).unwrap().starts_with(b"PK"), "a real .docx");
+
+        // No app automation at all: nothing launched, focused, typed, or pasted.
+        assert!(backend.launched().is_empty());
+        assert!(backend.focused_apps().is_empty());
+        assert!(backend.typed().is_empty());
+        assert!(backend.clipboard_sets().is_empty());
+        assert!(backend.keys().is_empty());
+
+        // The result reports the saved path.
+        assert!(events.iter().any(|e| matches!(
+            e,
+            ActEvent::Result { ok: true, summary } if summary.contains(".docx")
+        )));
+        assert!(matches!(c.state(), ConductorState::Armed));
+        std::fs::remove_dir_all(&docs).ok();
+    }
+
+    #[tokio::test]
+    async fn compose_generation_failure_surfaces_an_error_and_saves_nothing() {
+        // If generation fails, we must never save a blank/apology document.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let docs = scratch_docs_dir();
+        let selection = r#"{"missions":[
+            {"type":"compose","topic":"anything","kind":"report"}
+        ]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![
+                Ok(selection.into()),
+                Err(crate::error::AppError::Network("down".into())),
+            ],
+            backend.clone(),
+        );
+        c.set_documents_dir(docs.clone());
+        c.arm();
+
+        let events = c.on_transcript("write a report on anything".into()).await.unwrap();
+        let count = std::fs::read_dir(&docs).unwrap().count();
+        assert_eq!(count, 0, "nothing saved on generation failure");
+        assert!(backend.typed().is_empty());
+        assert!(events.iter().any(|e| matches!(e, ActEvent::Error { .. })));
+        std::fs::remove_dir_all(&docs).ok();
     }
 
     #[tokio::test]
