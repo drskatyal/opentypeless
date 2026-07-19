@@ -23,7 +23,7 @@ type Unlisten = () => void | Promise<void>
 // other ActEvent kind is ignored. Mirrors the wire format from act/events.rs.
 type TaskEvent =
   | { kind: 'state'; state: string }
-  | { kind: 'task_spawned'; id: string; label: string }
+  | { kind: 'task_spawned'; id: string; label: string; status?: string }
   | { kind: 'task_progress'; id: string; text: string }
   | { kind: 'task_result'; id: string; ok: boolean; summary: string }
   | { kind: string; [k: string]: unknown }
@@ -61,17 +61,29 @@ export function useActTasks(): ActTask[] {
           }
           break
         case 'task_spawned': {
-          const p = payload as { id: string; label: string }
+          const p = payload as { id: string; label: string; status?: string }
+          // All of a command's agents are spawned up front as `queued`; each
+          // lights up (flips to `running`) when its mission starts. A spawn with
+          // no status defaults to `running` — back-compat with the old lazy spawn.
+          const status: ActTaskStatus = p.status === 'queued' ? 'queued' : 'running'
           setTasks((prev) =>
             prev.some((t) => t.id === p.id)
               ? prev
-              : [...prev, { id: p.id, label: p.label, status: 'running' }],
+              : [...prev, { id: p.id, label: p.label, status }],
           )
           break
         }
         case 'task_progress': {
           const p = payload as { id: string; text: string }
-          setTasks((prev) => prev.map((t) => (t.id === p.id ? { ...t, detail: p.text } : t)))
+          // The first progress line is a mission's "started" signal — flip a still
+          // -queued card to running as its detail arrives.
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === p.id
+                ? { ...t, detail: p.text, status: t.status === 'queued' ? 'running' : t.status }
+                : t,
+            ),
+          )
           break
         }
         case 'task_result': {

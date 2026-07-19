@@ -40,10 +40,17 @@ pub enum ActEvent {
     Result { ok: bool, summary: String },
     /// A recoverable error (bad plan, timeout, unsupported platform, …).
     Error { message: String },
-    /// A mission entered the queue and started — one card on the Agents board.
-    /// `id` is stable for the life of the command (e.g. "t0"); `label` is a
-    /// short human title (a flow name, a goal, or a question).
-    TaskSpawned { id: String, label: String },
+    /// A mission entered the queue — one card on the Agents board. `id` is stable
+    /// for the life of the command (e.g. "t0"); `label` is a short human title (a
+    /// flow name, a goal, or a question). `status` distinguishes a `queued` card
+    /// (spawned up front, before it runs) from one that is already `running`. An
+    /// absent status means `running` (back-compat with the old lazy spawn).
+    TaskSpawned {
+        id: String,
+        label: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        status: Option<String>,
+    },
     /// A live status line for a running task's card. PHI-free (labels, not
     /// values), same discipline as [`ActEvent::Step`].
     TaskProgress { id: String, text: String },
@@ -97,10 +104,23 @@ mod tests {
         let spawned = ActEvent::TaskSpawned {
             id: "t0".into(),
             label: "Open Gmail".into(),
+            status: None,
         };
         let json = serde_json::to_string(&spawned).unwrap();
         assert!(json.contains("\"kind\":\"task_spawned\""));
+        // An absent status is omitted from the wire (back-compat) and round-trips.
+        assert!(!json.contains("status"));
         assert_eq!(serde_json::from_str::<ActEvent>(&json).unwrap(), spawned);
+
+        // A queued spawn carries its status on the wire and round-trips.
+        let queued = ActEvent::TaskSpawned {
+            id: "t1".into(),
+            label: "Open Gmail".into(),
+            status: Some("queued".into()),
+        };
+        let json = serde_json::to_string(&queued).unwrap();
+        assert!(json.contains("\"status\":\"queued\""));
+        assert_eq!(serde_json::from_str::<ActEvent>(&json).unwrap(), queued);
 
         let progress = ActEvent::TaskProgress {
             id: "t0".into(),
