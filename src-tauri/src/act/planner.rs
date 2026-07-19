@@ -65,11 +65,17 @@ launch, wait, STOP - then search/type on the next turn once the window is visibl
 
 CONTINUATION: You may be called repeatedly for ONE goal. When the trusted context contains a block \
 starting with <<<PROGRESS, it lists what has already happened and the SCREEN_CONTEXT is the CURRENT \
-screen after those steps. In that mode return ONLY the next action(s) - at most 6 - that make progress \
-toward the goal on the CURRENT screen, not the whole plan. If those actions will fully satisfy the goal, \
-append a final stop. If a control or app you need is not yet in SCREEN_CONTEXT (for example you just \
-launched it), open or focus it and STOP the batch so the next observation can see it - never type into \
-an app you cannot see. Emit a single stop (nothing else) when the goal is already satisfied.
+screen after those steps. In that mode, emit AS MANY next actions as you can CONFIDENTLY predict from \
+here without needing to see their result first, and chain them into ONE plan - do NOT stop after a \
+single action when the following ones are obvious. Each re-planning round costs a slow round-trip, so \
+batching saves the user real time. Predictable primitives (key, type, uri, launch, wait, clipboard, a \
+coordinate click on something already visible) do NOT need a fresh observation between them - batch \
+them (e.g. focus_app -> key ctrl+a -> type -> key enter). Break the batch and append a wait then STOP \
+ONLY before an action whose target you cannot know until the screen changes - picking a specific result \
+on a page that has not loaded yet, or acting inside an app you just launched and cannot see. In that \
+case reveal it (launch/uri/focus/scroll), wait, STOP, and let the next observation show it - never type \
+into an app you cannot see. If your batch fully satisfies the goal, append a final stop. Emit a single \
+stop (nothing else) when the goal is already satisfied.
 
 REUSE: if the trusted context lists an app or tab under 'already_open' (or it is the 'focused_app'/'window') \
 that is the one your goal needs, FOCUS or switch to it (focus_app) and work inside it - do NOT launch a \
@@ -149,14 +155,14 @@ name='Eagles - Hotel California' at path #/2/1/1/2/2/1/1/1/1/1/3/14, emit \
 
 /// The maximum number of actions a single (whole-goal) plan may contain.
 const MAX_ACTIONS: usize = 12;
-/// The tighter per-iteration action budget for a closed-loop continuation turn
-/// (see [`CONTINUATION_MARKER`]): each observe->plan->act step should return only
-/// the next small batch, so the loop re-grounds often. Always `<= MAX_ACTIONS`.
-/// Kept a little below `MAX_ACTIONS` so re-grounding stays frequent, but not so
-/// tight that a coherent multi-step sequence (e.g. open→search→select→play, ~8
-/// actions) is truncated mid-way and the loop has to burn an iteration to finish
-/// what was really one intent.
-const MAX_ACTIONS_PER_ITER: usize = 8;
+/// The per-iteration action budget for a closed-loop continuation turn (see
+/// [`CONTINUATION_MARKER`]). Re-grounding after every step is the main source of
+/// Act's latency — each round is a slow snapshot + LLM call — so the planner is
+/// encouraged (see CONTINUATION in the prompt) to batch every action it can
+/// predict without re-observing, and this budget is set to the full
+/// [`MAX_ACTIONS`] so a coherent multi-step sequence (open→search→type→select→
+/// play) can land in ONE round instead of five.
+const MAX_ACTIONS_PER_ITER: usize = MAX_ACTIONS;
 /// The maximum byte length of any `type` action's text. The executor's `Type`
 /// primitive chunks anything this large into <=500-byte pieces, so a multi-
 /// paragraph write ("write 3 paragraphs") passes validation and types cleanly.
