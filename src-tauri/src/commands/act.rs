@@ -12,7 +12,7 @@
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::act::capability::{Capability, CapabilityGate};
 use crate::act::conductor::Conductor;
@@ -47,6 +47,12 @@ pub struct ActState {
     pub has_act_hotkey: std::sync::atomic::AtomicBool,
     /// The shared HTTP client, reused for the LLM cloud transport.
     pub client: reqwest::Client,
+    /// Fingerprint of the follow-up LLM the *currently armed* Conductor was built
+    /// with — `provider|model|hash(key)` (see [`followup_signature`]). Used to
+    /// detect, on a settings/credential save, whether the effective follow-up
+    /// provider/model/key actually changed so a live rebuild only happens when it
+    /// did (never on unrelated saves). Empty when Act is off.
+    pub followup_signature: std::sync::Mutex<String>,
 }
 
 impl ActState {
@@ -56,6 +62,7 @@ impl ActState {
             kill: std::sync::Mutex::new(KillSwitch::new()),
             has_act_hotkey: std::sync::atomic::AtomicBool::new(false),
             client,
+            followup_signature: std::sync::Mutex::new(String::new()),
         }
     }
 }
@@ -97,16 +104,32 @@ fn model_for_tier(tier: &str) -> &'static str {
 /// at very high tokens/sec, chosen for lower follow-up latency.
 const CEREBRAS_FOLLOWUP_MODEL: &str = "gpt-oss-120b";
 
-/// Build the LlmClient for Act's text-only FOLLOW-UP calls (selection routing,
-/// planner, answer). When `act_followup_provider` is "cerebras" AND a Cerebras
-/// key resolves from the vault, route those calls through the OpenAI-compatible
-/// Cerebras endpoint for lower latency; otherwise fall back to Gemini. The
-/// first/audio call is a separate path (`stt/gemini.rs`) and always stays Gemini.
-fn build_followup_llm<V: CredentialSecretReader>(
-    client: reqwest::Client,
+/// The concrete follow-up LLM selection (provider tag, model id, resolved key)
+/// derived from config + vault. Single source of truth shared by
+/// [`build_followup_llm`] (which constructs the client) and
+/// [`followup_signature`] (which fingerprints it to detect live changes), so the
+/// two can never drift apart.
+struct FollowupChoice {
+    /// "cerebras" or "gemini".
+    provider: &'static str,
+    /// The concrete model id passed to the client.
+    model: String,
+    /// The resolved API key for `provider`.
+    key: String,
+    /// True when the user selected Cerebras but no Cerebras key resolved, so the
+    /// selection fell back to Gemini — surfaced as a warn by the builder.
+    cerebras_fallback: bool,
+}
+
+/// Decide the effective follow-up provider/model/key. When
+/// `act_followup_provider` is "cerebras" AND a Cerebras key resolves from the
+/// vault, route follow-up calls through the OpenAI-compatible Cerebras endpoint
+/// for lower latency; otherwise fall back to Gemini (the first/audio call is a
+/// separate path in `stt/gemini.rs` and always stays Gemini).
+fn resolve_followup_choice<V: CredentialSecretReader>(
     config: &storage::AppConfig,
     vault: &V,
-) -> Arc<dyn LlmClient> {
+) -> FollowupChoice {
     if config
         .act_followup_provider
         .trim()
@@ -114,31 +137,76 @@ fn build_followup_llm<V: CredentialSecretReader>(
     {
         let key = resolve_cerebras_config_secret(config, vault).unwrap_or_default();
         if !key.trim().is_empty() {
-            tracing::info!(
-                provider = "cerebras",
-                model = CEREBRAS_FOLLOWUP_MODEL,
-                timeout_secs = FOLLOWUP_LLM_TIMEOUT.as_secs(),
-                "Act follow-up calls routed to Cerebras"
-            );
-            return Arc::new(CerebrasLlmClient::new(
-                client,
-                key.trim().to_string(),
-                CEREBRAS_FOLLOWUP_MODEL.to_string(),
-            ));
+            return FollowupChoice {
+                provider: "cerebras",
+                model: CEREBRAS_FOLLOWUP_MODEL.to_string(),
+                key: key.trim().to_string(),
+                cerebras_fallback: false,
+            };
         }
+        return FollowupChoice {
+            provider: "gemini",
+            model: model_for_tier(&config.act_model_tier).to_string(),
+            key: act_gemini_key(config, vault),
+            cerebras_fallback: true,
+        };
+    }
+    FollowupChoice {
+        provider: "gemini",
+        model: model_for_tier(&config.act_model_tier).to_string(),
+        key: act_gemini_key(config, vault),
+        cerebras_fallback: false,
+    }
+}
+
+/// A stable fingerprint of the effective follow-up selection —
+/// `provider|model|hash(key)`. The key is hashed (never retained in plaintext)
+/// so two saves that resolve to the same provider/model/key compare equal and no
+/// live rebuild is triggered; any real provider, model, or key change flips it.
+fn followup_signature<V: CredentialSecretReader>(
+    config: &storage::AppConfig,
+    vault: &V,
+) -> String {
+    use std::hash::{Hash, Hasher};
+    let choice = resolve_followup_choice(config, vault);
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    choice.key.hash(&mut hasher);
+    format!("{}|{}|{:016x}", choice.provider, choice.model, hasher.finish())
+}
+
+/// Build the LlmClient for Act's text-only FOLLOW-UP calls (selection routing,
+/// planner, answer) from the selection in [`resolve_followup_choice`].
+fn build_followup_llm<V: CredentialSecretReader>(
+    client: reqwest::Client,
+    config: &storage::AppConfig,
+    vault: &V,
+) -> Arc<dyn LlmClient> {
+    let choice = resolve_followup_choice(config, vault);
+    if choice.cerebras_fallback {
         tracing::warn!(
             "Act follow-up provider is Cerebras but no Cerebras key is configured; using Gemini"
         );
     }
-    let api_key = act_gemini_key(config, vault);
-    let model = model_for_tier(&config.act_model_tier).to_string();
-    tracing::info!(
-        provider = "gemini",
-        model = %model,
-        timeout_secs = FOLLOWUP_LLM_TIMEOUT.as_secs(),
-        "Act follow-up calls routed to Gemini"
-    );
-    Arc::new(GeminiLlmClient::new(client, api_key, model))
+    match choice.provider {
+        "cerebras" => {
+            tracing::info!(
+                provider = "cerebras",
+                model = %choice.model,
+                timeout_secs = FOLLOWUP_LLM_TIMEOUT.as_secs(),
+                "Act follow-up calls routed to Cerebras"
+            );
+            Arc::new(CerebrasLlmClient::new(client, choice.key, choice.model))
+        }
+        _ => {
+            tracing::info!(
+                provider = "gemini",
+                model = %choice.model,
+                timeout_secs = FOLLOWUP_LLM_TIMEOUT.as_secs(),
+                "Act follow-up calls routed to Gemini"
+            );
+            Arc::new(GeminiLlmClient::new(client, choice.key, choice.model))
+        }
+    }
 }
 
 /// The Conductor's capability gate. Opening apps, settings pages, and URLs is the
@@ -188,6 +256,10 @@ async fn arm_into(state: &ActState, config: &storage::AppConfig) {
     conductor.arm();
     let state_name = conductor.state().name();
     *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
+    *state
+        .followup_signature
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = followup_signature(config, &SystemCredentialVault);
     let has_act_hotkey = config.hotkeys.act.is_some();
     state
         .has_act_hotkey
@@ -220,6 +292,98 @@ pub async fn rehydrate_if_enabled(state: &ActState, config: &storage::AppConfig)
     }
     arm_into(state, config).await;
     tracing::info!("Act rehydrated and armed from persisted config on startup.");
+}
+
+/// Rebuild the live Act session's follow-up LLM in place when the effective
+/// provider/model/key changed — no app restart.
+///
+/// Called after a settings save (provider tier via `update_config`) and after a
+/// credential change (Cerebras/Gemini keys via `set_credential` /
+/// `clear_credential`). The bug this fixes: the follow-up LlmClient was built
+/// once at arm time, so switching Gemini <-> Cerebras (or rotating the key) only
+/// took effect on restart.
+///
+/// Safety / no-clobber contract:
+/// * No-op unless Act is enabled AND actually armed. When Act is off the session
+///   is `None` and we do nothing (the next arm rebuilds fresh from config).
+/// * The new selection is fingerprinted ([`followup_signature`]); if it matches
+///   the armed one, nothing is rebuilt — unrelated settings saves never churn
+///   the Conductor.
+/// * The replacement Conductor is built BEFORE the session lock is taken (cheap:
+///   it only constructs HTTP-backed clients), so the lock is held just for the
+///   swap.
+/// * The swap acquires the session mutex with `.lock().await`. An in-flight
+///   command holds that same mutex for its whole plan+execute, so we wait for it
+///   to finish and swap on the next idle — the running mission is preserved, not
+///   dropped. The engine never re-enters the session lock (only `act.rs` /
+///   `dev_relay.rs` touch it), so this cannot deadlock.
+pub async fn refresh_followup_if_changed(state: &ActState, config: &storage::AppConfig) {
+    if !config.act_enabled || !act::act_supported() {
+        return;
+    }
+    let new_signature = followup_signature(config, &SystemCredentialVault);
+    if *state
+        .followup_signature
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        == new_signature
+    {
+        return;
+    }
+
+    // Build the replacement up front so the session lock is held only for the swap.
+    let kill = KillSwitch::new();
+    let mut conductor = build_conductor(state.client.clone(), config, kill.clone());
+    conductor.arm();
+    let state_name = conductor.state().name();
+
+    // Acquire the session lock. If a command is running it holds this lock across
+    // its whole execution; awaiting here lets it finish, THEN swaps.
+    let mut guard = state.session.lock().await;
+    if guard.is_none() {
+        // Not actually armed (Act toggled off between our check and here, or the
+        // session was temporarily borrowed by the dev relay). Do not resurrect it;
+        // the next arm rebuilds fresh from config.
+        return;
+    }
+    *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
+    state.has_act_hotkey.store(
+        config.hotkeys.act.is_some(),
+        std::sync::atomic::Ordering::SeqCst,
+    );
+    *guard = Some(conductor);
+    *state
+        .followup_signature
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = new_signature;
+    drop(guard);
+    tracing::info!(
+        conductor_state = state_name,
+        "Act follow-up provider/key changed in settings; session rebuilt live (no restart)"
+    );
+}
+
+/// Spawn a background [`refresh_followup_if_changed`] from the latest persisted
+/// config. Used by the synchronous credential-save commands, which must not block
+/// on a config load + keyring read; the vault write has already completed by the
+/// time this runs, so the refresh reads the new key.
+pub fn spawn_followup_refresh(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let Some(state) = app.try_state::<ActState>() else {
+            return;
+        };
+        let Some(config_manager) = app.try_state::<ConfigManager>() else {
+            return;
+        };
+        let config = match config_manager.load().await {
+            Ok(config) => config,
+            Err(error) => {
+                tracing::warn!("Act follow-up refresh skipped: failed to load config: {error}");
+                return;
+            }
+        };
+        refresh_followup_if_changed(&state, &config).await;
+    });
 }
 
 /// Turn Act on (build + arm a session) or off (disarm + drop it).
@@ -263,6 +427,11 @@ pub async fn act_set_enabled(
             session.disarm();
         }
         *guard = None;
+        state
+            .followup_signature
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
         tracing::info!("Act session disarmed and dropped");
     }
     Ok(())

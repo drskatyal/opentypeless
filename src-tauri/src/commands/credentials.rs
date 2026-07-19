@@ -3,7 +3,7 @@ use crate::credentials::{
 };
 use crate::storage;
 use serde::Serialize;
-use tauri::{Emitter, Window};
+use tauri::{Emitter, Manager, Window};
 
 const CREDENTIALS_CHANGED_EVENT: &str = "credentials:changed";
 
@@ -75,6 +75,11 @@ pub fn set_credential(
             .map_err(|e| e.to_string())?;
     }
     let _ = window.emit(CREDENTIALS_CHANGED_EVENT, ());
+    // A follow-up provider key (Cerebras, or the Gemini key Act reuses) may have
+    // changed. Rebuild the live Act session's follow-up LLM in the background so
+    // the new key takes effect without a restart. Self-guarded: no-op unless Act
+    // is armed and the effective selection actually changed.
+    crate::commands::act::spawn_followup_refresh(window.app_handle().clone());
     Ok(())
 }
 
@@ -83,6 +88,9 @@ pub fn clear_credential(window: Window, namespace: String, provider: String) -> 
     ensure_main_window(&window)?;
     clear_credential_from_vault(namespace, provider, &SystemCredentialVault)?;
     let _ = window.emit(CREDENTIALS_CHANGED_EVENT, ());
+    // Clearing a key can change the effective follow-up provider (e.g. removing
+    // the Cerebras key forces Act back to Gemini); refresh the live session.
+    crate::commands::act::spawn_followup_refresh(window.app_handle().clone());
     Ok(())
 }
 
