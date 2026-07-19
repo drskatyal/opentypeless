@@ -386,7 +386,7 @@ fn copy_attr_bool(el: AXUIElementRef, name: &str) -> Option<bool> {
     let raw = value.as_CFTypeRef();
     unsafe {
         if CFGetTypeID(raw) == CFBooleanGetTypeID() {
-            return Some(CFBooleanGetValue(raw as CFBooleanRef) != 0);
+            return Some(CFBooleanGetValue(raw as CFBooleanRef));
         }
     }
     None
@@ -415,7 +415,7 @@ fn read_ax_value(el: AXUIElementRef) -> Option<AxValue> {
             return Some(AxValue::Number(n.to_i64().unwrap_or(0)));
         }
         if tid == CFBooleanGetTypeID() {
-            let val = CFBooleanGetValue(raw as CFBooleanRef) != 0;
+            let val = CFBooleanGetValue(raw as CFBooleanRef);
             return Some(AxValue::Number(if val { 1 } else { 0 }));
         }
     }
