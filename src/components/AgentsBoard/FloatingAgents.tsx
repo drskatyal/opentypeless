@@ -1,17 +1,34 @@
-import { AnimatePresence, motion } from 'framer-motion'
-import { Radio } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
-import { useActTasks } from '../../hooks/useActTasks'
+import { useActTasks, type ActTask, type ActTaskStatus } from '../../hooks/useActTasks'
 import { useAgentsWindowResize } from '../../hooks/useAgentsWindowResize'
 import { useAppStore } from '../../stores/appStore'
-import { EmptyState, OrchestrationList, PanelHeader, tallyStatuses } from './index'
 
 /**
- * Start an OS-level window drag from a pointer-down on a handle area. Ignores
- * presses that land on a button/interactive control so clicks (pin, collapse)
- * still register. Once a drag begins the widget's position is locked so the
- * resize hook stops snapping it back to the top-right anchor.
+ * Per-status orb styling. Each agent is a small solid orb: dim while queued,
+ * amber and pulsing while working, green when done, red on error. No grey box —
+ * just a column of orbs in the corner that you can glance at.
  */
+const ORB: Record<ActTaskStatus, { dot: string; glow: string; label: string }> = {
+  queued: { dot: 'bg-text-tertiary/45', glow: '', label: 'Queued' },
+  running: {
+    dot: 'bg-amber-400',
+    glow: 'shadow-[0_0_10px_2px_rgba(251,191,36,0.6)]',
+    label: 'Working',
+  },
+  done: {
+    dot: 'bg-emerald-400',
+    glow: 'shadow-[0_0_8px_1px_rgba(52,211,153,0.5)]',
+    label: 'Done',
+  },
+  failed: {
+    dot: 'bg-red-400',
+    glow: 'shadow-[0_0_9px_2px_rgba(248,113,113,0.6)]',
+    label: 'Error',
+  },
+}
+
+/** Start an OS-level window drag from a pointer-down that isn't on a control. */
 function useWindowDrag(onMoved: () => void) {
   return useCallback(
     (e: React.PointerEvent) => {
@@ -27,24 +44,128 @@ function useWindowDrag(onMoved: () => void) {
   )
 }
 
+/** A single solid orb, pulsing while its agent is working. */
+function Orb({ status, size = 12 }: { status: ActTaskStatus; size?: number }) {
+  const reduced = useReducedMotion()
+  const s = ORB[status]
+  return (
+    <span
+      className="relative flex flex-none items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      {status === 'running' && !reduced && (
+        <motion.span
+          aria-hidden="true"
+          className="absolute inset-0 rounded-full bg-amber-400"
+          animate={{ scale: [1, 1.9], opacity: [0.55, 0] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
+        />
+      )}
+      <span className={`h-full w-full rounded-full ${s.dot} ${s.glow}`} />
+    </span>
+  )
+}
+
+/** Collapsed view: a thin vertical column of orbs, one per agent. */
+function OrbColumn({ tasks, present }: { tasks: ActTask[]; present: boolean }) {
+  return (
+    <motion.div
+      key="orbs"
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 8 }}
+      transition={{ type: 'spring', stiffness: 460, damping: 32 }}
+      className="flex h-full w-full flex-col items-center justify-start gap-3 py-2.5"
+    >
+      {tasks.length === 0 ? (
+        // Idle: a single dim orb so the user knows the HUD is there.
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${present ? 'bg-text-tertiary/45' : 'bg-text-tertiary/25'}`}
+        />
+      ) : (
+        <AnimatePresence initial={false}>
+          {tasks.map((t) => (
+            <motion.div
+              key={t.id}
+              layout
+              initial={{ opacity: 0, scale: 0.4 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.4 }}
+              transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+            >
+              <Orb status={t.status} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      )}
+    </motion.div>
+  )
+}
+
+/** Expanded view: one row per agent — orb + label + live step. */
+function ExpandedList({ tasks }: { tasks: ActTask[] }) {
+  const running = tasks.filter((t) => t.status === 'running').length
+  const done = tasks.filter((t) => t.status === 'done').length
+  const failed = tasks.filter((t) => t.status === 'failed').length
+  const parts = [
+    running ? `${running} working` : '',
+    done ? `${done} done` : '',
+    failed ? `${failed} failed` : '',
+  ].filter(Boolean)
+
+  return (
+    <motion.div
+      key="list"
+      initial={{ opacity: 0, scale: 0.97, x: 8 }}
+      animate={{ opacity: 1, scale: 1, x: 0 }}
+      exit={{ opacity: 0, scale: 0.97, x: 8 }}
+      transition={{ type: 'spring', stiffness: 460, damping: 34 }}
+      style={{ transformOrigin: 'top right' }}
+      className="flex h-full w-full flex-col overflow-hidden rounded-[14px] bg-bg-secondary/95 shadow-float ring-1 ring-accent/15 backdrop-blur"
+    >
+      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+        <span className="text-[12px] font-semibold text-text-primary">
+          {tasks.length} agent{tasks.length === 1 ? '' : 's'}
+        </span>
+        <span className="truncate text-[10.5px] text-text-tertiary">
+          {parts.join(' · ') || 'idle'}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto py-1.5">
+        {tasks.map((t) => (
+          <div key={t.id} className="flex items-start gap-2.5 px-3 py-1.5">
+            <span className="mt-[3px]">
+              <Orb status={t.status} size={11} />
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-[12px] font-medium text-text-primary">{t.label}</p>
+              <p className="truncate text-[10.5px] text-text-secondary">
+                {t.status === 'failed' && t.summary
+                  ? t.summary
+                  : t.detail || t.summary || ORB[t.status].label}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
 /**
  * Contents of the dedicated always-on-top `agents` window (`index.html#agents`).
- * The OS window itself is the widget: it lives in the TOP-RIGHT corner, on top of
- * every other app, and AUTO-OPENS into the full panel the moment Act starts a
- * mission — so the user actually sees what the agents are doing without hunting
- * for a hidden edge tab. When idle it collapses to a small pill. It only exists
- * when Act is enabled, and never takes focus.
+ * The OS window is a thin vertical strip of status orbs top-right — one orb per
+ * agent, colour-coded and pulsing — that expands into a labelled card on hover.
+ * It only exists when Act is enabled, and never takes focus.
  */
 export function FloatingAgents() {
   const tasks = useActTasks()
   const actEnabled = useAppStore((s) => s.config.act_enabled)
   const [hovered, setHovered] = useState(false)
   const [pinned, setPinned] = useState(false)
-  // Auto-open whenever there are missions to show — the widget pops open on its
-  // own when Act works, and falls back to the pill only when everything is idle.
-  // A grace period keeps it open briefly after the last mission clears so the
-  // panel doesn't flicker closed→open between two back-to-back commands (each new
-  // command momentarily empties the task list before the next mission spawns).
+
+  // Keep the strip present briefly after the last agent clears so it doesn't
+  // flicker away between two back-to-back commands.
   const hasTasks = tasks.length > 0
   const [recentlyActive, setRecentlyActive] = useState(false)
   useEffect(() => {
@@ -56,87 +177,27 @@ export function FloatingAgents() {
     return () => clearTimeout(timer)
   }, [hasTasks])
 
-  // Manual collapse: the user can fold the panel back to the pill even while Act
-  // is working. It stays collapsed until they reopen it or the run fully clears.
-  const [userCollapsed, setUserCollapsed] = useState(false)
-  useEffect(() => {
-    if (!hasTasks) setUserCollapsed(false)
-  }, [hasTasks])
-
-  // Once the widget is dragged, lock its position so the resize hook stops
-  // re-anchoring it to the top-right corner.
   const [moved, setMoved] = useState(false)
   const startDrag = useWindowDrag(() => setMoved(true))
 
-  const open = !userCollapsed && (hovered || pinned || hasTasks || recentlyActive)
-  const counts = tallyStatuses(tasks)
+  const present = hasTasks || recentlyActive
+  const open = (hovered || pinned) && present
+  const count = Math.max(tasks.length, 1)
 
-  useAgentsWindowResize(open, actEnabled, moved)
+  useAgentsWindowResize(open, actEnabled, moved, count)
 
   if (!actEnabled) return null
 
   return (
     <div
-      className="h-screen w-screen overflow-hidden"
+      className="flex h-screen w-screen items-start justify-end overflow-hidden"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onPointerDown={startDrag}
+      onClick={() => present && setPinned((p) => !p)}
     >
       <AnimatePresence mode="wait" initial={false}>
-        {open ? (
-          <motion.div
-            key="panel"
-            initial={{ opacity: 0, scale: 0.96, y: -6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -6 }}
-            transition={{ type: 'spring', stiffness: 460, damping: 34 }}
-            style={{ transformOrigin: 'top right' }}
-            onPointerDown={startDrag}
-            className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-border bg-bg-secondary/95 shadow-float backdrop-blur"
-          >
-            <PanelHeader
-              total={tasks.length}
-              counts={counts}
-              pinned={pinned}
-              onTogglePin={() => setPinned((p) => !p)}
-              onCollapse={() => {
-                setUserCollapsed(true)
-                setPinned(false)
-                setHovered(false)
-              }}
-            />
-            <div className="flex-1 overflow-y-auto pt-2 pb-2.5">
-              {tasks.length === 0 ? <EmptyState /> : <OrchestrationList tasks={tasks} />}
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="pill"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-            onPointerDown={startDrag}
-            className="flex h-full w-full items-center gap-2 rounded-full border border-border bg-bg-secondary/90 pr-2 pl-2.5 shadow-lg backdrop-blur"
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setUserCollapsed(false)
-                setPinned(true)
-              }}
-              aria-label="Open agents panel"
-              className="flex flex-1 cursor-pointer items-center gap-2 bg-transparent"
-            >
-              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-accent/40 bg-accent/12 text-accent">
-                <Radio size={14} strokeWidth={2.2} />
-              </span>
-              <span className="text-[12.5px] font-semibold text-text-primary">Agents</span>
-              <span className="ml-auto text-[11px] text-text-tertiary">
-                {hasTasks ? `${counts.running} live` : 'idle'}
-              </span>
-            </button>
-          </motion.div>
-        )}
+        {open ? <ExpandedList tasks={tasks} /> : <OrbColumn tasks={tasks} present={present} />}
       </AnimatePresence>
     </div>
   )

@@ -79,6 +79,7 @@ export function AgentsBoard() {
 }
 
 export interface StatusTally {
+  queued: number
   running: number
   done: number
   failed: number
@@ -90,7 +91,7 @@ export function tallyStatuses(tasks: ActTask[]): StatusTally {
       acc[t.status] += 1
       return acc
     },
-    { running: 0, done: 0, failed: 0 } as StatusTally,
+    { queued: 0, running: 0, done: 0, failed: 0 } as StatusTally,
   )
 }
 
@@ -245,6 +246,13 @@ const STATUS: Record<
   ActTask['status'],
   { dot: string; text: string; soft: string; border: string; label: string }
 > = {
+  queued: {
+    dot: 'bg-text-tertiary/50',
+    text: 'text-text-tertiary',
+    soft: 'bg-text-tertiary/10',
+    border: 'border-border',
+    label: 'QUEUED',
+  },
   running: {
     dot: 'bg-accent',
     text: 'text-accent',

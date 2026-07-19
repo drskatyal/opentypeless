@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 
-/** Live status of one Act mission ("task") on the Agents board. */
-export type ActTaskStatus = 'running' | 'done' | 'failed'
+/** Live status of one Act mission ("task") on the Agents board. `queued` is a
+ * mission that has been spawned (all of a command's agents appear at once, up
+ * front) but hasn't started running yet. */
+export type ActTaskStatus = 'queued' | 'running' | 'done' | 'failed'
 
 /** One card on the Agents board — a single mission of the current command. */
 export interface ActTask {
