@@ -442,7 +442,11 @@ fn terse_description(desc: &str) -> String {
     // Collapse any run of whitespace (incl. the gaps a stripped clause left) to one.
     let collapsed = stripped.split_whitespace().collect::<Vec<_>>().join(" ");
     if collapsed.chars().count() > CARD_DESC_MAX {
-        collapsed.chars().take(CARD_DESC_MAX - 1).collect::<String>() + "…"
+        collapsed
+            .chars()
+            .take(CARD_DESC_MAX - 1)
+            .collect::<String>()
+            + "…"
     } else {
         collapsed
     }
@@ -460,7 +464,12 @@ impl FlowCard {
         } else {
             format!(" slots=[{}]", self.slots.join(","))
         };
-        format!("{} — {}{}", self.id, terse_description(&self.description), slots)
+        format!(
+            "{} — {}{}",
+            self.id,
+            terse_description(&self.description),
+            slots
+        )
     }
 }
 

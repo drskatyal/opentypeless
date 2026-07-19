@@ -146,7 +146,9 @@ impl Default for BrowserConfig {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(DEFAULT_CDP_PORT);
-        let cdp_url = std::env::var("FLOWRAD_CDP_URL").ok().filter(|s| !s.is_empty());
+        let cdp_url = std::env::var("FLOWRAD_CDP_URL")
+            .ok()
+            .filter(|s| !s.is_empty());
         let user_data_dir = std::env::var("FLOWRAD_USER_DATA_DIR")
             .ok()
             .filter(|s| !s.is_empty())

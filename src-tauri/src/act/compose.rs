@@ -81,8 +81,7 @@ pub async fn compose_body(llm: &dyn LlmClient, topic: &str, kind: &str) -> Strin
 /// (directory/file creation, docx packing) are returned as a string for the caller
 /// to surface — nothing is inserted anywhere on failure.
 pub fn save_docx(dir: &Path, topic: &str, kind: &str, body: &str) -> Result<PathBuf, String> {
-    std::fs::create_dir_all(dir)
-        .map_err(|e| format!("couldn't create {}: {e}", dir.display()))?;
+    std::fs::create_dir_all(dir).map_err(|e| format!("couldn't create {}: {e}", dir.display()))?;
 
     let path = unique_path(dir, &file_base(topic, kind, body));
 
@@ -180,7 +179,12 @@ fn sanitize_filename(s: &str) -> String {
         })
         .collect();
     let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-    collapsed.chars().take(80).collect::<String>().trim().to_string()
+    collapsed
+        .chars()
+        .take(80)
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 /// Resolve a non-colliding `{stem}.docx` path in `dir`: return `{stem}.docx` if free,
