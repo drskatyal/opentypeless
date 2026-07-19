@@ -413,7 +413,7 @@
     "hotkeyConflict": "Dictation and Ask shortcuts cannot be the same.",
     "hotkeyInvalid": "One shortcut is invalid. Record a new key combination.",
     "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
-    "diagnostics": "Diagnostics",
+    "diagnostics": "진단",
     "healthReady": "Ready",
     "healthChecking": "Checking",
     "healthDegraded": "Degraded",
@@ -505,7 +505,8 @@
     "actModeDesc": "Act가 활성화되었을 때 말할 수 있는 모든 것 — 앱 열기, 검색, 제어.",
     "dictionaryDesc": "모든 전사에 적용되는 사용자 단어와 텍스트 대체.",
     "scenesDesc": "앱별 작성 모드와 나만의 커스텀 장면.",
-    "aboutDesc": "버전, 업데이트, 프로젝트 정보."
+    "aboutDesc": "버전, 업데이트, 프로젝트 정보.",
+    "diagnosticsDesc": "모든 작업, 오류, AI 요청의 실시간 로그 — 디버깅용."
   },
   "act": {
     "armed": "Act 준비됨",

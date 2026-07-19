@@ -413,7 +413,7 @@
     "hotkeyConflict": "Dictation and Ask shortcuts cannot be the same.",
     "hotkeyInvalid": "One shortcut is invalid. Record a new key combination.",
     "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
-    "diagnostics": "Diagnostics",
+    "diagnostics": "診断",
     "healthReady": "Ready",
     "healthChecking": "Checking",
     "healthDegraded": "Degraded",
@@ -505,7 +505,8 @@
     "actModeDesc": "Act有効時に話せる操作のすべて — アプリを開く・検索・操作。",
     "dictionaryDesc": "すべての文字起こしに適用されるカスタム単語とテキスト置換。",
     "scenesDesc": "アプリごとの書き込みモードと自分だけのカスタムシーン。",
-    "aboutDesc": "バージョン、アップデート、プロジェクト情報。"
+    "aboutDesc": "バージョン、アップデート、プロジェクト情報。",
+    "diagnosticsDesc": "すべての操作・エラー・AIリクエストのライブログ（デバッグ用）。"
   },
   "act": {
     "armed": "Act 待機中",

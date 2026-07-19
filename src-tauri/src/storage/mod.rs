@@ -355,6 +355,10 @@ pub struct AppConfig {
     pub act_enabled: bool,
     /// Act planner model tier: "fast" (default) or "precise".
     pub act_model_tier: String,
+    /// How Act perceives the screen when planning: "tree" (default, accessibility
+    /// tree only), "hybrid" (tree + screenshot with Set-of-Marks), or "vision"
+    /// (screenshot only, coordinate actions). See `docs/act-screen-aware-design.md`.
+    pub act_plan_mode: String,
     /// Provider for Act's text-only FOLLOW-UP calls (selection routing, planner,
     /// answer): "gemini" (default) or "cerebras". The first/audio call always
     /// stays on Gemini.
@@ -427,6 +431,7 @@ impl Default for AppConfig {
                 .to_string(),
             act_enabled: false,
             act_model_tier: "fast".to_string(),
+            act_plan_mode: "tree".to_string(),
             act_followup_provider: "gemini".to_string(),
             cerebras_api_key: String::new(),
             llm_provider: "gemini".to_string(),

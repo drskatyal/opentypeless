@@ -4,6 +4,7 @@ pub mod ask;
 pub mod backup;
 pub mod config;
 pub mod credentials;
+pub mod diag;
 pub mod dictionary;
 pub mod history;
 pub mod llm;

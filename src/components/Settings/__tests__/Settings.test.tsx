@@ -347,7 +347,6 @@ describe('Settings tab 切换', () => {
     expect(screen.queryByText('ask.voiceQuestion')).toBeNull()
     expect(screen.getByText('settings.outputMode')).toBeDefined()
     expect(screen.getByText('settings.dictationMode')).toBeDefined()
-    expect(screen.queryByText('settings.diagnostics')).toBeNull()
   })
 
   it('General pane keeps Ask visible and hides low-frequency settings until More is opened', () => {
@@ -356,7 +355,6 @@ describe('Settings tab 切换', () => {
     expect(screen.getByText('settings.hotkey')).toBeDefined()
     expect(screen.getByText('settings.askHotkey')).toBeDefined()
     expect(screen.getByText('settings.outputMode')).toBeDefined()
-    expect(screen.queryByText('settings.diagnostics')).toBeNull()
     expect(screen.queryByText('settings.restoreClipboardAfterPaste')).toBeNull()
     expect(screen.queryByText('settings.maxRecordingDuration')).toBeNull()
     expect(screen.queryByText('settings.historyPrivacy')).toBeNull()
@@ -367,7 +365,6 @@ describe('Settings tab 切换', () => {
     expect(screen.getAllByText('settings.askHotkey')).toHaveLength(1)
     expect(screen.getByText('settings.saveHistory')).toBeDefined()
     expect(screen.getByText('settings.launchAtStartup')).toBeDefined()
-    expect(screen.queryByText('settings.diagnostics')).toBeNull()
     expect(screen.queryByText('settings.restoreClipboardAfterPaste')).toBeNull()
     expect(screen.queryByText('settings.maxRecordingDuration')).toBeNull()
     expect(screen.queryByText('settings.historyPrivacy')).toBeNull()
@@ -451,7 +448,6 @@ describe('Settings tab 切换', () => {
     expect(screen.queryByText('settings.startMinimized')).toBeNull()
     expect(screen.getByText('settings.hideCapsuleWhenIdle')).toBeDefined()
     expect(screen.queryByText('settings.outputDetails')).toBeNull()
-    expect(screen.queryByText('settings.diagnostics')).toBeNull()
     expect(screen.getByRole('switch', { name: 'settings.launchAtStartup' })).toHaveAttribute(
       'aria-checked',
       'true',

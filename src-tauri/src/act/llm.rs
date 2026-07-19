@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 use crate::error::AppError;
 
@@ -30,6 +31,34 @@ pub trait LlmClient: Send + Sync {
         user: &str,
         schema: Option<&serde_json::Value>,
     ) -> Result<String, AppError>;
+
+    /// Whether this transport can actually SEE an attached screenshot. Only a
+    /// multimodal transport ([`GeminiLlmClient`]) returns `true`; the text-only
+    /// transports (Cerebras `gpt-oss-120b`, the test fixture) return `false`.
+    ///
+    /// The planner uses this to avoid a silent failure mode: in `hybrid` / `vision`
+    /// plan modes a text-only client would be handed a coordinate-click prompt for a
+    /// screenshot it cannot see, and would click blindly. When this is `false` the
+    /// planner degrades the perception to `tree` instead.
+    fn is_multimodal(&self) -> bool {
+        false
+    }
+
+    /// Like [`generate_json`](Self::generate_json), but with an optional PNG
+    /// screenshot for the `hybrid` / `vision` plan modes. The default **ignores**
+    /// the image and delegates to the text path, so a text-only transport
+    /// (Cerebras `gpt-oss-120b`, the test fixture) can never "see" — only a
+    /// multimodal transport ([`GeminiLlmClient`]) overrides this to attach the
+    /// image. See `docs/act-screen-aware-design.md`.
+    async fn generate_json_multimodal(
+        &self,
+        system: &str,
+        user: &str,
+        _image_png: Option<&[u8]>,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
+        self.generate_json(system, user, schema).await
+    }
 }
 
 /// Production transport: cloud `generateContent` with `responseMimeType:
@@ -59,10 +88,38 @@ impl GeminiLlmClient {
 
 #[async_trait]
 impl LlmClient for GeminiLlmClient {
+    fn is_multimodal(&self) -> bool {
+        true
+    }
+
     async fn generate_json(
         &self,
         system: &str,
         user: &str,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
+        self.generate_inner(system, user, None, schema).await
+    }
+
+    async fn generate_json_multimodal(
+        &self,
+        system: &str,
+        user: &str,
+        image_png: Option<&[u8]>,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, AppError> {
+        self.generate_inner(system, user, image_png, schema).await
+    }
+}
+
+impl GeminiLlmClient {
+    /// Shared request path for the text and multimodal calls. When `image_png` is
+    /// `Some`, a PNG `inlineData` part is attached alongside the user text.
+    async fn generate_inner(
+        &self,
+        system: &str,
+        user: &str,
+        image_png: Option<&[u8]>,
         schema: Option<&serde_json::Value>,
     ) -> Result<String, AppError> {
         if self.api_key.trim().is_empty() {
@@ -86,13 +143,31 @@ impl LlmClient for GeminiLlmClient {
             sanitize_gemini_schema(&mut sanitized);
             generation_config["responseSchema"] = sanitized;
         }
+        let mut parts = vec![serde_json::json!({ "text": user })];
+        if let Some(png) = image_png {
+            parts.push(serde_json::json!({
+                "inlineData": { "mimeType": "image/png", "data": STANDARD.encode(png) }
+            }));
+        }
         let body = serde_json::json!({
             "systemInstruction": { "parts": [{ "text": system }] },
-            "contents": [{ "role": "user", "parts": [{ "text": user }] }],
+            "contents": [{ "role": "user", "parts": parts }],
             "generationConfig": generation_config,
         });
 
-        tracing::debug!(model = %self.model, "Act LLM request");
+        tracing::debug!(model = %self.model, has_image = image_png.is_some(), "Act LLM request");
+        // Full prompt capture for the in-app Diagnostics panel (crate::diag). The
+        // system prompt is large and static, so log only its length; the user
+        // message is the dynamic, useful part, so log it in full (truncated for
+        // sanity). Screenshots are never logged (only a flag).
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            has_image = image_png.is_some(),
+            system_len = system.len(),
+            user = %truncate_for_log(user, 6000),
+            "Act LLM prompt (Gemini)"
+        );
         let resp = self
             .client
             .post(&url)
@@ -143,8 +218,29 @@ impl LlmClient for GeminiLlmClient {
         if text.is_empty() {
             return Err(AppError::Config("Act planner returned no content".into()));
         }
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            response = %truncate_for_log(&text, 6000),
+            "Act LLM response (Gemini)"
+        );
         Ok(text)
     }
+}
+
+/// Truncate a prompt/response for logging so a huge tree snapshot doesn't flood
+/// the diagnostics buffer. Cuts on a char boundary and marks the elision.
+fn truncate_for_log(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    let end = s
+        .char_indices()
+        .take_while(|&(i, _)| i < max)
+        .last()
+        .map(|(i, c)| i + c.len_utf8())
+        .unwrap_or(0);
+    format!("{}… [+{} bytes]", &s[..end], s.len() - end)
 }
 
 /// Follow-up transport: an OpenAI-compatible `/chat/completions` provider, used
@@ -224,6 +320,13 @@ impl LlmClient for CerebrasLlmClient {
 
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
         tracing::debug!(model = %self.model, "Act follow-up LLM request (Cerebras)");
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            system_len = system_prompt.len(),
+            user = %truncate_for_log(user, 6000),
+            "Act LLM prompt (Cerebras)"
+        );
         let resp = self
             .client
             .post(&url)
@@ -266,6 +369,12 @@ impl LlmClient for CerebrasLlmClient {
         if text.is_empty() {
             return Err(AppError::Config("Act follow-up returned no content".into()));
         }
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            response = %truncate_for_log(&text, 6000),
+            "Act LLM response (Cerebras)"
+        );
         Ok(text)
     }
 }
@@ -380,6 +489,7 @@ mod schema_tests {
 #[cfg(test)]
 pub mod test_support {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Mutex;
 
     /// A fixture [`LlmClient`] that records prompts and returns canned responses
@@ -387,6 +497,13 @@ pub mod test_support {
     pub struct FixtureLlmClient {
         responses: Mutex<Vec<Result<String, AppError>>>,
         pub calls: Mutex<Vec<(String, String)>>,
+        /// Whether this fixture claims to be multimodal ([`LlmClient::is_multimodal`]).
+        /// A text-only fixture (the default) makes the planner degrade screenshot
+        /// modes to tree, exactly like Cerebras; a multimodal one keeps the image.
+        multimodal: bool,
+        /// Set once the multimodal path is invoked WITH an image attached — lets a
+        /// test assert the screenshot actually reached the (multimodal) client.
+        saw_image: AtomicBool,
     }
 
     impl FixtureLlmClient {
@@ -394,16 +511,34 @@ pub mod test_support {
             Self {
                 responses: Mutex::new(responses),
                 calls: Mutex::new(Vec::new()),
+                multimodal: false,
+                saw_image: AtomicBool::new(false),
             }
+        }
+
+        /// Mark this fixture as multimodal (able to "see" a screenshot), so the
+        /// planner does not degrade hybrid/vision to tree when it is selected.
+        pub fn multimodal(mut self) -> Self {
+            self.multimodal = true;
+            self
         }
 
         pub fn call_count(&self) -> usize {
             self.calls.lock().unwrap().len()
         }
+
+        /// Whether a screenshot was attached to the last-invoked multimodal call.
+        pub fn saw_image(&self) -> bool {
+            self.saw_image.load(Ordering::Relaxed)
+        }
     }
 
     #[async_trait]
     impl LlmClient for FixtureLlmClient {
+        fn is_multimodal(&self) -> bool {
+            self.multimodal
+        }
+
         async fn generate_json(
             &self,
             system: &str,
@@ -419,6 +554,19 @@ pub mod test_support {
                 return Err(AppError::Config("fixture exhausted".into()));
             }
             r.remove(0)
+        }
+
+        async fn generate_json_multimodal(
+            &self,
+            system: &str,
+            user: &str,
+            image_png: Option<&[u8]>,
+            schema: Option<&serde_json::Value>,
+        ) -> Result<String, AppError> {
+            if image_png.is_some() {
+                self.saw_image.store(true, Ordering::Relaxed);
+            }
+            self.generate_json(system, user, schema).await
         }
     }
 }

@@ -12,7 +12,7 @@ use super::audit::{AuditEntry, AuditLog};
 use super::backend::AccessibilityBackend;
 use super::capability::{CapabilityGate, Decision};
 use super::destructive::{self, Destructive};
-use super::element::{ElementPath, Snapshot};
+use super::element::{ElementPath, ElementState, Snapshot};
 use super::events::AskOption;
 use super::focus_guard;
 use super::grounding::{self, Grounded};
@@ -464,6 +464,38 @@ impl Executor {
             }
         }
 
+        // 5d. Reach below-the-fold targets. A control marked `offscreen` is
+        // scrolled out of the viewport, so a coordinate click at its bounds hits
+        // nothing (the "clicks empty space, no progress, aborts" failure on a
+        // YouTube result). An a11y invoke-by-path still works, but bringing the
+        // element into view first makes the invoke/focus land reliably and keeps
+        // any bounds-based fallback on real pixels. Best-effort and non-fatal: on
+        // any failure we act in place anyway, and the kill switch pre-empts it.
+        if matches!(action, Action::Invoke { .. } | Action::Focus { .. }) {
+            if let Some(path) = action.target() {
+                let offscreen = snapshot
+                    .get(path)
+                    .is_some_and(|e| e.has_state(ElementState::Offscreen));
+                if offscreen {
+                    let path = path.to_string();
+                    let kill = self.kill.clone();
+                    tokio::select! {
+                        biased;
+                        _ = kill.wait_tripped() => return Ok(Flow::Aborted),
+                        r = self.backend.scroll_into_view(&path) => {
+                            if let Err(e) = r {
+                                tracing::debug!(
+                                    target = %path,
+                                    error = %e,
+                                    "act executor: scroll_into_view failed; acting in place"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 6. Execute, racing the kill switch.
         match self.execute_action(&action).await? {
             Execution::Ok => {
@@ -625,6 +657,17 @@ impl Executor {
                     _ = kill.wait_tripped() => Ok(Execution::Aborted),
                     _ = tokio::time::sleep(dur) => Ok(Execution::Ok),
                 }
+            }
+            Action::Click { x, y } => {
+                // `vision`-mode coordinate click. The focus guard (armed by an
+                // earlier launch/focus in this run) still applies to the app that
+                // owns the coordinate, and the kill switch pre-empts it.
+                let res = tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    r = self.backend.click_point(*x, *y) => r,
+                };
+                Ok(res.map_or_else(|e| Execution::Failed(e.to_string()), |()| Execution::Ok))
             }
             Action::Launch { target, .. } => {
                 // A web URL handed to `launch` can't be started as an application
@@ -828,23 +871,42 @@ impl Executor {
                     typed = guarded!(self.backend.key_combo("ctrl+a"));
                 }
                 if typed.is_ok() {
-                    // A single type primitive can choke on a long paragraph, so send
-                    // the text as <=500-byte, char-boundary chunks (never splitting a
-                    // CRLF). This unblocks multi-paragraph writes; each chunk still
-                    // races the kill switch via `guarded!`.
-                    for chunk in chunk_type_text(text) {
-                        typed = guarded!(self.backend.type_text(chunk));
-                        if typed.is_err() {
-                            break;
+                    if should_paste(text) {
+                        // Large or multi-line text is PASTED (clipboard + Ctrl+V)
+                        // rather than typed key-by-key. Char-typing a long report
+                        // blows past the UIA type watchdog (10s) — each 500-byte
+                        // chunk is a single broker op that never returns, so the
+                        // loop retries the same type forever. Paste is one fast op,
+                        // and it inserts newlines as plain line breaks instead of
+                        // the page breaks that keystroke `\n` produces in some
+                        // editors (e.g. a Word dictation add-in intercepting Enter).
+                        typed = guarded!(self.backend.clipboard_set(text));
+                        if typed.is_ok() {
+                            typed = guarded!(self.backend.key_combo("ctrl+v"));
+                        }
+                    } else {
+                        // Short single-line text is still typed: it mimics real
+                        // keystrokes for search boxes and does not clobber the
+                        // clipboard. Chunked <=500 bytes on char boundaries (never
+                        // splitting a CRLF); each chunk races the kill switch.
+                        for chunk in chunk_type_text(text) {
+                            typed = guarded!(self.backend.type_text(chunk));
+                            if typed.is_err() {
+                                break;
+                            }
                         }
                     }
                 }
                 typed
             }
-            Action::Scroll { .. } => {
-                // Best-effort: the backend trait has no cross-platform scroll
-                // primitive yet, so treat scroll as a no-op success.
-                Ok(())
+            Action::Scroll { amount, .. } => {
+                // Drive the real backend scroll primitive. `amount` is a signed
+                // wheel-notch count (positive = down, negative = up); a zero/absent
+                // amount defaults to a modest downward nudge (the common "scroll
+                // down to see more results" case). The target, if any, was already
+                // brought into view by the offscreen-reach step below; the wheel
+                // itself acts on the foreground scrollable region.
+                guarded!(self.backend.scroll(0, scroll_dy(*amount)))
             }
             Action::SelectMenu { path } => {
                 // Best-effort: walk the menu by invoking each item path in turn.
@@ -881,6 +943,7 @@ impl Executor {
             | Action::Uri { .. }
             | Action::Shell { .. }
             | Action::Wait { .. }
+            | Action::Click { .. }
             | Action::FocusApp { .. }
             | Action::Clipboard { .. } => {
                 return Ok(Execution::Failed(
@@ -1060,6 +1123,7 @@ fn is_script_primitive(action: &Action) -> bool {
             | Action::Uri { .. }
             | Action::Shell { .. }
             | Action::Wait { .. }
+            | Action::Click { .. }
             | Action::FocusApp { .. }
             | Action::Clipboard { .. }
     )
@@ -1133,6 +1197,35 @@ fn describe_flow(flow: &Flow) -> (&'static str, String) {
         Flow::Aborted => ("aborted", String::new()),
         Flow::Stop => ("stop", String::new()),
     }
+}
+
+/// The default number of vertical wheel notches a `Scroll` with no explicit
+/// `amount` performs — a modest downward nudge, enough to pull the next band of
+/// list results into view without overshooting the whole page.
+const DEFAULT_SCROLL_NOTCHES: i32 = 3;
+
+/// Translate a [`Action::Scroll`]'s `amount` into vertical wheel notches for the
+/// backend `scroll` primitive. `amount` is a signed notch count (positive = down,
+/// negative = up); a zero/absent `amount` defaults to
+/// [`DEFAULT_SCROLL_NOTCHES`] downward.
+fn scroll_dy(amount: i32) -> i32 {
+    if amount == 0 {
+        DEFAULT_SCROLL_NOTCHES
+    } else {
+        amount
+    }
+}
+
+/// Above this length, a `type` action is pasted (clipboard + Ctrl+V) instead of
+/// typed key-by-key, to stay clear of the UIA type watchdog. Multi-line text is
+/// always pasted regardless of length (keystroke `\n` becomes a page break in some
+/// editors). Short single-line text is still typed.
+const TYPE_PASTE_THRESHOLD: usize = 120;
+
+/// Whether a `type` action's text should be pasted rather than typed. True for any
+/// text that contains a newline or exceeds [`TYPE_PASTE_THRESHOLD`] bytes.
+fn should_paste(text: &str) -> bool {
+    text.len() > TYPE_PASTE_THRESHOLD || text.contains('\n')
 }
 
 /// The maximum byte length of one `type_text` chunk. Long text is split into
@@ -1387,6 +1480,53 @@ mod tests {
         let result = exec.execute_plan(plan).await.unwrap();
         assert!(result.completed);
         assert_eq!(backend.typed(), vec!["hi".to_string()]);
+    }
+
+    #[test]
+    fn should_paste_covers_multiline_and_long_text() {
+        assert!(should_paste("a\nb"), "any newline pastes");
+        assert!(should_paste(&"x".repeat(200)), "long text pastes");
+        assert!(
+            !should_paste("Cal California"),
+            "short single line is typed"
+        );
+        assert!(
+            !should_paste(""),
+            "empty text keeps the single-call type path"
+        );
+    }
+
+    #[tokio::test]
+    async fn large_multiline_type_is_pasted_not_typed() {
+        // A long / multi-line `type` (a written report) must paste via clipboard +
+        // Ctrl+V, never char-type: char typing blows past the UIA type watchdog and
+        // turns newlines into page breaks in some editors.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let report = "Line one\nLine two\nLine three".to_string();
+        let plan = ActionPlan::new(vec![Action::Type {
+            text: report.clone(),
+            clear: false,
+        }]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        assert_eq!(backend.clipboard_sets(), vec![report]);
+        assert!(
+            backend
+                .keys()
+                .iter()
+                .any(|k| k.eq_ignore_ascii_case("ctrl+v")),
+            "pasted text is committed with Ctrl+V"
+        );
+        assert!(
+            backend.typed().is_empty(),
+            "a pasted block must not also be char-typed"
+        );
     }
 
     #[tokio::test]
@@ -1676,6 +1816,94 @@ mod tests {
         assert!(backend.invoked().is_empty());
     }
 
+    #[tokio::test]
+    async fn scroll_action_calls_backend_scroll_with_mapped_amount() {
+        // #1: `Action::Scroll` is no longer a no-op — it drives the backend `scroll`
+        // primitive. A zero/absent amount defaults to a downward nudge; a signed
+        // amount passes through (negative = up).
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![
+            Action::Scroll {
+                target: None,
+                amount: 0,
+            },
+            Action::Scroll {
+                target: None,
+                amount: -2,
+            },
+        ]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed, "scroll actions run to completion");
+        assert_eq!(
+            backend.scrolls(),
+            vec![(0, DEFAULT_SCROLL_NOTCHES), (0, -2)],
+            "amount 0 defaults to a downward nudge; a signed amount passes through"
+        );
+    }
+
+    fn snapshot_with_offscreen_result() -> Snapshot {
+        // A YouTube-style result present in the tree but scrolled below the fold.
+        let mut result = el("#/5", Role::Link, "Eagles - Hotel California");
+        result.states = vec![ElementState::Offscreen];
+        Snapshot {
+            app: "Chrome".into(),
+            window_title: "YouTube".into(),
+            focused: Some("#/1".into()),
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![el("#/1", Role::TextField, "Search"), result],
+        }
+    }
+
+    #[tokio::test]
+    async fn offscreen_invoke_scrolls_into_view_before_acting() {
+        // #3a: invoking a target marked `offscreen` first brings it into view, so
+        // the invoke lands on a real control instead of scrolled-out empty space.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_with_offscreen_result())
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/5".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        assert_eq!(
+            backend.scrolled_into_view(),
+            vec!["#/5".to_string()],
+            "the offscreen target is scrolled into view first"
+        );
+        assert_eq!(backend.invoked(), vec!["#/5".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn onscreen_invoke_does_not_scroll_into_view() {
+        // The offscreen-reach step is inert for an on-screen control: a plain
+        // invoke must not pay a spurious scroll-into-view.
+        let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Invoke {
+            target: "#/2".into(),
+        }]);
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed);
+        assert!(
+            backend.scrolled_into_view().is_empty(),
+            "an on-screen target is not scrolled into view"
+        );
+        assert_eq!(backend.invoked(), vec!["#/2".to_string()]);
+    }
+
+    #[test]
+    fn scroll_dy_maps_amount_to_notches() {
+        assert_eq!(scroll_dy(0), DEFAULT_SCROLL_NOTCHES, "0 defaults to down");
+        assert_eq!(scroll_dy(5), 5, "positive passes through (down)");
+        assert_eq!(scroll_dy(-3), -3, "negative passes through (up)");
+    }
+
     #[test]
     fn chunk_type_text_short_is_single_chunk() {
         assert_eq!(chunk_type_text(""), vec![""]);
@@ -1722,7 +1950,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn type_long_text_is_chunked_into_multiple_type_calls() {
+    async fn type_long_text_is_pasted_in_one_shot() {
+        // Long text (even single-line) now pastes rather than char-types, to stay
+        // clear of the UIA type watchdog. The chunking helper is still exercised by
+        // `chunk_type_text` unit tests and the short-text typed path.
         let backend = Arc::new(MockBackend::builder().snapshot(snapshot()).build());
         let mut exec = executor(backend.clone());
         let long = "z".repeat(1300);
@@ -1732,13 +1963,12 @@ mod tests {
         }]);
         let result = exec.execute_plan(plan).await.unwrap();
         assert!(result.completed);
-        let typed = backend.typed();
-        assert!(
-            typed.len() >= 3,
-            "long text should be chunked: {}",
-            typed.len()
-        );
-        assert_eq!(typed.concat(), long);
+        assert_eq!(backend.clipboard_sets(), vec![long]);
+        assert!(backend
+            .keys()
+            .iter()
+            .any(|k| k.eq_ignore_ascii_case("ctrl+v")));
+        assert!(backend.typed().is_empty(), "long text is pasted, not typed");
     }
 
     #[tokio::test]

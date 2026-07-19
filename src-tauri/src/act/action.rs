@@ -77,7 +77,13 @@ pub enum Action {
         choices: Vec<String>,
     },
     /// Launch / start an application or executable by name or path.
+    ///
+    /// Schema-only-enforced clients (Cerebras json_object) sometimes emit the
+    /// executable under `command` (mirroring `shell`) or `name`/`app` rather than
+    /// `target`; accept those aliases so the whole plan doesn't fail to parse with
+    /// "missing field `target`".
     Launch {
+        #[serde(alias = "command", alias = "name", alias = "app")]
         target: String,
         #[serde(default)]
         origin: Origin,
@@ -96,6 +102,10 @@ pub enum Action {
         #[serde(default)]
         origin: Origin,
     },
+    /// Click at an absolute screen coordinate (logical pixels). Emitted only by
+    /// the `vision` plan mode, whose grounding is the screenshot rather than the
+    /// accessibility tree; every other mode targets element paths.
+    Click { x: i32, y: i32 },
     /// Pause the plan for a fixed number of milliseconds.
     Wait { ms: u32 },
     /// Bring a named application's window to the foreground.
@@ -137,6 +147,7 @@ impl Action {
             Action::Launch { .. } => "launch",
             Action::Uri { .. } => "uri",
             Action::Shell { .. } => "shell",
+            Action::Click { .. } => "click",
             Action::Wait { .. } => "wait",
             Action::FocusApp { .. } => "focus_app",
             Action::Clipboard { .. } => "clipboard",
@@ -312,6 +323,16 @@ mod tests {
     }
 
     #[test]
+    fn click_roundtrips() {
+        let a: Action = serde_json::from_str(r#"{"op":"click","x":420,"y":137}"#).unwrap();
+        assert_eq!(a, Action::Click { x: 420, y: 137 });
+        assert_eq!(a.kind(), "click");
+        assert_eq!(a.origin(), None);
+        assert_eq!(a.target(), None);
+        assert_eq!(roundtrip(&a), a);
+    }
+
+    #[test]
     fn wait_roundtrips() {
         let a: Action = serde_json::from_str(r#"{"op":"wait","ms":250}"#).unwrap();
         assert_eq!(a, Action::Wait { ms: 250 });
@@ -347,6 +368,29 @@ mod tests {
             }
         );
         assert_eq!(roundtrip(&a), a);
+    }
+
+    #[test]
+    fn launch_accepts_command_name_and_app_aliases() {
+        // Cerebras json_object emits the executable under `command` (mirroring
+        // `shell`), `name`, or `app` instead of `target`; the aliases keep the plan
+        // from failing to parse with "missing field `target`".
+        for raw in [
+            r#"{"op":"launch","command":"winword"}"#,
+            r#"{"op":"launch","name":"winword"}"#,
+            r#"{"op":"launch","app":"winword"}"#,
+            r#"{"op":"launch","target":"winword"}"#,
+        ] {
+            let a: Action = serde_json::from_str(raw).unwrap_or_else(|e| panic!("{raw}: {e}"));
+            assert_eq!(
+                a,
+                Action::Launch {
+                    target: "winword".into(),
+                    origin: Origin::default(),
+                },
+                "parsed from {raw}"
+            );
+        }
     }
 
     #[test]

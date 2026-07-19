@@ -30,12 +30,15 @@ pub mod grounding_packet;
 pub mod killswitch;
 pub mod llm;
 pub mod mock_backend;
+pub mod plan_mode;
 pub mod planner;
 pub mod seed;
 pub mod selection;
 pub mod session;
 pub mod shell_policy;
 
+#[cfg(target_os = "macos")]
+pub mod macos;
 #[cfg(windows)]
 mod uia_broker;
 #[cfg(windows)]
@@ -47,14 +50,18 @@ use backend::AccessibilityBackend;
 
 /// Construct the platform accessibility backend for Act.
 ///
-/// Windows uses the UIA/Terminator backend; every other platform gets the mock
-/// (Act is Windows-only in Phase 1 — the command layer refuses to arm elsewhere).
+/// Windows uses the UIA/Terminator backend, macOS the native AX backend; every
+/// other platform gets the mock (the command layer refuses to arm there).
 pub fn create_backend() -> Arc<dyn AccessibilityBackend> {
     #[cfg(windows)]
     {
         Arc::new(windows::WindowsUiaBackend::new())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        Arc::new(macos::MacBackend::new())
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Arc::new(mock_backend::MockBackend::default())
     }
@@ -62,5 +69,5 @@ pub fn create_backend() -> Arc<dyn AccessibilityBackend> {
 
 /// Whether Act's accessibility backend is functional on this platform.
 pub const fn act_supported() -> bool {
-    cfg!(windows)
+    cfg!(windows) || cfg!(target_os = "macos")
 }

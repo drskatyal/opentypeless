@@ -56,6 +56,7 @@ export type PolishStyle = 'minimal' | 'clean' | 'structured' | 'professional'
 export type SceneSource = 'custom' | 'builtin' | 'cloud'
 export type ActModelTier = 'fast' | 'precise'
 export type ActFollowupProvider = 'gemini' | 'cerebras'
+export type ActPlanMode = 'tree' | 'hybrid' | 'vision'
 export type ContextFamily =
   | 'email'
   | 'work_chat'
@@ -245,6 +246,7 @@ export interface AppConfig {
   capsule_auto_hide: boolean
   act_enabled: boolean
   act_model_tier: ActModelTier
+  act_plan_mode: ActPlanMode
   act_followup_provider: ActFollowupProvider
   cerebras_api_key: string
 }
@@ -794,6 +796,7 @@ const defaultConfig: AppConfig = {
   capsule_auto_hide: true,
   act_enabled: false,
   act_model_tier: 'fast',
+  act_plan_mode: 'tree',
   act_followup_provider: 'gemini',
   cerebras_api_key: '',
 }

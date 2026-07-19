@@ -67,16 +67,19 @@ impl Capability {
 
 /// The single capability an action requires.
 ///
-/// Type/Key are keyboard synthesis; Focus/Invoke/Scroll/SelectMenu drive
-/// accessibility invoke patterns; AskUser/Stop are agent-self control.
+/// Type/Key are keyboard synthesis; Focus/Invoke/SelectMenu drive accessibility
+/// invoke patterns; Scroll/Click are pointer (mouse-wheel / mouse-button) input;
+/// AskUser/Stop are agent-self control.
 pub fn required_capability(action: &Action) -> Capability {
     match action {
         Action::Type { .. } | Action::Key { .. } => Capability::InputKeyboard,
-        Action::Focus { .. }
-        | Action::Invoke { .. }
-        | Action::Scroll { .. }
-        | Action::SelectMenu { .. } => Capability::A11yInvoke,
+        Action::Focus { .. } | Action::Invoke { .. } | Action::SelectMenu { .. } => {
+            Capability::A11yInvoke
+        }
         Action::Launch { .. } => Capability::AppLaunch,
+        // Scroll synthesizes a mouse wheel; a coordinate Click synthesizes a mouse
+        // button. Both are pointer input, allowed by default (like a11y invoke).
+        Action::Click { .. } | Action::Scroll { .. } => Capability::InputMouse,
         Action::Uri { .. } => Capability::NetNavigate,
         Action::Shell { .. } => Capability::ShellExec,
         Action::FocusApp { .. } => Capability::WindowManage,
@@ -403,7 +406,7 @@ mod tests {
                 target: None,
                 amount: 0
             }),
-            Capability::A11yInvoke
+            Capability::InputMouse
         );
         assert_eq!(
             required_capability(&Action::SelectMenu { path: vec![] }),

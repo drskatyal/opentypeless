@@ -413,7 +413,7 @@
     "hotkeyConflict": "Dictation and Ask shortcuts cannot be the same.",
     "hotkeyInvalid": "One shortcut is invalid. Record a new key combination.",
     "waylandClipboardCopyOnly": "On Wayland, clipboard mode copies text only. Paste manually to avoid system permission prompts.",
-    "diagnostics": "Diagnostics",
+    "diagnostics": "Diagnóstico",
     "healthReady": "Ready",
     "healthChecking": "Checking",
     "healthDegraded": "Degraded",
@@ -505,7 +505,8 @@
     "actModeDesc": "Todo lo que puedes decir con Act activado: abrir, buscar y controlar apps.",
     "dictionaryDesc": "Palabras personalizadas y reemplazos de texto aplicados a cada transcripción.",
     "scenesDesc": "Modos de escritura por app y tus propias escenas personalizadas.",
-    "aboutDesc": "Versión, actualizaciones e información del proyecto."
+    "aboutDesc": "Versión, actualizaciones e información del proyecto.",
+    "diagnosticsDesc": "Registro en vivo de cada acción, error y solicitud de IA, para depuración."
   },
   "act": {
     "armed": "Act activado",

@@ -9,6 +9,7 @@ import { LlmPane } from './LlmPane'
 import { ActPane } from './ActPane'
 import { DictionaryPane } from './DictionaryPane'
 import { ScenesPane } from './ScenesPane'
+import { DiagnosticsPane } from './DiagnosticsPane'
 import { AboutPane } from './AboutPane'
 import { DirtyBar } from './shared/DirtyBar'
 import { useDirtyConfig } from './shared/useDirtyConfig'
@@ -20,6 +21,7 @@ const paneTitleKeys: Record<PaneId, string> = {
   act: 'settings.actMode',
   dictionary: 'settings.dictionary',
   scenes: 'settings.scenes',
+  diagnostics: 'settings.diagnostics',
   about: 'settings.about',
 }
 
@@ -30,6 +32,7 @@ const paneDescKeys: Record<PaneId, string> = {
   act: 'settings.actModeDesc',
   dictionary: 'settings.dictionaryDesc',
   scenes: 'settings.scenesDesc',
+  diagnostics: 'settings.diagnosticsDesc',
   about: 'settings.aboutDesc',
 }
 
@@ -82,6 +85,7 @@ export function Settings() {
             {activePane === 'act' && <ActPane />}
             {activePane === 'dictionary' && <DictionaryPane />}
             {activePane === 'scenes' && <ScenesPane />}
+            {activePane === 'diagnostics' && <DiagnosticsPane />}
             {activePane === 'about' && <AboutPane />}
           </motion.div>
         </div>
