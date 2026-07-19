@@ -12,6 +12,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 devtools = ["tauri/devtools"]
+# SPIKE: CDP-controlled-Chrome browser automation via the browser-agent/ sidecar.
+# Default OFF so the new module never enters the shipping build. Enable with
+# `cargo check --features cdp-browser`. See docs/act-cdp-browser.md.
+cdp-browser = []
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
