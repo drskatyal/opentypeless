@@ -73,6 +73,20 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 keyring = { version = "3.6.3", default-features = false, features = ["apple-native"] }
 block2 = "0.5"
 objc2 = { version = "0.5", features = ["exception"] }
+# Act mode macOS accessibility backend (see src/act/macos.rs).
+# Raw AXUIElement* FFI. Uses `&str` attribute-name constants that we convert to
+# CFString at call time; its CF ref types come from core-foundation-sys 0.8.
+accessibility-sys = "0.1.3"
+# CFString/CFArray/CFType wrappers + raw sys types for the AX tree. 0.9 shares
+# core-foundation-sys 0.8 with accessibility-sys AND with core-graphics 0.23.
+core-foundation = "0.9"
+core-foundation-sys = "0.8"
+# CGEvent (keyboard/mouse synthesis) + CGDisplay (screen capture). Pinned to 0.23
+# so its transitive core-foundation is 0.9 (same major as ours above); the
+# event/display call sites are identical to 0.24.
+core-graphics = "0.23"
+# PNG encoding for capture_screen (CGDisplayCreateImage → RGBA → PNG).
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3.6.3", default-features = false, features = ["linux-native-sync-persistent", "crypto-rust"] }

@@ -451,7 +451,7 @@ pub async fn act_set_enabled(
     tracing::info!(enabled, "act_set_enabled called");
     if enabled && !act::act_supported() {
         tracing::warn!("Act enable refused: not supported on this platform");
-        return Err("Act mode is only available on Windows in this version.".to_string());
+        return Err("Act mode is only available on Windows and macOS in this version.".to_string());
     }
 
     if enabled {
