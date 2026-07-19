@@ -32,6 +32,18 @@ pub trait LlmClient: Send + Sync {
         schema: Option<&serde_json::Value>,
     ) -> Result<String, AppError>;
 
+    /// Whether this transport can actually SEE an attached screenshot. Only a
+    /// multimodal transport ([`GeminiLlmClient`]) returns `true`; the text-only
+    /// transports (Cerebras `gpt-oss-120b`, the test fixture) return `false`.
+    ///
+    /// The planner uses this to avoid a silent failure mode: in `hybrid` / `vision`
+    /// plan modes a text-only client would be handed a coordinate-click prompt for a
+    /// screenshot it cannot see, and would click blindly. When this is `false` the
+    /// planner degrades the perception to `tree` instead.
+    fn is_multimodal(&self) -> bool {
+        false
+    }
+
     /// Like [`generate_json`](Self::generate_json), but with an optional PNG
     /// screenshot for the `hybrid` / `vision` plan modes. The default **ignores**
     /// the image and delegates to the text path, so a text-only transport
@@ -76,6 +88,10 @@ impl GeminiLlmClient {
 
 #[async_trait]
 impl LlmClient for GeminiLlmClient {
+    fn is_multimodal(&self) -> bool {
+        true
+    }
+
     async fn generate_json(
         &self,
         system: &str,
@@ -140,6 +156,18 @@ impl GeminiLlmClient {
         });
 
         tracing::debug!(model = %self.model, has_image = image_png.is_some(), "Act LLM request");
+        // Full prompt capture for the in-app Diagnostics panel (crate::diag). The
+        // system prompt is large and static, so log only its length; the user
+        // message is the dynamic, useful part, so log it in full (truncated for
+        // sanity). Screenshots are never logged (only a flag).
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            has_image = image_png.is_some(),
+            system_len = system.len(),
+            user = %truncate_for_log(user, 6000),
+            "Act LLM prompt (Gemini)"
+        );
         let resp = self
             .client
             .post(&url)
@@ -190,8 +218,29 @@ impl GeminiLlmClient {
         if text.is_empty() {
             return Err(AppError::Config("Act planner returned no content".into()));
         }
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            response = %truncate_for_log(&text, 6000),
+            "Act LLM response (Gemini)"
+        );
         Ok(text)
     }
+}
+
+/// Truncate a prompt/response for logging so a huge tree snapshot doesn't flood
+/// the diagnostics buffer. Cuts on a char boundary and marks the elision.
+fn truncate_for_log(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    let end = s
+        .char_indices()
+        .take_while(|&(i, _)| i < max)
+        .last()
+        .map(|(i, c)| i + c.len_utf8())
+        .unwrap_or(0);
+    format!("{}… [+{} bytes]", &s[..end], s.len() - end)
 }
 
 /// Follow-up transport: an OpenAI-compatible `/chat/completions` provider, used
@@ -271,6 +320,13 @@ impl LlmClient for CerebrasLlmClient {
 
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
         tracing::debug!(model = %self.model, "Act follow-up LLM request (Cerebras)");
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            system_len = system_prompt.len(),
+            user = %truncate_for_log(user, 6000),
+            "Act LLM prompt (Cerebras)"
+        );
         let resp = self
             .client
             .post(&url)
@@ -313,6 +369,12 @@ impl LlmClient for CerebrasLlmClient {
         if text.is_empty() {
             return Err(AppError::Config("Act follow-up returned no content".into()));
         }
+        tracing::debug!(
+            target: "opentypeless_lib::act::llm::io",
+            model = %self.model,
+            response = %truncate_for_log(&text, 6000),
+            "Act LLM response (Cerebras)"
+        );
         Ok(text)
     }
 }

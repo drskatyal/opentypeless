@@ -259,6 +259,23 @@ impl Planner {
             });
         }
 
+        // Multimodal guard: hybrid / vision hand the model a screenshot, and vision
+        // switches to a coordinate-click prompt. A text-only transport (Cerebras)
+        // cannot see the image, so it would emit blind coordinate clicks — the exact
+        // "clicks, no progress, aborts" failure. When the transport can't see,
+        // degrade to tree perception (drop the image, use the element-path prompt).
+        let perception = if perception.mode.needs_screenshot() && !self.llm.is_multimodal() {
+            tracing::warn!(
+                mode = perception.mode.as_str(),
+                model = %self.model,
+                "act planner: selected model is text-only and cannot see the screenshot; \
+                 falling back to tree mode (pick Gemini for hybrid/vision)"
+            );
+            Perception::tree()
+        } else {
+            perception
+        };
+
         // LLM path: one injection-hardened call with a response schema, strict
         // validation, and a single repair retry on malformed/invalid output.
         let vision = perception.mode == super::plan_mode::PlanMode::Vision;

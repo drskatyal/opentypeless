@@ -281,6 +281,8 @@
     "dictionaryDesc": "Custom words and text replacements applied to every transcript.",
     "scenesDesc": "Per-app writing modes and your own custom scenes.",
     "aboutDesc": "Version, updates, and project info.",
+    "diagnostics": "Diagnostics",
+    "diagnosticsDesc": "Live log of every action, error, and AI request — for debugging.",
     "autoDetect": "Auto Detect",
     "hotkey": "Shortcuts",
     "dictationHotkey": "Start dictation",

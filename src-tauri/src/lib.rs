@@ -4,6 +4,7 @@ pub mod audio;
 pub mod commands;
 pub mod credentials;
 pub mod dev_relay;
+pub mod diag;
 pub mod dictionary_io;
 pub mod error;
 pub mod hotkey;
@@ -759,15 +760,23 @@ pub fn run() {
 
     apply_linux_workarounds();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::from_default_env().add_directive(
-                "opentypeless=debug"
-                    .parse()
-                    .expect("static directive is valid"),
-            ),
-        )
-        .init();
+    // Two sinks behind one global filter: the terminal formatter (unchanged) plus
+    // the in-app diagnostics buffer (`crate::diag`), so every log line the console
+    // shows is also visible inside the app's Diagnostics panel.
+    {
+        use tracing_subscriber::layer::SubscriberExt;
+        use tracing_subscriber::util::SubscriberInitExt;
+        let filter = EnvFilter::from_default_env().add_directive(
+            "opentypeless=debug"
+                .parse()
+                .expect("static directive is valid"),
+        );
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(tracing_subscriber::fmt::layer())
+            .with(crate::diag::DiagLayer)
+            .init();
+    }
 
     #[cfg(target_os = "linux")]
     log_linux_launch_diagnostics(xinitthreads_status);
@@ -818,6 +827,11 @@ pub fn run() {
             }
 
             let app_handle = app.handle().clone();
+
+            // Let the diagnostics layer emit captured log lines live to the
+            // frontend. Lines captured before this point are still queryable via
+            // `diag_log_dump` when the panel opens.
+            crate::diag::set_app_handle(app_handle.clone());
 
             // Initialize data directory and database
             let data_dir = app.path().app_data_dir()?;
@@ -1135,6 +1149,8 @@ pub fn run() {
             start_recording,
             stop_recording,
             abort_recording,
+            commands::diag::diag_log_dump,
+            commands::diag::diag_log_clear,
             commands::ask::ask_anything,
             commands::ask::start_ask_dictation,
             commands::ask::stop_ask_dictation,

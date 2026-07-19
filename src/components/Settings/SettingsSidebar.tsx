@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Wand2,
   AudioLines,
+  Terminal,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +21,7 @@ const PANES = [
   { id: 'act', labelKey: 'settings.actMode', icon: Wand2 },
   { id: 'dictionary', labelKey: 'settings.dictionary', icon: BookOpen },
   { id: 'scenes', labelKey: 'settings.scenes', icon: LayoutGrid },
+  { id: 'diagnostics', labelKey: 'settings.diagnostics', icon: Terminal },
   { id: 'about', labelKey: 'settings.about', icon: Info },
 ] as const
 

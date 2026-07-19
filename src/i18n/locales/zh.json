@@ -413,7 +413,7 @@
     "hotkeyConflict": "听写和 Ask 快捷键不能相同。",
     "hotkeyInvalid": "有一个快捷键无效，请重新录制组合键。",
     "waylandClipboardCopyOnly": "Wayland 下剪贴板模式只会复制文本，需要手动粘贴，以避免系统权限弹窗。",
-    "diagnostics": "状态检查",
+    "diagnostics": "诊断",
     "healthReady": "就绪",
     "healthChecking": "检查中",
     "healthDegraded": "有降级",
@@ -505,7 +505,8 @@
     "actModeDesc": "启用 Act 时你能说的一切——打开、搜索和控制应用。",
     "dictionaryDesc": "应用于每次转写的自定义词汇和文本替换。",
     "scenesDesc": "各应用的写作模式和你自己的自定义场景。",
-    "aboutDesc": "版本、更新和项目信息。"
+    "aboutDesc": "版本、更新和项目信息。",
+    "diagnosticsDesc": "实时记录每个操作、错误和 AI 请求 — 用于调试。"
   },
   "act": {
     "armed": "Act 已就绪",
