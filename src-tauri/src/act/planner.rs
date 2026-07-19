@@ -76,6 +76,13 @@ that is the one your goal needs, FOCUS or switch to it (focus_app) and work insi
 second copy or open a new tab/window for something already open. Example: the goal wants YouTube and \
 'already_open' lists a YouTube tab - focus that browser and search within it rather than opening youtube.com again.
 
+NEVER RE-NAVIGATE: if the <<<PROGRESS block shows you ALREADY ran a launch or uri for this target this goal \
+(e.g. 'uri https://youtube.com' or 'launch chrome' appears in the history), do NOT emit that same launch/uri \
+again - repeating it opens ANOTHER tab/window instead of using the one you already opened. The site or app is \
+now on the CURRENT screen: interact with what SCREEN_CONTEXT shows (type into its search box, invoke a result, \
+click a control) rather than re-opening it. Re-navigating is only correct if SCREEN_CONTEXT proves the earlier \
+open failed (the expected app/page is genuinely absent from the current screen).
+
 GOOD PLANS:
 - 'open bluetooth settings' -> \
 {\"actions\":[{\"op\":\"uri\",\"uri\":\"ms-settings:bluetooth\",\"origin\":\"world_knowledge\"}]}
