@@ -82,6 +82,18 @@ pub enum SlotFilter {
     Lower,
     /// Percent-encode for use inside a URL query/path component.
     Urlencode,
+    /// Escape for safe inclusion inside a PowerShell **single-quoted** string
+    /// literal: every single quote is doubled (`'` → `''`), PowerShell's only
+    /// in-literal escape. The recipe MUST surround the token with single quotes
+    /// (`'{name}'`); this keeps an untrusted slot value from breaking out of that
+    /// literal and injecting further commands. No other character is special
+    /// inside a single-quoted PowerShell string (backticks, `$`, `;`, `|`, `&`
+    /// are all literal), so doubling the quote is sufficient.
+    ///
+    /// Serialized as `psquote` (one word, matching the inline-filter spelling
+    /// `{name|psquote}`) rather than the `snake_case` default `ps_quote`.
+    #[serde(rename = "psquote")]
+    PsQuote,
 }
 
 impl SlotFilter {
@@ -92,6 +104,7 @@ impl SlotFilter {
             SlotFilter::Squish => s.split_whitespace().collect::<Vec<_>>().join(" "),
             SlotFilter::Lower => s.to_lowercase(),
             SlotFilter::Urlencode => urlencode_component(s),
+            SlotFilter::PsQuote => s.replace('\'', "''"),
         }
     }
 }
@@ -595,6 +608,25 @@ mod tests {
         assert_eq!(SlotFilter::Urlencode.apply("a b&c"), "a%20b%26c");
         // Unreserved chars survive urlencode untouched.
         assert_eq!(SlotFilter::Urlencode.apply("A-z_0.9~"), "A-z_0.9~");
+    }
+
+    #[test]
+    fn psquote_doubles_single_quotes_and_leaves_others_literal() {
+        // A benign value with spaces is untouched (spaces are literal inside a
+        // single-quoted PowerShell string) — so a folder name stays one path.
+        assert_eq!(SlotFilter::PsQuote.apply("My New Folder"), "My New Folder");
+        // A single quote is doubled — the only escape a single-quoted literal has.
+        assert_eq!(SlotFilter::PsQuote.apply("O'Brien"), "O''Brien");
+        // An injection attempt cannot break out: once wrapped as '<escaped>' the
+        // whole thing stays a literal. Doubling the quotes keeps the surrounding
+        // quotes balanced so the command after it is never parsed as code.
+        let hostile = "'; Remove-Item C:\\ -Recurse; '";
+        let escaped = SlotFilter::PsQuote.apply(hostile);
+        assert_eq!(escaped, "''; Remove-Item C:\\ -Recurse; ''");
+        let wrapped = format!("'{escaped}'");
+        // Balanced single quotes: an even count means no dangling opener escapes
+        // the literal (the recipe supplies the outer pair).
+        assert_eq!(wrapped.matches('\'').count() % 2, 0);
     }
 
     #[test]

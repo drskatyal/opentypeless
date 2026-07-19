@@ -48,6 +48,7 @@ mod tests {
         "pick_result",
         "choose",
         "wait",
+        "shell",
     ];
 
     #[test]
@@ -83,7 +84,10 @@ mod tests {
                             s.action
                         );
                         // Value-carrying verbs must carry a value.
-                        if matches!(s.action.as_str(), "launch" | "uri" | "key" | "focus_app") {
+                        if matches!(
+                            s.action.as_str(),
+                            "launch" | "uri" | "key" | "focus_app" | "shell"
+                        ) {
                             assert!(
                                 s.value.as_deref().is_some_and(|v| !v.is_empty()),
                                 "{} step {} ({}) needs a value",

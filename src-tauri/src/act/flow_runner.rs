@@ -30,6 +30,13 @@ use super::flow::{
     VerifySpec, WaitSpec,
 };
 use super::killswitch::KillSwitch;
+use super::shell_policy::{self, ShellVerdict};
+
+/// The shell a leaf `shell` step runs in. All shell recipes are authored as
+/// PowerShell (idempotent `New-Item -Force`, `Copy-Item`, … with single-quoted,
+/// [`SlotFilter::PsQuote`]-escaped paths), so the runner pins the shell rather
+/// than letting a step choose one.
+const FLOW_SHELL: &str = "powershell";
 
 /// The score an element must reach to be accepted as a selector's target. A single
 /// role match (or a single `name_contains` hit) clears it; noise scores zero.
@@ -625,6 +632,33 @@ impl FlowRunner {
                 Some(v) => guarded!(self.backend.key_combo(&v)).map_err(|e| e.to_string()),
                 None => return Ok(Attempt::Failed("key step missing value".into())),
             },
+            // A scripted PowerShell command. The capability gate (Confirm) already
+            // ran before we got here; this is the last-line policy boundary:
+            // classify the fully-substituted command with the same independent
+            // Deny classifier the executor uses, so a dangerous family (e.g.
+            // `Remove-Item -Recurse -Force`) is blocked outright — never merely
+            // confirmed. Slots are single-quoted and `psquote`-escaped in the
+            // recipe, so an untrusted value stays a literal and cannot inject.
+            "shell" => match value {
+                Some(v) => {
+                    if let ShellVerdict::Deny(reason) =
+                        shell_policy::classify_command(&v, FLOW_SHELL)
+                    {
+                        return Ok(Attempt::Failed(format!(
+                            "blocked dangerous command: {reason}"
+                        )));
+                    }
+                    match guarded!(self.backend.run_shell(&v, FLOW_SHELL)) {
+                        Ok(out) if out.exit_code == 0 => Ok(()),
+                        Ok(out) => {
+                            let tail: String = out.stdout.chars().take(200).collect();
+                            Err(format!("exit {}: {tail}", out.exit_code))
+                        }
+                        Err(e) => Err(e.to_string()),
+                    }
+                }
+                None => return Ok(Attempt::Failed("shell step missing value".into())),
+            },
             "focus" => match target {
                 Some(path) => {
                     let p = path.to_string();
@@ -1034,6 +1068,10 @@ fn capability_for(action: &str) -> Capability {
         "focus_app" => Capability::WindowManage,
         "key" => Capability::InputKeyboard,
         "focus" | "invoke" | "pick_result" | "set_value" => Capability::A11yInvoke,
+        // A leaf shell step is the highest-risk primitive — the gate pins it to
+        // Confirm and no grant can soften it (see `Capability::is_never_allowable`),
+        // so a scripted delete / recycle-bin empty always asks first.
+        "shell" => Capability::ShellExec,
         // `choose` only reads the tree to bind a row — it acts on nothing, so it
         // is agent-self pacing like `wait` (and any unmapped verb).
         _ => Capability::AgentSelf,
@@ -1257,6 +1295,7 @@ fn parse_filter(name: &str) -> Option<SlotFilter> {
         "squish" => Some(SlotFilter::Squish),
         "lower" => Some(SlotFilter::Lower),
         "urlencode" => Some(SlotFilter::Urlencode),
+        "psquote" => Some(SlotFilter::PsQuote),
         _ => None,
     }
 }
@@ -2297,6 +2336,157 @@ mod tests {
                 .resolve_selector(&snap, &sel, &no_slots(), &no_binds())
                 .is_none(),
             "a password field must never resolve as a target"
+        );
+    }
+
+    // ---- Scripted shell leaf steps -----------------------------------------
+
+    /// Render a leaf shell step's value with the file's declared slot filters
+    /// applied — exactly what [`FlowRunner::execute`] runs.
+    fn render_shell(file: &FlowFile, step_idx: usize, slots: &[(&str, &str)]) -> String {
+        let defaults = slot_filter_defaults(file);
+        let map: HashMap<String, String> = slots
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let value = file.steps[step_idx].value.as_deref().unwrap();
+        substitute_value(value, &map, &defaults)
+    }
+
+    fn seed(id: &str) -> FlowFile {
+        crate::act::seed::builtin_flows()
+            .into_iter()
+            .find(|f| f.id == id)
+            .unwrap_or_else(|| panic!("seed {id} missing"))
+    }
+
+    #[test]
+    fn shell_step_needs_the_never_allowable_shell_exec_capability() {
+        // A leaf `shell` step maps to ShellExec, which the gate pins to Confirm and
+        // no grant can soften — so every scripted command asks the user first.
+        assert_eq!(capability_for("shell"), Capability::ShellExec);
+        let mut gate = CapabilityGate::new();
+        assert_eq!(
+            gate.evaluate_capability(capability_for("shell")),
+            Decision::Confirm
+        );
+        gate.grant(Capability::ShellExec);
+        assert_eq!(
+            gate.evaluate_capability(capability_for("shell")),
+            Decision::Confirm,
+            "a grant must never soften a scripted shell step below Confirm"
+        );
+    }
+
+    #[test]
+    fn delete_and_empty_recycle_bin_stay_confirm_gated() {
+        // The destructive recipes are shell steps, so they inherit the always-Confirm
+        // ShellExec gate — they can never run without the user approving.
+        for id in ["delete_item", "empty_recycle_bin"] {
+            let f = seed(id);
+            for s in &f.steps {
+                assert_eq!(s.action, "shell", "{id} step {} should be shell", s.id);
+            }
+            let gate = CapabilityGate::new();
+            assert_eq!(
+                gate.evaluate_capability(capability_for("shell")),
+                Decision::Confirm,
+                "{id} must stay confirm-gated"
+            );
+        }
+        // Delete never carries the flags that would make it a hard-denied family
+        // (Remove-Item -Recurse/-Force) — a plain, confirm-gated delete.
+        let del = render_shell(&seed("delete_item"), 0, &[("target", "~\\Desktop\\a.txt")]);
+        assert_eq!(
+            shell_policy::classify_command(&del, FLOW_SHELL),
+            ShellVerdict::Confirm
+        );
+    }
+
+    #[test]
+    fn create_folder_keeps_a_spaced_name_as_one_idempotent_quoted_path() {
+        // The real-world failure: a spaced name split into several folders and a
+        // re-run errored. A single-quoted whole path keeps the spaces together, and
+        // New-Item -Force makes a re-run on an existing folder a no-op.
+        let cmd = render_shell(
+            &seed("create_folder"),
+            0,
+            &[("name", "My New Folder"), ("location", "~\\Desktop")],
+        );
+        assert!(
+            cmd.contains("'My New Folder'"),
+            "spaced name must be one quoted path: {cmd}"
+        );
+        assert!(cmd.contains("-ItemType Directory"), "{cmd}");
+        assert!(cmd.contains("-Force"), "must be idempotent: {cmd}");
+        assert_eq!(
+            shell_policy::classify_command(&cmd, FLOW_SHELL),
+            ShellVerdict::Confirm
+        );
+    }
+
+    #[test]
+    fn ordinary_input_to_every_shell_recipe_is_not_denied() {
+        // With benign (spaced) names and paths, no shell recipe trips the Deny
+        // classifier — normal use is never blocked, only confirmed.
+        for f in crate::act::seed::builtin_flows() {
+            for (i, s) in f.steps.iter().enumerate() {
+                if s.action != "shell" {
+                    continue;
+                }
+                let slots: Vec<(&str, &str)> = f
+                    .slots
+                    .iter()
+                    .map(|slot| {
+                        let v = match slot.name.as_str() {
+                            "name" => "My New Folder",
+                            _ => "~\\Documents\\a file.txt",
+                        };
+                        (slot.name.as_str(), v)
+                    })
+                    .collect();
+                let cmd = render_shell(&f, i, &slots);
+                assert_eq!(
+                    shell_policy::classify_command(&cmd, FLOW_SHELL),
+                    ShellVerdict::Confirm,
+                    "recipe {} rendered `{cmd}` should be Confirm, not Deny",
+                    f.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn hostile_slot_value_cannot_break_out_of_the_quoted_argument() {
+        // An injection attempt in the folder name. Two independent layers stop it:
+        let attack = "'; Remove-Item C:\\ -Recurse -Force; '";
+        let cmd = render_shell(
+            &seed("create_folder"),
+            0,
+            &[("name", attack), ("location", "~\\Desktop")],
+        );
+        // 1. PowerShell containment: every embedded single quote is doubled, so the
+        //    quotes stay balanced and the outer literal never closes early — the
+        //    payload is inert text, and the command structure is intact.
+        assert_eq!(
+            cmd.matches('\'').count() % 2,
+            0,
+            "unbalanced quotes let the payload escape: {cmd}"
+        );
+        assert!(
+            cmd.starts_with("New-Item -ItemType Directory -Force -Path (Join-Path '~\\Desktop' '"),
+            "prefix corrupted: {cmd}"
+        );
+        assert!(cmd.ends_with("')"), "suffix corrupted: {cmd}");
+        // 2. Defense in depth: the quote-naive Deny classifier still splits on the
+        //    literal `;` and refuses the Remove-Item -Recurse -Force family, so the
+        //    flow runner would fail this step outright rather than run it.
+        assert!(
+            matches!(
+                shell_policy::classify_command(&cmd, FLOW_SHELL),
+                ShellVerdict::Deny(_)
+            ),
+            "an injected destructive command must be denied: {cmd}"
         );
     }
 }
