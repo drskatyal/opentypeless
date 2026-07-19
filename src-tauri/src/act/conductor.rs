@@ -654,6 +654,14 @@ impl Conductor {
         extra_context: Option<String>,
         events: &mut Vec<ActEvent>,
     ) -> Step {
+        // Start-of-goal: clear the executor's focus-guard latch so it begins inert
+        // and never inherits a previous goal's expected app. The guard is then
+        // armed by this goal's own launch/focus and PERSISTS across the loop's
+        // iterations (each iteration runs via `execute_plan_continuing`), so a
+        // launch in one iteration still guards a `Type` in a later one. This is the
+        // one place the guard resets per novel goal — not per execute call, and not
+        // on pause/resume re-entry into `novel_loop`.
+        self.executor.reset_focus_guard();
         let mut history: Vec<String> = Vec::new();
         // A branch's carried slot context ("carried slots: text=hello") is trusted;
         // seed it as the first progress note so it rides along every iteration.
@@ -754,10 +762,13 @@ impl Conductor {
                 "act novel: executing iteration"
             );
 
-            // (d) Execute the batch.
+            // (d) Execute the batch. Use the "continuing" variant so the focus
+            // guard armed by an earlier iteration's launch/focus survives into
+            // this one — the guard is reset once per goal in `run_novel_with`,
+            // never per iteration.
             let result = self
                 .executor
-                .execute_plan_with_context(plan.clone(), &goal)
+                .execute_plan_continuing(plan.clone(), &goal)
                 .await;
 
             // (e) Classify: pause, stop, terminal success/failure, or continue.
@@ -873,19 +884,25 @@ impl Conductor {
                 tracing::info!(error = %short_err(error), "act novel: step failed; will re-observe");
                 LoopStep::Continue
             }
-            // No blocking outcome: the batch completed. Treat the goal as DONE when
-            // the model declared it (a trailing stop), the deterministic fast path
-            // produced the plan, or the batch actually INTERACTED with the UI
-            // (type/invoke/key/…) — completing a real interaction means the work got
-            // done, and re-looping would risk repeating it. A "setup-only" batch
-            // (just launch/uri/wait/focus) with no stop is NOT treated as done: loop
-            // again so the model can act on the app it just brought up (this is what
-            // makes "open Word and write…" adapt to the start page).
+            // No blocking outcome: the batch completed. Trust the model's
+            // completion contract to decide DONE-ness — do NOT infer it from the
+            // fact that a batch merely interacted. The goal is done only when the
+            // model emitted an explicit `stop` (or a bare stop-only batch), or when
+            // the deterministic fast path produced a single-shot plan. An
+            // interacting batch that did NOT stop is treated as one step of a
+            // multi-step goal (write intro→table→conclusion, fill a multi-field
+            // form): CONTINUE — re-observe and re-plan the rest — rather than
+            // declaring success after the first ≤6-action batch. The no-progress
+            // guard (same first action + unchanged screen) and MAX_NOVEL_ITERS bound
+            // the loop, and re-observing before re-acting prevents blind repetition.
+            // A genuinely-finished single batch (e.g. "click Retry" → one invoke,
+            // model stops) still terminates via its trailing `stop`. A setup-only
+            // batch (launch/uri/wait/focus, no stop) likewise continues so the model
+            // can act on the app it just brought up.
             _ => {
                 let explicit_stop = plan.actions.iter().any(|a| matches!(a, Action::Stop));
-                let interacted = plan.actions.iter().any(is_interaction);
-                let goal_done = result.completed
-                    && (explicit_stop || interacted || source == PlanSource::FastPath);
+                let goal_done =
+                    result.completed && (explicit_stop || source == PlanSource::FastPath);
                 if goal_done {
                     self.board.record(short_goal(goal));
                     let (ok, summary) = summarize_novel(&result);
@@ -982,22 +999,6 @@ fn snapshot_fingerprint(snap: &Snapshot) -> String {
 /// plus any target path (never the typed text).
 fn action_signature(action: &Action) -> String {
     format!("{}:{}", action.kind(), action.target().unwrap_or(""))
-}
-
-/// Whether an action actually acts on the UI / system toward the goal (as opposed
-/// to a "setup" primitive like launch/uri/wait/focus that merely gets ready). A
-/// completed batch that interacted is treated as having done the work.
-fn is_interaction(action: &Action) -> bool {
-    matches!(
-        action,
-        Action::Type { .. }
-            | Action::Invoke { .. }
-            | Action::Key { .. }
-            | Action::SelectMenu { .. }
-            | Action::Scroll { .. }
-            | Action::Clipboard { .. }
-            | Action::Shell { .. }
-    )
 }
 
 /// Append a trusted progress note, keeping only the most recent [`NOVEL_HISTORY_CAP`].
@@ -1341,13 +1342,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn novel_loop_completes_in_one_iteration_when_it_interacts() {
-        // A novel goal the model answers with a single benign invoke: because the
-        // batch INTERACTED and completed, the closed loop finishes in ONE iteration
-        // — exactly one planner call (a second would exhaust the fixture and panic).
+    async fn novel_loop_completes_in_one_iteration_when_model_stops() {
+        // A single-batch goal the model finishes in one iteration by emitting the
+        // interaction AND a trailing `stop` (its completion contract). The closed
+        // loop terminates on the stop — exactly one planner call (a second would
+        // exhaust the fixture and panic). Proves the "click Retry → one invoke,
+        // model stops" case still terminates cleanly under the trust-the-stop rule.
         let backend = Arc::new(MockBackend::new(snap(vec![el("#/1", Role::Button, "Play")])));
         let selection = r#"{"missions":[{"type":"novel","goal":"press the play button"}]}"#;
-        let plan = r##"{"actions":[{"op":"invoke","target":"#/1"}]}"##;
+        let plan = r##"{"actions":[{"op":"invoke","target":"#/1"},{"op":"stop"}]}"##;
         let mut c = conductor(
             FlowRegistry::new(),
             vec![Ok(selection.into()), Ok(plan.into())],
@@ -1359,6 +1362,38 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(backend.invoked(), vec!["#/1".to_string()]);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
+        assert!(matches!(c.state(), ConductorState::Armed));
+    }
+
+    #[tokio::test]
+    async fn novel_loop_continues_after_interacting_batch_without_stop() {
+        // The premature-success fix (#3): a batch that INTERACTED (a type) but did
+        // NOT emit `stop` must NOT be declared done — a multi-step goal (write
+        // intro→conclusion) needs more iterations. Iter 1 types the intro (no stop)
+        // -> the loop continues, re-observes, and re-plans; iter 2 emits stop ->
+        // success. Three LLM turns (selection + two planner calls) proves the loop
+        // ran twice rather than terminating after the first interacting batch.
+        let backend = Arc::new(MockBackend::new(snap(vec![el("#/1", Role::TextField, "Body")])));
+        let selection =
+            r#"{"missions":[{"type":"novel","goal":"write the intro then finish"}]}"#;
+        let iter1 = r#"{"actions":[{"op":"type","text":"intro"}]}"#;
+        let iter2 = r#"{"actions":[{"op":"stop"}]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(iter1.into()), Ok(iter2.into())],
+            backend.clone(),
+        );
+        c.arm();
+        let events = c
+            .on_transcript("write the intro then finish".into())
+            .await
+            .unwrap();
+        // The interaction happened once (iter 1), and the loop only stopped on the
+        // model's explicit stop (iter 2) — not prematurely after iter 1.
+        assert_eq!(backend.typed(), vec!["intro".to_string()]);
         assert!(events
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));

@@ -175,15 +175,45 @@ impl Executor {
         plan: ActionPlan,
         transcript: &str,
     ) -> Result<ExecResult, ExecError> {
-        // A fresh command clears any pre-approval left over from a prior one.
-        self.transcript = transcript.to_string();
-        self.confirmed_target = None;
-        // Fresh command: no app has been launched/switched yet, so the focus
-        // guard starts inert and only arms once this command launches one.
+        // Single-plan entry point: a fresh command has launched/switched nothing
+        // yet, so the focus guard starts inert and only arms once this command's
+        // own launch/focus runs. (The closed loop uses `execute_plan_continuing`
+        // instead, so a launch in one iteration keeps arming a Type in the next.)
         self.expected_app = None;
-        // Fresh command: the previous command's screen fingerprint is irrelevant.
+        self.execute_plan_continuing(plan, transcript).await
+    }
+
+    /// Execute one batch WITHOUT clearing the focus-guard latch (`expected_app`).
+    ///
+    /// The novel closed loop launches/focuses in one iteration and types on a
+    /// LATER one, calling the executor once per iteration. If each call reset the
+    /// guard, a launch's `expected_app` would be cleared before the follow-up
+    /// `Type` ever consulted it, leaving the guard inert for exactly the
+    /// launch-then-type pattern the loop uses. So the loop calls this variant and
+    /// arms/clears the guard itself once per goal via [`Executor::reset_focus_guard`].
+    ///
+    /// The one-shot destructive pre-approval and the trace fingerprint are still
+    /// cleared per batch — a freshly planned batch must never inherit a stale
+    /// approval, and the fingerprint is logging-only.
+    pub async fn execute_plan_continuing(
+        &mut self,
+        plan: ActionPlan,
+        transcript: &str,
+    ) -> Result<ExecResult, ExecError> {
+        self.transcript = transcript.to_string();
+        // A fresh batch clears any pre-approval left over from a prior one.
+        self.confirmed_target = None;
+        // A freshly planned batch's screen fingerprint is judged on its own.
         self.last_snapshot_fp = None;
         self.run(plan.actions, false).await
+    }
+
+    /// Clear the focus-guard latch so it starts inert for a NEW goal. The novel
+    /// closed loop calls this once at goal start (not per iteration), so a
+    /// launch/focus in one iteration arms the guard for a `Type` in a later one,
+    /// while a brand-new goal never inherits the previous goal's expected app.
+    pub fn reset_focus_guard(&mut self) {
+        self.expected_app = None;
     }
 
     /// Resume the remaining plan after a Confirm / ask_user decision.
@@ -1292,6 +1322,135 @@ mod tests {
 
         let result = exec.execute_plan(plan).await.unwrap();
         assert!(result.completed);
+        assert_eq!(backend.typed(), vec!["hi".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn focus_guard_persists_across_continuing_batches() {
+        // The closed-loop fix (#2): a launch in one batch must keep the guard armed
+        // for a `Type` in a LATER batch. Using `execute_plan_continuing` (as the
+        // novel loop does), the `expected_app` set by batch 1's launch survives into
+        // batch 2 — so the type into the wrong (still-Editor) foreground is refused.
+        // Contrast with `execute_plan_with_context`, which resets per call.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+        // A new goal starts inert.
+        exec.reset_focus_guard();
+
+        // Batch 1: launch (arms the guard for "Google Chrome").
+        let b1 = exec
+            .execute_plan_continuing(
+                ActionPlan::new(vec![Action::Launch {
+                    target: "Google Chrome".into(),
+                    origin: Origin::TaskIntent,
+                }]),
+                "open chrome and type",
+            )
+            .await
+            .unwrap();
+        assert!(b1.completed);
+        assert_eq!(backend.launched(), vec!["Google Chrome".to_string()]);
+
+        // Batch 2: type. Foreground is still "Editor", so the guard armed in batch 1
+        // must refuse the keystroke.
+        let b2 = exec
+            .execute_plan_continuing(
+                ActionPlan::new(vec![Action::Type {
+                    text: "youtube.com".into(),
+                    clear: false,
+                }]),
+                "open chrome and type",
+            )
+            .await
+            .unwrap();
+        assert!(!b2.completed, "guard armed in batch 1 must survive into batch 2");
+        assert!(
+            backend.typed().is_empty(),
+            "the guard must never send keystrokes to the wrong window across batches"
+        );
+        assert!(b2
+            .outcomes
+            .iter()
+            .any(|o| matches!(o, StepOutcome::Failed { .. })));
+    }
+
+    #[tokio::test]
+    async fn reset_focus_guard_starts_a_new_goal_inert() {
+        // After a goal armed the guard, `reset_focus_guard` clears the latch so the
+        // NEXT goal's type against the current window is unaffected (the guard does
+        // not leak an expected app across goals).
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+
+        // Goal 1 arms the guard for Chrome.
+        exec.execute_plan_continuing(
+            ActionPlan::new(vec![Action::Launch {
+                target: "Google Chrome".into(),
+                origin: Origin::TaskIntent,
+            }]),
+            "goal one",
+        )
+        .await
+        .unwrap();
+
+        // New goal: reset, then a plain type must land (guard inert again).
+        exec.reset_focus_guard();
+        let b = exec
+            .execute_plan_continuing(
+                ActionPlan::new(vec![Action::Type {
+                    text: "hi".into(),
+                    clear: false,
+                }]),
+                "goal two",
+            )
+            .await
+            .unwrap();
+        assert!(b.completed, "a reset guard leaves a plain type unguarded");
+        assert_eq!(backend.typed(), vec!["hi".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn execute_plan_with_context_resets_focus_guard_per_call() {
+        // The single-plan path must keep resetting the guard: even if a prior
+        // continuing batch armed it, `execute_plan_with_context` starts inert.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+
+        // Arm the guard for Chrome via a continuing batch.
+        exec.execute_plan_continuing(
+            ActionPlan::new(vec![Action::Launch {
+                target: "Google Chrome".into(),
+                origin: Origin::TaskIntent,
+            }]),
+            "arm it",
+        )
+        .await
+        .unwrap();
+
+        // A fresh single-plan command resets the latch, so this type lands.
+        let result = exec
+            .execute_plan_with_context(
+                ActionPlan::new(vec![Action::Type {
+                    text: "hi".into(),
+                    clear: false,
+                }]),
+                "type hi",
+            )
+            .await
+            .unwrap();
+        assert!(result.completed, "single-plan path starts the guard inert");
         assert_eq!(backend.typed(), vec!["hi".to_string()]);
     }
 
