@@ -179,10 +179,34 @@ export function CollapsedRail({ tasks }: { tasks: ActTask[] }) {
   )
 }
 
-const DOT: Record<ActTask['status'], string> = {
-  running: 'bg-[#5aa0ff]',
-  done: 'bg-[#54e0b0]',
-  failed: 'bg-[#ff6b6b]',
+/** Per-status token styling — one source of truth so the rail, cards, pills,
+ *  and stripes all speak the same language: aqua accent = running, success =
+ *  done, error = failed. No hardcoded hexes; everything rides the theme tokens. */
+const STATUS: Record<
+  ActTask['status'],
+  { dot: string; text: string; soft: string; border: string; label: string }
+> = {
+  running: {
+    dot: 'bg-accent',
+    text: 'text-accent',
+    soft: 'bg-accent/12',
+    border: 'border-accent/35',
+    label: 'RUNNING',
+  },
+  done: {
+    dot: 'bg-success',
+    text: 'text-success',
+    soft: 'bg-success/14',
+    border: 'border-success/30',
+    label: 'DONE',
+  },
+  failed: {
+    dot: 'bg-error',
+    text: 'text-error',
+    soft: 'bg-error/12',
+    border: 'border-error/30',
+    label: 'FAILED',
+  },
 }
 
 /** One 16px status indicator in the collapsed rail. */
@@ -199,7 +223,7 @@ function Indicator({ task }: { task: ActTask }) {
       {/* Pulsing halo while running */}
       {task.status === 'running' && (
         <motion.span
-          className="absolute inset-0 rounded-full bg-[#5aa0ff]"
+          className="absolute inset-0 rounded-full bg-accent"
           animate={{ scale: [1, 1.85], opacity: [0.5, 0] }}
           transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
         />
@@ -211,7 +235,7 @@ function Indicator({ task }: { task: ActTask }) {
         initial={{ scale: task.status === 'running' ? 1 : 0.4 }}
         animate={{ scale: task.status === 'running' ? 1 : [0.4, 1.35, 1] }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
-        className={`relative flex h-4 w-4 items-center justify-center rounded-full text-white shadow-sm ${DOT[task.status]}`}
+        className={`relative flex h-4 w-4 items-center justify-center rounded-full text-white shadow-sm ${STATUS[task.status].dot}`}
       >
         {task.status === 'done' && <Check size={10} strokeWidth={3.2} />}
         {task.status === 'failed' && <X size={10} strokeWidth={3.2} />}
@@ -224,7 +248,7 @@ function Indicator({ task }: { task: ActTask }) {
 function OverflowChip({ count, tasks }: { count: number; tasks: ActTask[] }) {
   const anyRunning = tasks.some((t) => t.status === 'running')
   const anyFailed = tasks.some((t) => t.status === 'failed')
-  const tint = anyRunning ? 'text-[#5aa0ff]' : anyFailed ? 'text-[#ff6b6b]' : 'text-[#54e0b0]'
+  const tint = anyRunning ? 'text-accent' : anyFailed ? 'text-error' : 'text-success'
   return (
     <motion.div
       layout
@@ -238,7 +262,8 @@ function OverflowChip({ count, tasks }: { count: number; tasks: ActTask[] }) {
 }
 
 export function TaskCard({ task }: { task: ActTask }) {
-  const line = task.status === 'running' ? task.detail : task.summary
+  const running = task.status === 'running'
+  const line = running ? task.detail : task.summary
 
   return (
     <motion.div
@@ -247,29 +272,36 @@ export function TaskCard({ task }: { task: ActTask }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-      className="pointer-events-auto relative flex-none overflow-hidden rounded-[12px] border border-border bg-bg-tertiary/60 px-3 py-2.5"
+      className="pointer-events-auto relative flex-none overflow-hidden rounded-[13px] border border-border bg-bg-elevated px-3 py-2.5 shadow-sm"
     >
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${DOT[task.status]}`} />
+      <span className={`absolute inset-y-0 left-0 w-[3px] ${STATUS[task.status].dot}`} />
 
       <div className="flex items-start gap-2.5 pl-1.5">
         <StatusIcon status={task.status} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[13px] font-medium text-text-primary">{task.label}</p>
+            <p className="truncate text-[13px] font-semibold text-text-primary">{task.label}</p>
             <StatusBadge status={task.status} />
           </div>
           {line && (
-            <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-text-secondary">
+            <p
+              className={`mt-1 line-clamp-2 leading-relaxed ${
+                running
+                  ? 'font-mono text-[11px] text-text-secondary'
+                  : 'text-[11.5px] text-text-secondary'
+              }`}
+            >
+              {running && <span className="mr-1 text-accent">›</span>}
               {line}
             </p>
           )}
         </div>
       </div>
 
-      {task.status === 'running' && (
-        <div className="mt-2 ml-1.5 h-[3px] overflow-hidden rounded-full bg-white/8">
+      {running && (
+        <div className="mt-2.5 ml-1.5 h-[4px] overflow-hidden rounded-full bg-bg-tertiary">
           <motion.div
-            className="h-full w-1/3 rounded-full bg-[#5aa0ff]"
+            className="h-full w-1/3 rounded-full bg-gradient-to-r from-accent-hover to-accent"
             animate={{ x: ['-120%', '340%'] }}
             transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
           />
@@ -280,38 +312,25 @@ export function TaskCard({ task }: { task: ActTask }) {
 }
 
 function StatusIcon({ status }: { status: ActTask['status'] }) {
-  if (status === 'running') {
-    return (
-      <span className="mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[7px] bg-[#5aa0ff]/12 text-[#5aa0ff]">
-        <Loader2 size={13} className="animate-spin" strokeWidth={2.4} />
-      </span>
-    )
-  }
-  if (status === 'done') {
-    return (
-      <span className="mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[7px] bg-[#54e0b0]/14 text-[#54e0b0]">
-        <Check size={13} strokeWidth={2.8} />
-      </span>
-    )
-  }
+  const s = STATUS[status]
   return (
-    <span className="mt-0.5 flex h-[22px] w-[22px] flex-none items-center justify-center rounded-[7px] bg-[#ff6b6b]/12 text-[#ff6b6b]">
-      <X size={13} strokeWidth={2.6} />
+    <span
+      className={`mt-0.5 flex h-[24px] w-[24px] flex-none items-center justify-center rounded-[8px] ${s.soft} ${s.text}`}
+    >
+      {status === 'running' && <Loader2 size={13} className="animate-spin" strokeWidth={2.4} />}
+      {status === 'done' && <Check size={13} strokeWidth={2.8} />}
+      {status === 'failed' && <X size={13} strokeWidth={2.6} />}
     </span>
   )
 }
 
 function StatusBadge({ status }: { status: ActTask['status'] }) {
-  const map = {
-    running: { label: 'RUNNING', cls: 'text-[#5aa0ff] bg-[#5aa0ff]/12 border-[#5aa0ff]/35' },
-    done: { label: 'DONE', cls: 'text-[#54e0b0] bg-[#54e0b0]/12 border-[#54e0b0]/32' },
-    failed: { label: 'FAILED', cls: 'text-[#ff6b6b] bg-[#ff6b6b]/12 border-[#ff6b6b]/32' },
-  }[status]
+  const s = STATUS[status]
   return (
     <span
-      className={`flex-none rounded-full border px-2 py-0.5 text-[9.5px] font-semibold tracking-[0.03em] ${map.cls}`}
+      className={`flex-none rounded-full border px-2 py-0.5 text-[9.5px] font-semibold tracking-[0.04em] ${s.text} ${s.soft} ${s.border}`}
     >
-      {map.label}
+      {s.label}
     </span>
   )
 }

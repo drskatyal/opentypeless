@@ -1,31 +1,32 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Clean neutral palette */
-  --color-bg-primary: #f5f5f5;
-  --color-bg-secondary: #ebebeb;
-  --color-bg-tertiary: #e0e0e0;
-  --color-bg-elevated: #fafafa;
+  /* Light — cool paper neutral (slight blue bias), aqua "signal" accent.
+     Chosen, not defaulted: the ground is a cool off-white, never flat grey. */
+  --color-bg-primary: #f4f6fa; /* ground */
+  --color-bg-secondary: #f1f4f9; /* panel */
+  --color-bg-tertiary: #e9edf4; /* raised */
+  --color-bg-elevated: #ffffff; /* cards / floating surfaces */
 
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #666666;
-  --color-text-tertiary: #6c727a; /* raised from #999999 → ≥4.5:1 on card/ground (WCAG AA) */
+  --color-text-primary: #171c26;
+  --color-text-secondary: #5a6474;
+  --color-text-tertiary: #7a8494; /* ≥4.5:1 on card/ground (WCAG AA) */
 
-  --color-accent: #0d9488; /* aurora family, deep enough for WCAG-AA UI contrast on white (≥3:1) */
-  --color-accent-hover: #0b7d6f; /* aurora hover */
-  --color-accent-light: #e3faf4; /* aurora tint */
-  --color-accent-text: #0a7266; /* link/emphasis TEXT — ≥4.5:1 on light surfaces (accent itself is UI-only) */
+  --color-accent: #10b3a3; /* aqua signal, ≥3:1 UI contrast on white */
+  --color-accent-hover: #0e9c8e;
+  --color-accent-light: #ddf6f2; /* aqua tint (active nav / soft fills) */
+  --color-accent-text: #0a7c70; /* emphasis TEXT — ≥4.5:1 on light surfaces */
 
-  --color-success: #34c759;
-  --color-warning: #ff9500;
-  --color-error: #ff3b30;
+  --color-success: #2fa875;
+  --color-warning: #c98a1e;
+  --color-error: #e0574c;
 
-  --color-border: rgba(0, 0, 0, 0.08);
-  --color-border-focus: #2abba7;
+  --color-border: #e4e9f1;
+  --color-border-focus: #10b3a3;
 
-  /* Jelly palette tokens */
-  --color-jelly-primary: rgba(42, 187, 167, 0.2);
-  --color-jelly-glow: rgba(42, 187, 167, 0.3);
+  /* Jelly palette tokens (aqua) */
+  --color-jelly-primary: rgba(16, 179, 163, 0.18);
+  --color-jelly-glow: rgba(16, 179, 163, 0.28);
 
   /* Font */
   --font-sans:
@@ -77,27 +78,31 @@ body,
   user-select: none;
 }
 
-/* ─── Dark Mode — FlowRad cosmic (dark-first, blue-biased near-black) ─── */
+/* ─── Dark Mode — cool ink ground, aqua "signal" accent (dark-first) ─── */
 .dark {
-  --color-bg-primary: #070a11; /* ground */
-  --color-bg-secondary: #0c111b; /* panel */
-  --color-bg-tertiary: #111826; /* raised */
-  --color-bg-elevated: #111826; /* raised */
+  --color-bg-primary: #0d0f13; /* ground */
+  --color-bg-secondary: #14171d; /* panel / surface */
+  --color-bg-tertiary: #1f242d; /* raised */
+  --color-bg-elevated: #1a1e26; /* cards / floating surfaces */
 
-  --color-text-primary: #d6dce8; /* text */
-  --color-text-secondary: #9aa3b4; /* text-secondary */
-  --color-text-tertiary: #8b95a3; /* muted — raised from #6e7889 → ≥4.5:1 on dark surfaces (WCAG AA) */
+  --color-text-primary: #e9ecf2; /* text */
+  --color-text-secondary: #99a2b2; /* text-secondary */
+  --color-text-tertiary: #838d9d; /* muted — ≥4.5:1 on dark surfaces (WCAG AA) */
 
-  --color-accent: #6fe7cb; /* aurora */
-  --color-accent-hover: #57c9ae; /* aurora hover */
-  --color-accent-light: #0f2a24; /* dark aurora tint */
-  --color-accent-text: #7fecd2; /* link/emphasis TEXT on dark surfaces — high contrast */
+  --color-accent: #34e1d0; /* aqua signal */
+  --color-accent-hover: #2ac7b8; /* aqua hover */
+  --color-accent-light: #0f2a28; /* dark aqua tint */
+  --color-accent-text: #4de9d8; /* emphasis TEXT on dark surfaces — high contrast */
 
-  --color-border: #1b2331; /* hairline */
-  --color-border-focus: #6fe7cb; /* aurora */
+  --color-success: #63c9a0;
+  --color-warning: #e8b04b;
+  --color-error: #f2685e;
 
-  --color-jelly-primary: rgba(111, 231, 203, 0.22);
-  --color-jelly-glow: rgba(111, 231, 203, 0.32);
+  --color-border: #262c36; /* hairline */
+  --color-border-focus: #34e1d0; /* aqua */
+
+  --color-jelly-primary: rgba(52, 225, 208, 0.22);
+  --color-jelly-glow: rgba(52, 225, 208, 0.32);
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
