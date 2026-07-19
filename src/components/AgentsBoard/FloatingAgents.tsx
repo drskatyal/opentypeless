@@ -1,10 +1,31 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Radio } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useActTasks } from '../../hooks/useActTasks'
 import { useAgentsWindowResize } from '../../hooks/useAgentsWindowResize'
 import { useAppStore } from '../../stores/appStore'
 import { EmptyState, OrchestrationList, PanelHeader, tallyStatuses } from './index'
+
+/**
+ * Start an OS-level window drag from a pointer-down on a handle area. Ignores
+ * presses that land on a button/interactive control so clicks (pin, collapse)
+ * still register. Once a drag begins the widget's position is locked so the
+ * resize hook stops snapping it back to the top-right anchor.
+ */
+function useWindowDrag(onMoved: () => void) {
+  return useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return
+      const target = e.target as HTMLElement
+      if (target.closest('button, a, input, [data-no-drag]')) return
+      onMoved()
+      void import('@tauri-apps/api/window')
+        .then(({ getCurrentWindow }) => getCurrentWindow().startDragging())
+        .catch(() => {})
+    },
+    [onMoved],
+  )
+}
 
 /**
  * Contents of the dedicated always-on-top `agents` window (`index.html#agents`).
@@ -35,10 +56,22 @@ export function FloatingAgents() {
     return () => clearTimeout(timer)
   }, [hasTasks])
 
-  const open = hovered || pinned || hasTasks || recentlyActive
+  // Manual collapse: the user can fold the panel back to the pill even while Act
+  // is working. It stays collapsed until they reopen it or the run fully clears.
+  const [userCollapsed, setUserCollapsed] = useState(false)
+  useEffect(() => {
+    if (!hasTasks) setUserCollapsed(false)
+  }, [hasTasks])
+
+  // Once the widget is dragged, lock its position so the resize hook stops
+  // re-anchoring it to the top-right corner.
+  const [moved, setMoved] = useState(false)
+  const startDrag = useWindowDrag(() => setMoved(true))
+
+  const open = !userCollapsed && (hovered || pinned || hasTasks || recentlyActive)
   const counts = tallyStatuses(tasks)
 
-  useAgentsWindowResize(open, actEnabled)
+  useAgentsWindowResize(open, actEnabled, moved)
 
   if (!actEnabled) return null
 
@@ -57,6 +90,7 @@ export function FloatingAgents() {
             exit={{ opacity: 0, scale: 0.96, y: -6 }}
             transition={{ type: 'spring', stiffness: 460, damping: 34 }}
             style={{ transformOrigin: 'top right' }}
+            onPointerDown={startDrag}
             className="flex h-full w-full flex-col overflow-hidden rounded-[16px] border border-border bg-bg-secondary/95 shadow-float backdrop-blur"
           >
             <PanelHeader
@@ -64,29 +98,44 @@ export function FloatingAgents() {
               counts={counts}
               pinned={pinned}
               onTogglePin={() => setPinned((p) => !p)}
+              onCollapse={() => {
+                setUserCollapsed(true)
+                setPinned(false)
+                setHovered(false)
+              }}
             />
             <div className="flex-1 overflow-y-auto pt-2 pb-2.5">
               {tasks.length === 0 ? <EmptyState /> : <OrchestrationList tasks={tasks} />}
             </div>
           </motion.div>
         ) : (
-          <motion.button
+          <motion.div
             key="pill"
-            type="button"
-            onClick={() => setPinned(true)}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-            aria-label="Agents"
-            className="flex h-full w-full cursor-pointer items-center gap-2 rounded-full border border-border bg-bg-secondary/90 pr-3.5 pl-2.5 shadow-lg backdrop-blur"
+            onPointerDown={startDrag}
+            className="flex h-full w-full items-center gap-2 rounded-full border border-border bg-bg-secondary/90 pr-2 pl-2.5 shadow-lg backdrop-blur"
           >
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-accent/40 bg-accent/12 text-accent">
-              <Radio size={14} strokeWidth={2.2} />
-            </span>
-            <span className="text-[12.5px] font-semibold text-text-primary">Agents</span>
-            <span className="ml-auto text-[11px] text-text-tertiary">idle</span>
-          </motion.button>
+            <button
+              type="button"
+              onClick={() => {
+                setUserCollapsed(false)
+                setPinned(true)
+              }}
+              aria-label="Open agents panel"
+              className="flex flex-1 cursor-pointer items-center gap-2 bg-transparent"
+            >
+              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-accent/40 bg-accent/12 text-accent">
+                <Radio size={14} strokeWidth={2.2} />
+              </span>
+              <span className="text-[12.5px] font-semibold text-text-primary">Agents</span>
+              <span className="ml-auto text-[11px] text-text-tertiary">
+                {hasTasks ? `${counts.running} live` : 'idle'}
+              </span>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

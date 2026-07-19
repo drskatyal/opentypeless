@@ -16,11 +16,11 @@ const MARGIN = 18
 const COLLAPSED = { width: 132, height: 44 }
 const EXPANDED = { width: 348, height: 560 }
 
-export function useAgentsWindowResize(open: boolean, visible: boolean) {
+export function useAgentsWindowResize(open: boolean, visible: boolean, positionLocked = false) {
   // Latest desired state, read by the single serialized applier below so rapid
   // hover/pin toggles can't interleave setSize/setPosition/show calls.
-  const desired = useRef({ open, visible })
-  desired.current = { open, visible }
+  const desired = useRef({ open, visible, positionLocked })
+  desired.current = { open, visible, positionLocked }
   const running = useRef(false)
 
   useEffect(() => {
@@ -40,22 +40,24 @@ export function useAgentsWindowResize(open: boolean, visible: boolean) {
         let last = ''
         for (let i = 0; i < 6; i += 1) {
           if (cancelled) break
-          const { open: o, visible: v } = desired.current
-          const key = `${o}|${v}`
+          const { open: o, visible: v, positionLocked: locked } = desired.current
+          const key = `${o}|${v}|${locked}`
           if (key === last) break
           last = key
 
           const size = o ? EXPANDED : COLLAPSED
           await win.setSize(new LogicalSize(size.width, size.height)).catch(() => {})
-          const monitor = await currentMonitor().catch(() => null)
-          if (monitor) {
-            const sw = monitor.size.width / monitor.scaleFactor
-            // Top-right corner with a margin — the collapsed pill and the open
-            // card stack both hang from the same top-right anchor, so the widget
-            // never jumps around as it grows.
-            const x = Math.round(sw - size.width - MARGIN)
-            const y = MARGIN
-            await win.setPosition(new LogicalPosition(x, y)).catch(() => {})
+          // Once the user has dragged the widget somewhere, respect that spot —
+          // only resize in place. Until then, anchor it top-right so the collapsed
+          // pill and the open card stack hang from the same corner and never jump.
+          if (!locked) {
+            const monitor = await currentMonitor().catch(() => null)
+            if (monitor) {
+              const sw = monitor.size.width / monitor.scaleFactor
+              const x = Math.round(sw - size.width - MARGIN)
+              const y = MARGIN
+              await win.setPosition(new LogicalPosition(x, y)).catch(() => {})
+            }
           }
           if (v) await win.show().catch(() => {})
           else await win.hide().catch(() => {})
@@ -69,5 +71,5 @@ export function useAgentsWindowResize(open: boolean, visible: boolean) {
     return () => {
       cancelled = true
     }
-  }, [open, visible])
+  }, [open, visible, positionLocked])
 }
