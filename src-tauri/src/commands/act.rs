@@ -161,19 +161,23 @@ fn resolve_followup_choice<V: CredentialSecretReader>(
     }
 }
 
-/// A stable fingerprint of the effective follow-up selection —
-/// `provider|model|hash(key)`. The key is hashed (never retained in plaintext)
-/// so two saves that resolve to the same provider/model/key compare equal and no
-/// live rebuild is triggered; any real provider, model, or key change flips it.
+/// A stable fingerprint of the effective Act session config —
+/// `provider|model|plan_mode|hash(key)`. The key is hashed (never retained in
+/// plaintext) so two saves that resolve to the same values compare equal and no
+/// live rebuild is triggered; any real provider, model, key, OR perception-mode
+/// change flips it (so switching Perception mode in Settings rebuilds the
+/// Conductor with the new mode, instead of the change being ignored until
+/// restart).
 fn followup_signature<V: CredentialSecretReader>(config: &storage::AppConfig, vault: &V) -> String {
     use std::hash::{Hash, Hasher};
     let choice = resolve_followup_choice(config, vault);
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     choice.key.hash(&mut hasher);
     format!(
-        "{}|{}|{:016x}",
+        "{}|{}|{}|{:016x}",
         choice.provider,
         choice.model,
+        act::plan_mode::PlanMode::from_config(&config.act_plan_mode).as_str(),
         hasher.finish()
     )
 }
