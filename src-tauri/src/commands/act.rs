@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::act::capability::{Capability, CapabilityGate};
-use crate::act::conductor::Conductor;
+use crate::act::conductor::{Conductor, ConductorState};
 use crate::act::executor::{Executor, UserDecision};
 use crate::act::flow_registry::FlowRegistry;
 use crate::act::flow_runner::FlowRunner;
@@ -340,11 +340,30 @@ pub async fn refresh_followup_if_changed(state: &ActState, config: &storage::App
     // Acquire the session lock. If a command is running it holds this lock across
     // its whole execution; awaiting here lets it finish, THEN swaps.
     let mut guard = state.session.lock().await;
-    if guard.is_none() {
-        // Not actually armed (Act toggled off between our check and here, or the
-        // session was temporarily borrowed by the dev relay). Do not resurrect it;
-        // the next arm rebuilds fresh from config.
-        return;
+    match guard.as_ref() {
+        None => {
+            // Not actually armed (Act toggled off between our check and here, or the
+            // session was temporarily borrowed by the dev relay). Do not resurrect it;
+            // the next arm rebuilds fresh from config.
+            return;
+        }
+        Some(existing) if *existing.state() != ConductorState::Armed => {
+            // The session is mid-mission — actively working is impossible here (that
+            // holds this same lock), so this means it is PAUSED awaiting a confirm /
+            // pick, with a `pending` continuation stored. Swapping in a fresh
+            // Conductor would silently drop that pending mission, and the user's next
+            // decision would fail with "session is not active". Defer instead: leave
+            // the running Conductor in place (the provider change applies to the next
+            // command) and leave the stored signature stale so a later idle save
+            // re-attempts the swap.
+            tracing::info!(
+                state = existing.state().name(),
+                "Act follow-up change deferred: session is mid-mission (paused); \
+                 will apply on the next command or re-arm"
+            );
+            return;
+        }
+        Some(_) => {}
     }
     *state.kill.lock().unwrap_or_else(|e| e.into_inner()) = kill;
     state.has_act_hotkey.store(
