@@ -28,7 +28,7 @@ import { AskPanel } from './components/AskPanel'
 import { FloatingEditor } from './components/FloatingEditor'
 import { ToastContainer } from './components/Toast'
 import { ActHud } from './components/ActHud'
-import { AgentsBoard } from './components/AgentsBoard'
+import { FloatingAgents } from './components/AgentsBoard/FloatingAgents'
 
 function CapsuleApp() {
   useTauriEvents()
@@ -88,6 +88,21 @@ function AskApp() {
 function EditorApp() {
   useTheme()
   return <FloatingEditor />
+}
+
+function AgentsApp() {
+  useTheme()
+  const setConfig = useAppStore((s) => s.setConfig)
+
+  useEffect(() => {
+    // The floating agents window needs config for `act_enabled` (whether to show
+    // at all) and to react live when Act is toggled on/off.
+    getConfig()
+      .then(setConfig)
+      .catch((e) => console.error('Failed to load config in agents window:', e))
+  }, [setConfig])
+
+  return <FloatingAgents />
 }
 
 function MainApp() {
@@ -232,7 +247,6 @@ function MainApp() {
       {route === 'account' && <AccountPage />}
       <ToastContainer />
       <ActHud />
-      <AgentsBoard />
     </MainLayout>
   )
 }
@@ -242,6 +256,7 @@ function App() {
   if (window.location.hash === '#capsule') return <CapsuleApp />
   if (window.location.hash === '#ask') return <AskApp />
   if (window.location.hash === '#editor') return <EditorApp />
+  if (window.location.hash === '#agents') return <AgentsApp />
   return <MainApp />
 }
 

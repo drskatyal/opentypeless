@@ -82,13 +82,13 @@ export function AgentsBoard() {
   )
 }
 
-interface StatusTally {
+export interface StatusTally {
   running: number
   done: number
   failed: number
 }
 
-function tallyStatuses(tasks: ActTask[]): StatusTally {
+export function tallyStatuses(tasks: ActTask[]): StatusTally {
   return tasks.reduce(
     (acc, t) => {
       acc[t.status] += 1
@@ -98,7 +98,7 @@ function tallyStatuses(tasks: ActTask[]): StatusTally {
   )
 }
 
-function PanelHeader({
+export function PanelHeader({
   total,
   counts,
   pinned,
@@ -145,7 +145,7 @@ function PanelHeader({
   )
 }
 
-function EmptyState() {
+export function EmptyState() {
   return (
     <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary text-text-tertiary">
@@ -162,7 +162,7 @@ function EmptyState() {
 /** How many indicators to show before folding the rest into a "+N" chip. */
 const MAX_DOTS = 7
 
-function CollapsedRail({ tasks }: { tasks: ActTask[] }) {
+export function CollapsedRail({ tasks }: { tasks: ActTask[] }) {
   const overflowing = tasks.length > MAX_DOTS
   const visible = overflowing ? tasks.slice(0, MAX_DOTS - 1) : tasks
   const hidden = tasks.length - visible.length
@@ -237,7 +237,7 @@ function OverflowChip({ count, tasks }: { count: number; tasks: ActTask[] }) {
   )
 }
 
-function TaskCard({ task }: { task: ActTask }) {
+export function TaskCard({ task }: { task: ActTask }) {
   const line = task.status === 'running' ? task.detail : task.summary
 
   return (
