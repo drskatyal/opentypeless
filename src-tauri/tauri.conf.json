@@ -77,6 +77,23 @@
         "center": true,
         "visible": false,
         "url": "index.html#editor"
+      },
+      {
+        "label": "agents",
+        "title": "FlowRad Agents",
+        "width": 56,
+        "height": 148,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "focusable": false,
+        "visible": false,
+        "visibleOnAllWorkspaces": true,
+        "url": "index.html#agents"
       }
     ],
     "security": {
