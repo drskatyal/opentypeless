@@ -489,6 +489,7 @@ mod schema_tests {
 #[cfg(test)]
 pub mod test_support {
     use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Mutex;
 
     /// A fixture [`LlmClient`] that records prompts and returns canned responses
@@ -496,6 +497,13 @@ pub mod test_support {
     pub struct FixtureLlmClient {
         responses: Mutex<Vec<Result<String, AppError>>>,
         pub calls: Mutex<Vec<(String, String)>>,
+        /// Whether this fixture claims to be multimodal ([`LlmClient::is_multimodal`]).
+        /// A text-only fixture (the default) makes the planner degrade screenshot
+        /// modes to tree, exactly like Cerebras; a multimodal one keeps the image.
+        multimodal: bool,
+        /// Set once the multimodal path is invoked WITH an image attached — lets a
+        /// test assert the screenshot actually reached the (multimodal) client.
+        saw_image: AtomicBool,
     }
 
     impl FixtureLlmClient {
@@ -503,16 +511,34 @@ pub mod test_support {
             Self {
                 responses: Mutex::new(responses),
                 calls: Mutex::new(Vec::new()),
+                multimodal: false,
+                saw_image: AtomicBool::new(false),
             }
+        }
+
+        /// Mark this fixture as multimodal (able to "see" a screenshot), so the
+        /// planner does not degrade hybrid/vision to tree when it is selected.
+        pub fn multimodal(mut self) -> Self {
+            self.multimodal = true;
+            self
         }
 
         pub fn call_count(&self) -> usize {
             self.calls.lock().unwrap().len()
         }
+
+        /// Whether a screenshot was attached to the last-invoked multimodal call.
+        pub fn saw_image(&self) -> bool {
+            self.saw_image.load(Ordering::Relaxed)
+        }
     }
 
     #[async_trait]
     impl LlmClient for FixtureLlmClient {
+        fn is_multimodal(&self) -> bool {
+            self.multimodal
+        }
+
         async fn generate_json(
             &self,
             system: &str,
@@ -528,6 +554,19 @@ pub mod test_support {
                 return Err(AppError::Config("fixture exhausted".into()));
             }
             r.remove(0)
+        }
+
+        async fn generate_json_multimodal(
+            &self,
+            system: &str,
+            user: &str,
+            image_png: Option<&[u8]>,
+            schema: Option<&serde_json::Value>,
+        ) -> Result<String, AppError> {
+            if image_png.is_some() {
+                self.saw_image.store(true, Ordering::Relaxed);
+            }
+            self.generate_json(system, user, schema).await
         }
     }
 }

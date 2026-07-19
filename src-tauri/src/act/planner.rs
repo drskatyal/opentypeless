@@ -785,15 +785,19 @@ mod tests {
 
     #[tokio::test]
     async fn screenshot_mode_routes_to_vision_llm_not_base() {
-        // With a dedicated vision client attached, a screenshot mode (hybrid/vision)
-        // routes the LLM call to that client and leaves the base follow-up client
-        // (a Cerebras-style text transport) untouched. The base fixture is empty, so
-        // it panics-by-exhaustion if it is ever called. Uses a target-less `wait`
-        // plan so only the routing is exercised.
+        // With a dedicated MULTIMODAL vision client attached, a screenshot mode
+        // (hybrid/vision) routes the LLM call to that client AND the screenshot
+        // reaches it, while the base follow-up client (a Cerebras-style text
+        // transport) is left untouched. The base fixture is empty, so it
+        // panics-by-exhaustion if it is ever called. The vision fixture is marked
+        // multimodal so the guard does NOT degrade the perception to tree (which
+        // would drop the image and hide a misrouting bug). Uses a target-less
+        // `wait` plan so only the routing + image delivery are exercised.
         let base = Arc::new(FixtureLlmClient::new(vec![]));
-        let vision = Arc::new(FixtureLlmClient::new(vec![Ok(
-            r#"{"actions":[{"op":"wait","ms":100}]}"#.into(),
-        )]));
+        let vision = Arc::new(
+            FixtureLlmClient::new(vec![Ok(r#"{"actions":[{"op":"wait","ms":100}]}"#.into())])
+                .multimodal(),
+        );
         let vision_client: Arc<dyn LlmClient> = vision.clone();
         let planner = Planner::new(base.clone(), "m".into()).with_vision_llm(Some(vision_client));
         let res = planner
@@ -813,6 +817,12 @@ mod tests {
         assert_eq!(res.source, PlanSource::Llm);
         assert_eq!(vision.call_count(), 1);
         assert_eq!(base.call_count(), 0);
+        // The screenshot actually reached the multimodal vision client (not dropped
+        // by a tree degrade) — this is what makes hybrid/vision real.
+        assert!(
+            vision.saw_image(),
+            "screenshot must reach the vision client"
+        );
     }
 
     #[tokio::test]

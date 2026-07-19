@@ -714,7 +714,7 @@ mod tests {
     fn system_prompt_routes_screen_referential_imperatives_to_novel() {
         // Guards the fix for the #1 reliability bug: an imperative that acts on
         // something visible ("play the third video on screen") must route to a
-        // Novel act, never be mis-classified as an Answer (talk-back).
+        // Novel act, never be misclassified as an Answer (talk-back).
         assert!(SELECTION_SYSTEM_PROMPT.contains("IMPERATIVE"));
         assert!(SELECTION_SYSTEM_PROMPT.contains("ON SCREEN"));
     }
