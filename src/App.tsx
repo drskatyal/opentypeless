@@ -105,6 +105,21 @@ function AgentsApp() {
   return <FloatingAgents />
 }
 
+function ActHudApp() {
+  useTheme()
+  const setConfig = useAppStore((s) => s.setConfig)
+
+  useEffect(() => {
+    // The Act HUD overlay needs config for `act_enabled` — it drives whether the
+    // window is shown at all, and reacts live when Act is toggled on/off.
+    getConfig()
+      .then(setConfig)
+      .catch((e) => console.error('Failed to load config in acthud window:', e))
+  }, [setConfig])
+
+  return <ActHud />
+}
+
 function MainApp() {
   useTauriEvents()
   useTheme()
@@ -246,7 +261,6 @@ function MainApp() {
       {route === 'upgrade' && <UpgradePage />}
       {route === 'account' && <AccountPage />}
       <ToastContainer />
-      <ActHud />
     </MainLayout>
   )
 }
@@ -257,6 +271,7 @@ function App() {
   if (window.location.hash === '#ask') return <AskApp />
   if (window.location.hash === '#editor') return <EditorApp />
   if (window.location.hash === '#agents') return <AgentsApp />
+  if (window.location.hash === '#acthud') return <ActHudApp />
   return <MainApp />
 }
 
