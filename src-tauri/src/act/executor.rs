@@ -627,6 +627,19 @@ impl Executor {
                 }
             }
             Action::Launch { target, .. } => {
+                // A web URL handed to `launch` can't be started as an application
+                // (terminator fails with "Failed to launch application 'https://…'").
+                // The model meant "open this link" — route it to the URI opener.
+                if target_is_url(target) {
+                    let res = tokio::select! {
+                        biased;
+                        _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                        r = self.backend.open_uri(target) => r,
+                    };
+                    return Ok(
+                        res.map_or_else(|e| Execution::Failed(e.to_string()), |()| Execution::Ok)
+                    );
+                }
                 let res = tokio::select! {
                     biased;
                     _ = kill.wait_tripped() => return Ok(Execution::Aborted),
@@ -1030,6 +1043,14 @@ enum Execution {
     },
 }
 
+/// Whether a `launch` target is really a web URL, so it should be opened via the
+/// URI handler rather than started as an application. Only the explicit http(s)
+/// schemes qualify — a bare app name ("chrome", "notepad") must still launch.
+fn target_is_url(target: &str) -> bool {
+    let lower = target.trim().to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
 /// Whether an action is a "script primitive" (OS/shell op) rather than an
 /// accessibility-tree op, and so takes the [`Executor::step_script`] path.
 fn is_script_primitive(action: &Action) -> bool {
@@ -1232,6 +1253,47 @@ mod tests {
             selection_text_len: 0,
             elements: vec![el("#/1", Role::TextField, "Message")],
         }
+    }
+
+    #[tokio::test]
+    async fn launch_with_http_url_opens_as_uri_not_app() {
+        // The planner sometimes emits {"op":"launch","target":"https://…"}; a URL
+        // cannot be started as an application, so it must route to the URI opener
+        // instead of failing with "Failed to launch application 'https://…'".
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+        let url = "https://www.youtube.com/results?search_query=Hotel+California";
+        let plan = ActionPlan::new(vec![Action::Launch {
+            target: url.into(),
+            origin: Origin::WorldKnowledge,
+        }]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(result.completed, "URL should open via open_uri");
+        assert!(backend.launched().is_empty(), "must not app-launch a URL");
+        assert_eq!(backend.opened_uris(), vec![url.to_string()]);
+    }
+
+    #[tokio::test]
+    async fn launch_with_bare_app_name_still_launches() {
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .build(),
+        );
+        let mut exec = launching_executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Launch {
+            target: "notepad".into(),
+            origin: Origin::WorldKnowledge,
+        }]);
+
+        exec.execute_plan(plan).await.unwrap();
+        assert_eq!(backend.launched(), vec!["notepad".to_string()]);
+        assert!(backend.opened_uris().is_empty());
     }
 
     #[tokio::test]
