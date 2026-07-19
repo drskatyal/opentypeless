@@ -444,6 +444,19 @@ impl Executor {
             }
         }
 
+        // 5b-fg. Foreground lock. `Type`/`Key` go to the focused window, and an
+        // `Invoke`/`Focus` acts on the foreground app; after a coordinate click the
+        // dev console repeatedly steals focus (the "snapshotted the terminal" bug),
+        // so bring the intended app forward — and never treat our own console/window
+        // as the target — before acting. Best-effort here; the `Type`/`Key` focus
+        // guard below is the hard stop.
+        if matches!(
+            action,
+            Action::Type { .. } | Action::Key { .. } | Action::Invoke { .. } | Action::Focus { .. }
+        ) {
+            self.lock_foreground().await;
+        }
+
         // 5c. Focus guard. `Type` and `Key` go to whatever window is foreground,
         // so if this command launched/switched to an app, make sure that app is
         // actually in front before sending input — focus it or ABORT rather than
@@ -659,9 +672,19 @@ impl Executor {
                 }
             }
             Action::Click { x, y } => {
-                // `vision`-mode coordinate click. The focus guard (armed by an
-                // earlier launch/focus in this run) still applies to the app that
-                // owns the coordinate, and the kill switch pre-empts it.
+                // `vision`-mode coordinate click. Before clicking, foreground-lock
+                // the intended app: a coordinate lands on whatever window is in
+                // front, and after the *previous* click the dev console repeatedly
+                // stole focus, so a raw click would hit (and snapshot) the terminal.
+                // Best-effort — the kill switch pre-empts it and it no-ops off-Windows.
+                tokio::select! {
+                    biased;
+                    _ = kill.wait_tripped() => return Ok(Execution::Aborted),
+                    _ = self.lock_foreground() => {}
+                }
+                // The focus guard (armed by an earlier launch/focus in this run)
+                // still applies to the app that owns the coordinate, and the kill
+                // switch pre-empts it.
                 let res = tokio::select! {
                     biased;
                     _ = kill.wait_tripped() => return Ok(Execution::Aborted),
@@ -825,6 +848,34 @@ impl Executor {
             }
         }
         None
+    }
+
+    /// Foreground lock before an action that lands on whatever window is
+    /// foreground (`Type`/`Key`/`Invoke`/`Focus`/coordinate `Click`). Asks the
+    /// backend to make sure a *legitimate* target — never our dev console or own
+    /// window — is in front, bringing the command's intended app (`expected_app`)
+    /// forward if the console stole focus after a click.
+    ///
+    /// Best-effort at this layer: the mock and macOS backends return `Ok(true)`
+    /// (no-op), and a `false`/error only logs — it does not by itself halt the
+    /// plan. The `Type`/`Key` path additionally runs the hard [`focus_guard`],
+    /// which ABORTS if the wrong window is still confirmed foreground.
+    async fn lock_foreground(&self) {
+        match self
+            .backend
+            .ensure_foreground(self.expected_app.as_deref())
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => tracing::warn!(
+                expected = self.expected_app.as_deref().unwrap_or(""),
+                "act foreground guard: could not confirm a valid target window is foreground"
+            ),
+            Err(e) => tracing::debug!(
+                error = %e,
+                "act foreground guard: ensure_foreground failed; acting anyway"
+            ),
+        }
     }
 
     /// Best-effort post-condition verification for a just-run action. Returns

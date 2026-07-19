@@ -56,11 +56,13 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_WHEEL, MOUSEINPUT,
 };
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
-use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SW_SHOWNORMAL};
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, SW_SHOWNORMAL,
+};
 
 use crate::error::AppError;
 
-use super::backend::{AccessibilityBackend, ShellOutput};
+use super::backend::{should_refocus, AccessibilityBackend, ShellOutput};
 use super::element::{ActionPattern, Bounds, ElementPath, ElementState, Role, Snapshot, UiElement};
 use super::uia_broker;
 
@@ -407,6 +409,22 @@ impl AccessibilityBackend for WindowsUiaBackend {
         let name = name.to_string();
         run_op(OP_WATCHDOG, "focus_app", move |desktop| {
             Ok(desktop.activate_application(&name).is_ok())
+        })
+        .await
+        .map_err(to_app_err)
+    }
+
+    async fn ensure_foreground(
+        &self,
+        app_hint: Option<&str>,
+    ) -> std::result::Result<bool, AppError> {
+        // Bringing a window forward changes the foreground, and the snapshot cache
+        // is keyed by foreground HWND — drop it so the next snapshot re-reads the
+        // (now corrected) window rather than the console that had stolen focus.
+        invalidate_snapshot_cache();
+        let hint = app_hint.map(str::to_string);
+        run_op(OP_WATCHDOG, "ensure_foreground", move |desktop| {
+            Ok(ensure_foreground_win(desktop, hint.as_deref()))
         })
         .await
         .map_err(to_app_err)
@@ -1257,6 +1275,96 @@ fn process_exe_stem(pid: u32) -> Option<String> {
         }
         Some(stem.to_string())
     }
+}
+
+/// Extra activate-and-settle attempts after the first foreground check, so the
+/// guard tries up to `FOREGROUND_RETRIES` times to pull the intended app forward.
+const FOREGROUND_RETRIES: u32 = 2;
+/// Bounded wait for focus to settle after asking the OS to bring a window forward,
+/// before re-reading the foreground.
+const FOREGROUND_SETTLE: Duration = Duration::from_millis(300);
+
+/// Read the current foreground window's `(title, process-exe-stem)` via Win32.
+/// Both are best-effort: an empty value means "unknown", which the pure
+/// [`should_refocus`] treats as non-excluded and non-matching. The window title
+/// feeds the app side of the decision; the process stem (via the existing
+/// [`process_exe_stem`] helper) is the reliable identity that recognizes a console
+/// or our own exe.
+fn foreground_identity() -> (String, String) {
+    // SAFETY: `GetForegroundWindow` takes no arguments and is callable from any
+    // thread; a null HWND yields an empty identity handled by the caller.
+    // `GetWindowTextW` / `GetWindowThreadProcessId` borrow the HWND and the
+    // out-buffers only for the duration of the call and retain nothing; the title
+    // slice is bounded by the returned length, and the PID is read into a local.
+    let (title, pid) = unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_null() {
+            return (String::new(), String::new());
+        }
+        let mut buffer = [0u16; 512];
+        let len = GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32);
+        let title = if len > 0 {
+            String::from_utf16_lossy(&buffer[..len as usize])
+        } else {
+            String::new()
+        };
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        (title, pid)
+    };
+    // `process_exe_stem` opens/closes its own process handle internally.
+    let proc = process_exe_stem(pid).unwrap_or_default();
+    (title, proc)
+}
+
+/// Foreground-lock implementation (see [`AccessibilityBackend::ensure_foreground`]).
+///
+/// Reads the live foreground via Win32, runs it through the pure [`should_refocus`]
+/// decision, and — when the front window is our dev console / own exe or simply the
+/// wrong app — asks the OS to bring `hint` forward, re-checking up to
+/// [`FOREGROUND_RETRIES`] times. Returns whether a legitimate target is foreground
+/// at the end.
+///
+/// The bring-forward uses terminator's `activate_application` (the same primitive
+/// [`AccessibilityBackend::focus_app`] uses) rather than a bare `SetForegroundWindow`:
+/// under Windows' foreground-lock rules a raw `SetForegroundWindow` from a
+/// background process is frequently ignored (it only flashes the taskbar), whereas
+/// `activate_application` restores + raises the target window reliably.
+fn ensure_foreground_win(desktop: &Desktop, hint: Option<&str>) -> bool {
+    let (app, proc) = foreground_identity();
+    if !should_refocus(&app, &proc, hint) {
+        // A legitimate target (or an acceptable current window) is already in front.
+        return true;
+    }
+
+    // The foreground is our console/exe or the wrong app. Without an intended
+    // target there is no window to switch to, so report that we could not secure a
+    // valid foreground and let the caller log it.
+    let Some(target) = hint else {
+        tracing::warn!(
+            foreground_app = %app,
+            foreground_proc = %proc,
+            "act foreground guard: console/own window is foreground with no target to switch to"
+        );
+        return false;
+    };
+
+    for attempt in 1..=FOREGROUND_RETRIES {
+        let _ = desktop.activate_application(target);
+        std::thread::sleep(FOREGROUND_SETTLE);
+        let (app, proc) = foreground_identity();
+        if !should_refocus(&app, &proc, hint) {
+            return true;
+        }
+        tracing::warn!(
+            target,
+            attempt,
+            foreground_app = %app,
+            foreground_proc = %proc,
+            "act foreground guard: target still not foreground after activate"
+        );
+    }
+    false
 }
 
 /// Whether the focused application's process runs at a higher integrity level
