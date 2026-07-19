@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useActTasks } from '../../hooks/useActTasks'
 import { useAgentsWindowResize } from '../../hooks/useAgentsWindowResize'
 import { useAppStore } from '../../stores/appStore'
-import { CollapsedRail, EmptyState, PanelHeader, TaskCard, tallyStatuses } from './index'
+import { CollapsedRail, EmptyState, OrchestrationList, PanelHeader, tallyStatuses } from './index'
 
 /**
  * Contents of the dedicated always-on-top `agents` window (`index.html#agents`).
@@ -50,12 +50,8 @@ export function FloatingAgents() {
               pinned={pinned}
               onTogglePin={() => setPinned((p) => !p)}
             />
-            <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2.5 pt-1 pb-2.5">
-              {tasks.length === 0 ? (
-                <EmptyState />
-              ) : (
-                tasks.map((task) => <TaskCard key={task.id} task={task} />)
-              )}
+            <div className="flex-1 overflow-y-auto pt-2 pb-2.5">
+              {tasks.length === 0 ? <EmptyState /> : <OrchestrationList tasks={tasks} />}
             </div>
           </motion.div>
         ) : (

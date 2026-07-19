@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, Check, Loader2, Pin, X } from 'lucide-react'
+import { Bot, Check, Loader2, Pin, Radio, X } from 'lucide-react'
 import { useState } from 'react'
 import { useActTasks, type ActTask } from '../../hooks/useActTasks'
 
@@ -67,12 +67,8 @@ export function AgentsBoard() {
                 pinned={pinned}
                 onTogglePin={() => setPinned((p) => !p)}
               />
-              <div className="flex flex-col gap-2 overflow-y-auto px-2.5 pt-1 pb-2.5">
-                {tasks.length === 0 ? (
-                  <EmptyState />
-                ) : (
-                  tasks.map((task) => <TaskCard key={task.id} task={task} />)
-                )}
+              <div className="overflow-y-auto pt-2 pb-2.5">
+                {tasks.length === 0 ? <EmptyState /> : <OrchestrationList tasks={tasks} />}
               </div>
             </motion.div>
           )}
@@ -109,38 +105,89 @@ export function PanelHeader({
   pinned: boolean
   onTogglePin: () => void
 }) {
+  const running = counts.running > 0
   const parts: string[] = []
   if (counts.running) parts.push(`${counts.running} running`)
   if (counts.done) parts.push(`${counts.done} done`)
   if (counts.failed) parts.push(`${counts.failed} failed`)
-  const subtitle = total === 0 ? 'No agents running' : parts.join(' · ')
+  const subtitle =
+    total === 0
+      ? 'No missions running'
+      : `${total} mission${total === 1 ? '' : 's'} · ${parts.join(' · ')}`
 
   return (
     <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3.5 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-accent/12 text-accent-text">
-          <Bot size={15} strokeWidth={2.2} />
+      <div className="flex min-w-0 items-center gap-2.5">
+        {/* The Conductor node — orchestrator of the missions below. Its orb
+            pulses and the waveform animates whenever any mission is running. */}
+        <span className="relative flex h-[28px] w-[28px] flex-none items-center justify-center rounded-[9px] border border-accent/40 bg-accent/12 text-accent">
+          <Radio size={15} strokeWidth={2.2} />
+          {running && (
+            <motion.span
+              className="absolute inset-0 rounded-[9px] ring-1 ring-accent"
+              animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
+            />
+          )}
         </span>
-        <div className="leading-tight">
-          <p className="text-[13px] font-semibold text-text-primary">
-            Agents{total > 0 && <span className="ml-1 text-text-tertiary">· {total}</span>}
-          </p>
-          <p className="text-[11px] text-text-secondary">{subtitle}</p>
+        <div className="min-w-0 leading-tight">
+          <p className="text-[13px] font-semibold text-text-primary">Conductor</p>
+          <p className="truncate text-[11px] text-text-secondary">{subtitle}</p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onTogglePin}
-        aria-pressed={pinned}
-        aria-label={pinned ? 'Unpin agents panel' : 'Keep agents panel open'}
-        className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border transition-colors ${
-          pinned
-            ? 'border-accent/40 bg-accent/12 text-accent-text'
-            : 'border-transparent text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary'
-        }`}
-      >
-        {pinned ? <Pin size={13} strokeWidth={2.4} /> : <Pin size={13} strokeWidth={2} />}
-      </button>
+      <div className="flex flex-none items-center gap-2.5">
+        <span className={`agents-wave ${running ? 'live' : ''}`} aria-hidden="true">
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+        </span>
+        <button
+          type="button"
+          onClick={onTogglePin}
+          aria-pressed={pinned}
+          aria-label={pinned ? 'Unpin agents panel' : 'Keep agents panel open'}
+          className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] border transition-colors ${
+            pinned
+              ? 'border-accent/40 bg-accent/12 text-accent-text'
+              : 'border-transparent text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <Pin size={13} strokeWidth={pinned ? 2.4 : 2} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The mission list as an orchestration tree: a vertical spine drops from the
+ * Conductor, a luminous segment flows down it while anything runs, and each
+ * mission taps off it with a status-colored node. Reads as a control graph,
+ * not a flat list.
+ */
+export function OrchestrationList({ tasks }: { tasks: ActTask[] }) {
+  const running = tasks.some((t) => t.status === 'running')
+  return (
+    <div className="relative pl-[26px]">
+      <span
+        className={`absolute top-1.5 bottom-4 left-[10px] w-[2px] ${running ? 'agents-spine flowing' : 'agents-spine'}`}
+        aria-hidden="true"
+      />
+      <div className="flex flex-col gap-2.5">
+        <AnimatePresence initial={false}>
+          {tasks.map((task) => (
+            <div key={task.id} className="relative">
+              <span
+                className={`absolute top-[19px] -left-[20px] z-10 h-[9px] w-[9px] rounded-full ring-[3px] ring-bg-secondary ${STATUS[task.status].dot}`}
+                aria-hidden="true"
+              />
+              <TaskCard task={task} />
+            </div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }
