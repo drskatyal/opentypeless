@@ -185,12 +185,12 @@
 
   {
     "id": "play_song",
-    "name": "Play a song",
-    "description": "play a specific song or artist on Spotify",
-    "aliases": ["play {song}", "play the song {song}", "put on {song}"],
-    "kind": "branch",
-    "slots": [ { "name": "song", "kind": "query", "required": true, "examples": ["Hotel California", "some lo-fi"] } ],
-    "branch_context": "Open Spotify, search for {song}, and play the top result.",
+    "name": "Play a song on Spotify",
+    "description": "open Spotify straight to a song or artist to play",
+    "aliases": ["play {song}", "play the song {song}", "put on {song}", "play {song} on spotify"],
+    "kind": "leaf",
+    "slots": [ { "name": "song", "kind": "query", "required": true, "examples": ["Hotel California", "some lo-fi"], "filters": ["urlencode"] } ],
+    "steps": [ { "id": "s1", "intent": "open the Spotify search for the song", "action": "uri", "value": "spotify:search:{song}", "on_fail": "abort" } ],
     "status": "smoke",
     "version": 1
   },
@@ -293,6 +293,114 @@
     "kind": "leaf",
     "slots": [ { "name": "to", "kind": "string", "required": false, "examples": ["alex@example.com"], "filters": ["urlencode"], "default": "" } ],
     "steps": [ { "id": "s1", "intent": "open gmail compose", "action": "uri", "value": "https://mail.google.com/mail/?view=cm&fs=1&to={to}" } ],
+    "status": "smoke",
+    "version": 1
+  },
+
+  {
+    "id": "create_folder",
+    "name": "Create a folder",
+    "description": "create a new folder (defaults to the Desktop)",
+    "aliases": ["create a folder called {name}", "make a folder named {name}", "new folder {name}", "create a folder {name} in {location}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "name", "kind": "string", "required": true, "examples": ["My New Folder", "Taxes 2026"], "filters": ["trim", "psquote"] },
+      { "name": "location", "kind": "string", "required": false, "default": "~\\Desktop", "examples": ["~\\Desktop", "~\\Documents", "C:\\Work"], "filters": ["trim", "psquote"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "create the folder if it does not already exist", "action": "shell", "value": "New-Item -ItemType Directory -Force -Path (Join-Path '{location}' '{name}')", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "create_file",
+    "name": "Create a file",
+    "description": "create a new empty file (defaults to the Desktop)",
+    "aliases": ["create a file called {name}", "make a file named {name}", "new file {name}", "create a file {name} in {location}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "name", "kind": "string", "required": true, "examples": ["notes.txt", "My Report.md"], "filters": ["trim", "psquote"] },
+      { "name": "location", "kind": "string", "required": false, "default": "~\\Desktop", "examples": ["~\\Desktop", "~\\Documents"], "filters": ["trim", "psquote"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "create the empty file, leaving an existing one untouched", "action": "shell", "value": "New-Item -ItemType File -Path (Join-Path '{location}' '{name}') -ErrorAction SilentlyContinue", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "copy_item",
+    "name": "Copy a file or folder",
+    "description": "copy a file or folder to another location",
+    "aliases": ["copy {source} to {destination}", "make a copy of {source} in {destination}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "source", "kind": "string", "required": true, "examples": ["~\\Desktop\\report.docx"], "filters": ["trim", "psquote"] },
+      { "name": "destination", "kind": "string", "required": true, "examples": ["~\\Documents"], "filters": ["trim", "psquote"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "copy the item to the destination", "action": "shell", "value": "Copy-Item -LiteralPath '{source}' -Destination '{destination}' -Recurse", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "move_item",
+    "name": "Move a file or folder",
+    "description": "move a file or folder to another location",
+    "aliases": ["move {source} to {destination}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "source", "kind": "string", "required": true, "examples": ["~\\Desktop\\report.docx"], "filters": ["trim", "psquote"] },
+      { "name": "destination", "kind": "string", "required": true, "examples": ["~\\Documents"], "filters": ["trim", "psquote"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "move the item to the destination", "action": "shell", "value": "Move-Item -LiteralPath '{source}' -Destination '{destination}'", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "rename_item",
+    "name": "Rename a file or folder",
+    "description": "rename a file or folder to a new name",
+    "aliases": ["rename {source} to {name}", "rename {source} as {name}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "source", "kind": "string", "required": true, "examples": ["~\\Desktop\\old.txt"], "filters": ["trim", "psquote"] },
+      { "name": "name", "kind": "string", "required": true, "examples": ["new.txt", "Final Draft.docx"], "filters": ["trim", "psquote"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "rename the item", "action": "shell", "value": "Rename-Item -LiteralPath '{source}' -NewName '{name}'", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "delete_item",
+    "name": "Delete a file or folder",
+    "description": "delete a file or empty folder (asks first)",
+    "aliases": ["delete {target}", "remove the file {target}"],
+    "kind": "leaf",
+    "slots": [
+      { "name": "target", "kind": "string", "required": true, "examples": ["~\\Desktop\\old.txt"], "filters": ["trim", "psquote"] }
+    ],
+    "steps": [
+      { "id": "s1", "intent": "delete the item (confirm-gated)", "action": "shell", "value": "Remove-Item -LiteralPath '{target}'", "on_fail": "abort" }
+    ],
+    "status": "smoke",
+    "version": 1
+  },
+  {
+    "id": "empty_recycle_bin",
+    "name": "Empty the Recycle Bin",
+    "description": "permanently empty the Recycle Bin (asks first)",
+    "aliases": ["empty the recycle bin", "empty the trash", "clear the recycle bin"],
+    "kind": "leaf",
+    "steps": [
+      { "id": "s1", "intent": "empty the recycle bin (confirm-gated)", "action": "shell", "value": "Clear-RecycleBin -Force -ErrorAction SilentlyContinue", "on_fail": "abort" }
+    ],
     "status": "smoke",
     "version": 1
   }

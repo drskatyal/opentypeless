@@ -337,6 +337,19 @@ impl Conductor {
             .enumerate()
             .map(|(i, m)| (format!("t{i}"), m))
             .collect();
+
+        // Spawn every agent's card up front, dimmed as `queued`, the moment the
+        // mission list resolves — so the board shows all N orbs at once instead of
+        // one appearing lazily as each mission starts. `run_mission` later flips the
+        // matching card to `running`.
+        for (id, mission) in &queue {
+            events.push(ActEvent::TaskSpawned {
+                id: id.clone(),
+                label: self.mission_label(mission),
+                status: Some("queued".into()),
+            });
+        }
+
         self.drive_queue(queue, &mut events).await;
 
         let errors = events
@@ -485,12 +498,10 @@ impl Conductor {
         mission: Mission,
         events: &mut Vec<ActEvent>,
     ) -> Step {
-        // Announce the card and mark it running before any work begins.
+        // The card was already spawned (as `queued`) when the command's mission list
+        // resolved. Flip it to `running` before any work begins — a progress line is
+        // the "started" signal the board uses to light the orb up.
         self.current_task = Some(task_id.clone());
-        events.push(ActEvent::TaskSpawned {
-            id: task_id.clone(),
-            label: self.mission_label(&mission),
-        });
         events.push(ActEvent::TaskProgress {
             id: task_id,
             text: "Working…".into(),
@@ -1635,6 +1646,51 @@ mod tests {
             .filter(|e| matches!(e, ActEvent::Result { ok: true, .. }))
             .count();
         assert_eq!(results, 2);
+    }
+
+    #[tokio::test]
+    async fn spawns_all_cards_queued_up_front_then_flips_to_running() {
+        // The board must show every agent the instant the mission list resolves:
+        // one `queued` TaskSpawned per mission, all emitted before any of them runs
+        // (before the first TaskProgress that flips a card to running).
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let registry = FlowRegistry::from_files([open_gmail_flow()]);
+        let selection = r#"{"missions":[
+            {"type":"open_flow","id":"open_gmail","slots":{}},
+            {"type":"open_flow","id":"open_gmail","slots":{}}
+        ]}"#;
+        let mut c = conductor(registry, vec![Ok(selection.into())], backend.clone());
+        c.arm();
+
+        let events = c.on_transcript("open gmail twice".into()).await.unwrap();
+
+        // Two queued cards, keyed t0/t1, each carrying the queued status.
+        let spawned: Vec<(&str, Option<&str>)> = events
+            .iter()
+            .filter_map(|e| match e {
+                ActEvent::TaskSpawned { id, status, .. } => Some((id.as_str(), status.as_deref())),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            spawned,
+            vec![("t0", Some("queued")), ("t1", Some("queued"))]
+        );
+
+        // No mission re-spawns a card; the running flip is a progress event, and
+        // every queued spawn precedes the first one.
+        let last_spawn = events
+            .iter()
+            .rposition(|e| matches!(e, ActEvent::TaskSpawned { .. }))
+            .unwrap();
+        let first_progress = events
+            .iter()
+            .position(|e| matches!(e, ActEvent::TaskProgress { .. }))
+            .unwrap();
+        assert!(
+            last_spawn < first_progress,
+            "all cards must spawn before any mission runs"
+        );
     }
 
     fn scratch_docs_dir() -> std::path::PathBuf {

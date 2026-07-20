@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles, ShieldAlert, MessageCircle, Loader2, X } from 'lucide-react'
 import { actAbort, actUserDecision } from '../lib/tauri'
 import { toast } from './toast-service'
+import { useActHudWindow } from '../hooks/useActHudWindow'
+import { useAppStore } from '../stores/appStore'
 
 type Unlisten = () => void | Promise<void>
 
@@ -71,6 +73,13 @@ export function ActHud() {
   const [say, setSay] = useState<string | null>(null)
   const stepTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sayTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const actEnabled = useAppStore((s) => s.config.act_enabled)
+
+  // Drive the dedicated always-on-top overlay window this HUD lives in: keep it
+  // shown (transparent, click-through) whenever Act is enabled, and make it
+  // focusable/interactive only while a confirm or ask_user prompt is up so the
+  // buttons and number keys work without ever stealing focus when idle.
+  useActHudWindow(actEnabled, prompt !== null)
 
   const clearStep = useCallback(() => {
     if (stepTimer.current) clearTimeout(stepTimer.current)
