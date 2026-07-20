@@ -544,7 +544,7 @@ fn fold_spelled_letters(text: &str) -> String {
         // If the spelled word is already spoken as an ordinary word, the spelling is
         // a redundant clarification — drop it and keep the spoken word. Otherwise the
         // run becomes the joined letters in upper case.
-        if !words_lower.iter().any(|w| *w == joined_lower) {
+        if !words_lower.contains(&joined_lower) {
             out.push(joined);
         }
     }
