@@ -4392,7 +4392,7 @@ dependencies = [
 
 [[package]]
 name = "opentypeless"
-version = "0.1.44"
+version = "0.1.45"
 dependencies = [
  "accessibility-sys 0.1.3",
  "anyhow",
