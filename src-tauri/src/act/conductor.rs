@@ -287,13 +287,55 @@ impl Conductor {
         self.state = ConductorState::Working;
         events.push(self.state_event());
 
+        // Fast-path grammar FIRST. Fixed verbs (copy/paste/cut/undo/redo/select-all/
+        // save/new-tab/close-tab/next-field/submit/stop) resolve to a key combo with
+        // NO screen snapshot and NO model round-trip. Running it here — ahead of the
+        // UIA snapshot and the Gemini selection call below — is what makes "copy that"
+        // land in well under 100ms instead of first paying a full tree walk plus a
+        // selection round-trip only to arrive at the same key press. A miss (`None`)
+        // falls through to the normal snapshot + routing path unchanged.
+        if let Some(plan) = super::fastpath::resolve(&transcript) {
+            let task_id = "t0".to_string();
+            events.push(ActEvent::TaskSpawned {
+                id: task_id.clone(),
+                label: short_goal(&transcript),
+                status: Some("running".into()),
+            });
+            self.current_task = Some(task_id);
+            let started = std::time::Instant::now();
+            let step = self.run_fastpath(plan, &transcript, &mut events).await;
+            tracing::info!(
+                target: "act_scoreboard",
+                mode = "fastpath",
+                total_ms = started.elapsed().as_millis() as u64,
+                "act scoreboard"
+            );
+            match step {
+                Step::Paused(kind) => self.suspend(kind, VecDeque::new(), &mut events),
+                Step::Next | Step::Stop => {
+                    self.current_task = None;
+                    self.state = self.baseline();
+                    events.push(self.state_event());
+                }
+            }
+            return Ok(events);
+        }
+
+        // Per-stage timers: the snapshot walk and the selection round-trip are the
+        // two costs a novel command pays before any work; surfaced on the scoreboard
+        // line so a regression (e.g. a fast path that silently stopped being fast) is
+        // measurable instead of a mystery.
+        let route_started = std::time::Instant::now();
+
         // Observe the screen into the blackboard (context for routing + planning).
         if let Ok(snapshot) = self.backend.snapshot().await {
             self.board.observe(&snapshot);
         }
+        let snapshot_ms = route_started.elapsed().as_millis() as u64;
 
         // Route onto the drawer.
         tracing::info!(transcript = %transcript, "Act on_transcript: routing");
+        let selection_started = std::time::Instant::now();
         let selection = match selection::select(
             self.llm.as_ref(),
             &self.registry,
@@ -312,6 +354,7 @@ impl Conductor {
                 return Ok(events);
             }
         };
+        let selection_ms = selection_started.elapsed().as_millis() as u64;
 
         let summary: Vec<String> = selection
             .missions
@@ -368,13 +411,19 @@ impl Conductor {
         );
         // Scoreboard: one comparable line per command so the three perception
         // modes can be graded on the same tasks (goal-level result + which mode
-        // ran). Latency is added when the per-command timer lands in Phase 2b.
+        // ran), now with the per-stage latency that used to be invisible — the
+        // snapshot walk, the selection round-trip, and the whole-command total.
+        // This is the instrument that catches a "fast path" silently costing
+        // seconds (the fastpath-behind-selection bug) instead of it being a mystery.
         tracing::info!(
             target: "act_scoreboard",
             mode = self.plan_mode.as_str(),
             results,
             errors,
             ok = (errors == 0 && results > 0),
+            snapshot_ms,
+            selection_ms,
+            total_ms = route_started.elapsed().as_millis() as u64,
             "act scoreboard"
         );
         Ok(events)
@@ -527,6 +576,46 @@ impl Conductor {
             Mission::Answer { question } => {
                 tracing::info!(question = %question, "Act answering (talk-back)");
                 self.run_answer(question, events).await
+            }
+        }
+    }
+
+    /// Execute a fast-path plan (fixed-verb grammar) directly — no snapshot, no
+    /// selection, no planner. Runs the single-shot plan once and classifies its
+    /// outcome with the SAME logic the novel loop uses, tagged [`PlanSource::FastPath`]
+    /// so a clean completion is treated as goal-done (not "one step of a longer
+    /// goal"). The one place a fixed verb can pause is the destructive classifier
+    /// forcing a confirm on a bare Enter aimed at a destructive focused control
+    /// ("submit" while a Delete button is focused) — that routes through the normal
+    /// Novel confirm/resume path via the returned [`Step::Paused`].
+    async fn run_fastpath(
+        &mut self,
+        plan: ActionPlan,
+        transcript: &str,
+        events: &mut Vec<ActEvent>,
+    ) -> Step {
+        let result = self
+            .executor
+            .execute_plan_with_context(plan.clone(), transcript)
+            .await;
+        let mut history = Vec::new();
+        match self.classify_novel(
+            plan,
+            PlanSource::FastPath,
+            result,
+            transcript,
+            &mut history,
+            events,
+        ) {
+            LoopStep::Return(step) => step,
+            // A fixed verb has no re-plan loop; if the single action didn't cleanly
+            // finish (a recoverable step failure / backend error), close the card as
+            // failed here rather than escalating to the planner.
+            LoopStep::Continue => {
+                let summary = "Couldn't do that".to_string();
+                self.finish_task(false, &summary, events);
+                events.push(ActEvent::Result { ok: false, summary });
+                Step::Next
             }
         }
     }
@@ -2053,10 +2142,11 @@ mod tests {
     #[tokio::test]
     async fn multi_turn_conversation_over_the_real_seed_drawer() {
         // A smoke test of the assembled system: three dictations in a row, routed
-        // over the real built-in drawer, each driven by a canned selection call.
-        // Turn 1 opens a settings deep-link (leaf uri); turn 2 copies (leaf key);
-        // turn 3 asks a question (talk-back answer). The blackboard persists across
-        // turns and nothing throws end to end.
+        // over the real built-in drawer. Turn 1 opens a settings deep-link (leaf
+        // uri, via selection); turn 2 copies — which the fast-path grammar resolves
+        // to ctrl+c with NO model round-trip, so it consumes no canned response;
+        // turn 3 asks a question (talk-back answer, via selection). The blackboard
+        // persists across turns and nothing throws end to end.
         let backend = Arc::new(MockBackend::new(snap(vec![el(
             "#/1",
             Role::Button,
@@ -2068,7 +2158,7 @@ mod tests {
                 r#"{"missions":[{"type":"open_flow","id":"settings_bluetooth","slots":{}}]}"#
                     .into(),
             ),
-            Ok(r#"{"missions":[{"type":"open_flow","id":"copy","slots":{}}]}"#.into()),
+            // (no response for "copy that" — the fast path handles it before selection)
             Ok(r#"{"missions":[{"type":"answer","question":"what can I click?"}]}"#.into()),
             Ok(r#"{"answer":"You can click Send."}"#.into()),
         ];
@@ -2095,6 +2185,26 @@ mod tests {
         assert!(e3
             .iter()
             .any(|e| matches!(e, ActEvent::Say { text } if text.contains("Send"))));
+        assert!(matches!(c.state(), ConductorState::Armed));
+    }
+
+    #[tokio::test]
+    async fn fastpath_command_runs_before_selection_without_a_model_call() {
+        // "copy that" must resolve via the fast-path grammar at the TOP of
+        // on_transcript — ahead of the snapshot + selection round-trip — so it
+        // needs no LLM response at all. With zero canned responses, any selection
+        // call would fail; the command still presses ctrl+c and reports success,
+        // proving the fast path skips the model entirely.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let mut c = conductor(FlowRegistry::new(), vec![], backend.clone());
+        c.arm();
+
+        let events = c.on_transcript("copy that".into()).await.unwrap();
+
+        assert_eq!(backend.keys(), vec!["ctrl+c".to_string()]);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
         assert!(matches!(c.state(), ConductorState::Armed));
     }
 
