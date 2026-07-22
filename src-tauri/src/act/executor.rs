@@ -454,7 +454,10 @@ impl Executor {
             action,
             Action::Type { .. } | Action::Key { .. } | Action::Invoke { .. } | Action::Focus { .. }
         ) {
-            self.lock_foreground().await;
+            // Best-effort here: these act on the focused element / a11y path, and
+            // `Type`/`Key` have the hard focus guard below. Only the coordinate
+            // `Click` path acts on the returned confirmation (refuses a blind click).
+            let _ = self.lock_foreground().await;
         }
 
         // 5c. Focus guard. `Type` and `Key` go to whatever window is foreground,
@@ -672,15 +675,25 @@ impl Executor {
                 }
             }
             Action::Click { x, y } => {
-                // `vision`-mode coordinate click. Before clicking, foreground-lock
-                // the intended app: a coordinate lands on whatever window is in
-                // front, and after the *previous* click the dev console repeatedly
-                // stole focus, so a raw click would hit (and snapshot) the terminal.
-                // Best-effort — the kill switch pre-empts it and it no-ops off-Windows.
-                tokio::select! {
+                // `vision`-mode coordinate click. A coordinate lands on whatever
+                // window is in front, and after a *previous* click our own dev
+                // console can steal focus — so a raw click would hit (and snapshot)
+                // the terminal. Confirm a legitimate target is foreground first, and
+                // if the guard can't (our console/wrong app is in front with nothing
+                // to switch to), REFUSE the click rather than poking blindly. The
+                // caller (novel loop) treats the failure as a recoverable step and
+                // re-observes/re-plans instead of hijacking the user's window.
+                let confirmed = tokio::select! {
                     biased;
                     _ = kill.wait_tripped() => return Ok(Execution::Aborted),
-                    _ = self.lock_foreground() => {}
+                    ok = self.lock_foreground() => ok,
+                };
+                if !confirmed {
+                    return Ok(Execution::Failed(
+                        "foreground guard: refused a blind click — could not confirm the \
+                         target window is in front"
+                            .to_string(),
+                    ));
                 }
                 // The focus guard (armed by an earlier launch/focus in this run)
                 // still applies to the app that owns the coordinate, and the kill
@@ -860,21 +873,34 @@ impl Executor {
     /// (no-op), and a `false`/error only logs — it does not by itself halt the
     /// plan. The `Type`/`Key` path additionally runs the hard [`focus_guard`],
     /// which ABORTS if the wrong window is still confirmed foreground.
-    async fn lock_foreground(&self) {
+    /// Returns whether a legitimate target window is confirmed foreground.
+    /// `Type`/`Key`/`Invoke`/`Focus` callers treat this as best-effort (they have
+    /// the hard [`focus_guard`] and act by focused-element/path anyway), but the
+    /// coordinate `Click` path uses the return to REFUSE a blind click when no
+    /// valid target is in front — otherwise a raw click lands on whatever window
+    /// happens to be foreground (e.g. our own dev console: the "clicked the
+    /// terminal" bug).
+    async fn lock_foreground(&self) -> bool {
         match self
             .backend
             .ensure_foreground(self.expected_app.as_deref())
             .await
         {
-            Ok(true) => {}
-            Ok(false) => tracing::warn!(
-                expected = self.expected_app.as_deref().unwrap_or(""),
-                "act foreground guard: could not confirm a valid target window is foreground"
-            ),
-            Err(e) => tracing::debug!(
-                error = %e,
-                "act foreground guard: ensure_foreground failed; acting anyway"
-            ),
+            Ok(true) => true,
+            Ok(false) => {
+                tracing::warn!(
+                    expected = self.expected_app.as_deref().unwrap_or(""),
+                    "act foreground guard: could not confirm a valid target window is foreground"
+                );
+                false
+            }
+            Err(e) => {
+                tracing::debug!(
+                    error = %e,
+                    "act foreground guard: ensure_foreground failed"
+                );
+                false
+            }
         }
     }
 
@@ -1454,6 +1480,63 @@ mod tests {
         exec.execute_plan(plan).await.unwrap();
         assert_eq!(backend.launched(), vec!["notepad".to_string()]);
         assert!(backend.opened_uris().is_empty());
+    }
+
+    #[tokio::test]
+    async fn coordinate_click_refused_when_no_valid_target_is_foreground() {
+        // The "clicked the terminal" guard: when `ensure_foreground` can't confirm a
+        // legitimate target window is in front (our own console is, with nothing to
+        // switch to), a vision-mode coordinate click must be REFUSED — not sent
+        // blindly at whatever window happens to be focused.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .foreground_ok(false)
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Click { x: 100, y: 200 }]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(!result.completed, "a blind click must be refused");
+        assert!(
+            matches!(
+                result.outcomes.last(),
+                Some(StepOutcome::Failed { error, .. }) if error.contains("foreground guard")
+            ),
+            "expected a foreground-guard refusal, got {:?}",
+            result.outcomes
+        );
+        assert!(
+            backend.clicks().is_empty(),
+            "the click must never reach the backend"
+        );
+    }
+
+    #[tokio::test]
+    async fn coordinate_click_proceeds_when_a_valid_target_is_foreground() {
+        // Control for the refusal above: with a legitimate foreground the same
+        // coordinate click runs to completion.
+        let backend = Arc::new(
+            MockBackend::builder()
+                .snapshot(snapshot_for_app("Editor"))
+                .foreground_ok(true)
+                .build(),
+        );
+        let mut exec = executor(backend.clone());
+        let plan = ActionPlan::new(vec![Action::Click { x: 100, y: 200 }]);
+
+        let result = exec.execute_plan(plan).await.unwrap();
+        assert!(
+            result.completed,
+            "a click with a valid foreground should run, got {:?}",
+            result.outcomes
+        );
+        assert_eq!(
+            backend.clicks(),
+            vec![(100, 200)],
+            "the click should reach the backend at the given coordinate"
+        );
     }
 
     #[tokio::test]

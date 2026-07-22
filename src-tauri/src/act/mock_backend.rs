@@ -29,6 +29,7 @@ struct Recorded {
     clipboard_sets: Vec<String>,
     scrolls: Vec<(i32, i32)>,
     scrolled_into_view: Vec<ElementPath>,
+    clicks: Vec<(i32, i32)>,
 }
 
 /// A scriptable backend backed by an in-memory snapshot that records calls.
@@ -40,6 +41,10 @@ pub struct MockBackend {
     clipboard: String,
     /// `(exit_code, stdout)` returned by `run_shell`.
     shell_output: (i32, String),
+    /// Value returned by `ensure_foreground` — `false` models "our own console /
+    /// wrong app is in front with no valid target", which must make a coordinate
+    /// `Click` refuse rather than click blindly.
+    foreground_ok: bool,
     calls: Mutex<Recorded>,
 }
 
@@ -51,6 +56,7 @@ impl MockBackend {
             elevated: false,
             clipboard: String::new(),
             shell_output: (0, String::new()),
+            foreground_ok: true,
             calls: Mutex::new(Recorded::default()),
         }
     }
@@ -104,6 +110,11 @@ impl MockBackend {
         self.calls().launched.clone()
     }
 
+    /// `(x, y)` coordinates passed to [`AccessibilityBackend::click_point`].
+    pub fn clicks(&self) -> Vec<(i32, i32)> {
+        self.calls().clicks.clone()
+    }
+
     /// URIs passed to [`AccessibilityBackend::open_uri`], in call order.
     pub fn opened_uris(&self) -> Vec<String> {
         self.calls().opened_uris.clone()
@@ -143,6 +154,9 @@ pub struct MockBackendBuilder {
     elevated: bool,
     clipboard: String,
     shell_output: (i32, String),
+    /// `None` builds a backend whose foreground guard passes (the common case);
+    /// `Some(false)` models "no valid target window is foreground".
+    foreground_ok: Option<bool>,
 }
 
 impl MockBackendBuilder {
@@ -170,6 +184,13 @@ impl MockBackendBuilder {
         self
     }
 
+    /// Seed the value returned by `ensure_foreground`. `false` models "our own
+    /// console / the wrong app is in front with no valid target to switch to".
+    pub fn foreground_ok(mut self, ok: bool) -> Self {
+        self.foreground_ok = Some(ok);
+        self
+    }
+
     /// Finish building the backend.
     pub fn build(self) -> MockBackend {
         MockBackend {
@@ -177,6 +198,7 @@ impl MockBackendBuilder {
             elevated: self.elevated,
             clipboard: self.clipboard,
             shell_output: self.shell_output,
+            foreground_ok: self.foreground_ok.unwrap_or(true),
             calls: Mutex::new(Recorded::default()),
         }
     }
@@ -190,6 +212,15 @@ impl AccessibilityBackend for MockBackend {
 
     async fn focused_app_is_elevated(&self) -> Result<bool, AppError> {
         Ok(self.elevated)
+    }
+
+    async fn ensure_foreground(&self, _app_hint: Option<&str>) -> Result<bool, AppError> {
+        Ok(self.foreground_ok)
+    }
+
+    async fn click_point(&self, x: i32, y: i32) -> Result<(), AppError> {
+        self.calls().clicks.push((x, y));
+        Ok(())
     }
 
     async fn focus(&self, target: &ElementPath) -> Result<(), AppError> {
