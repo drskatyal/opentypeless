@@ -30,6 +30,9 @@ struct Recorded {
     scrolls: Vec<(i32, i32)>,
     scrolled_into_view: Vec<ElementPath>,
     clicks: Vec<(i32, i32)>,
+    /// How many times `capture_screen` was called — lets a test assert that a
+    /// browser foreground took the tree path (no screenshot) even in vision mode.
+    screen_captures: u32,
 }
 
 /// A scriptable backend backed by an in-memory snapshot that records calls.
@@ -45,6 +48,9 @@ pub struct MockBackend {
     /// wrong app is in front with no valid target", which must make a coordinate
     /// `Click` refuse rather than click blindly.
     foreground_ok: bool,
+    /// PNG bytes returned by `capture_screen`. `None` (the default) models a
+    /// platform with no capture impl, so screenshot modes degrade to tree.
+    screenshot: Option<Vec<u8>>,
     calls: Mutex<Recorded>,
 }
 
@@ -57,8 +63,20 @@ impl MockBackend {
             clipboard: String::new(),
             shell_output: (0, String::new()),
             foreground_ok: true,
+            screenshot: None,
             calls: Mutex::new(Recorded::default()),
         }
+    }
+
+    /// Seed the PNG bytes `capture_screen` returns, so a test can drive the
+    /// screenshot (hybrid / vision) path.
+    pub fn set_screenshot(&mut self, png: impl Into<Vec<u8>>) {
+        self.screenshot = Some(png.into());
+    }
+
+    /// How many times `capture_screen` was called.
+    pub fn screen_captures(&self) -> u32 {
+        self.calls().screen_captures
     }
 
     /// Set the text `clipboard_get` will return.
@@ -199,6 +217,7 @@ impl MockBackendBuilder {
             clipboard: self.clipboard,
             shell_output: self.shell_output,
             foreground_ok: self.foreground_ok.unwrap_or(true),
+            screenshot: None,
             calls: Mutex::new(Recorded::default()),
         }
     }
@@ -292,6 +311,11 @@ impl AccessibilityBackend for MockBackend {
     async fn scroll_into_view(&self, target: &ElementPath) -> Result<(), AppError> {
         self.calls().scrolled_into_view.push(target.clone());
         Ok(())
+    }
+
+    async fn capture_screen(&self) -> Result<Option<Vec<u8>>, AppError> {
+        self.calls().screen_captures += 1;
+        Ok(self.screenshot.clone())
     }
 
     fn name(&self) -> &str {
