@@ -1045,7 +1045,7 @@ impl Conductor {
             // against.
             let navigated = plan_navigates(&plan);
             let plan = if navigated {
-                strip_trailing_nav_waits(plan)
+                strip_trailing_nav_tail(plan)
             } else {
                 plan
             };
@@ -1493,13 +1493,24 @@ fn plan_navigates(plan: &ActionPlan) -> bool {
         .any(|a| matches!(a, Action::Uri { .. } | Action::Launch { .. }))
 }
 
-/// Drop the blind flat `wait` the model appends after a navigation, so the
-/// Conductor's adaptive settle governs the pause instead. Only waits that TRAIL
-/// the final navigation with nothing but more waits / a `stop` after them are
-/// removed — the canonical "launch, wait 5000, stop" tail. A `wait` that gates a
-/// later interactive step in the SAME batch (e.g. `uri, wait, type`) is kept,
-/// since dropping it would type into a page that hasn't loaded.
-fn strip_trailing_nav_waits(plan: ActionPlan) -> ActionPlan {
+/// Drop the blind flat `wait` AND the premature `stop` the model appends after a
+/// navigation, so the Conductor RE-OBSERVES the page the navigation revealed
+/// instead of trusting the model's guess about the outcome.
+///
+/// The model routinely bundles the whole task into one batch — the canonical
+/// `uri, wait 2000, stop` — declaring the goal done the instant it fires the
+/// navigation, before it has seen the loaded page. That is a premature stop: you
+/// cannot know a navigation succeeded (or that "click the first result" is done)
+/// without observing what it produced. So when everything after the last
+/// navigation is inert (`wait` / `stop`), we strip BOTH: the trailing waits (the
+/// Conductor's adaptive `settle_after_nav` governs the pause instead) and the
+/// trailing stop (the loop re-observes the loaded page and plans the real next
+/// step — e.g. invoking the first search result). The navigation itself is kept.
+///
+/// A `wait` (or `stop`) that follows a LATER interactive step in the same batch —
+/// e.g. `uri, wait, type` — is left untouched, since that tail is not inert and
+/// the later step genuinely depends on the wait.
+fn strip_trailing_nav_tail(plan: ActionPlan) -> ActionPlan {
     let actions = plan.actions;
     let Some(nav_idx) = actions
         .iter()
@@ -1508,7 +1519,7 @@ fn strip_trailing_nav_waits(plan: ActionPlan) -> ActionPlan {
         return ActionPlan::new(actions);
     };
     // Only strip when everything after the last navigation is inert (wait / stop);
-    // otherwise a later action depends on the wait and it must stay.
+    // otherwise a later action depends on that tail and it must stay.
     let inert_tail = actions
         .iter()
         .skip(nav_idx + 1)
@@ -1519,7 +1530,7 @@ fn strip_trailing_nav_waits(plan: ActionPlan) -> ActionPlan {
     let kept: Vec<Action> = actions
         .into_iter()
         .enumerate()
-        .filter(|(i, a)| !(*i > nav_idx && matches!(a, Action::Wait { .. })))
+        .filter(|(i, a)| !(*i > nav_idx && matches!(a, Action::Wait { .. } | Action::Stop)))
         .map(|(_, a)| a)
         .collect();
     ActionPlan::new(kept)
@@ -2675,27 +2686,44 @@ mod tests {
     }
 
     #[test]
-    fn strip_trailing_nav_waits_drops_the_blind_post_nav_wait() {
-        // The canonical "launch, wait 5000, stop": the trailing wait is the model's
-        // blind guess, replaced by the adaptive settle — it is removed; the launch
-        // and stop stay.
-        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+    fn strip_trailing_nav_tail_drops_the_premature_wait_and_stop() {
+        // The canonical premature batch "uri, wait 2000, stop": the model declares
+        // the goal done the instant it navigates, before seeing the loaded page (the
+        // observed play-a-video failure). Both the blind wait AND the premature stop
+        // are stripped so the loop re-observes the page and plans the real next step;
+        // only the navigation survives.
+        let plan = strip_trailing_nav_tail(ActionPlan::new(vec![
+            Action::Uri {
+                uri: "https://www.youtube.com/results?search_query=x".into(),
+                origin: Default::default(),
+            },
+            Action::Wait { ms: 2000 },
+            Action::Stop,
+        ]));
+        let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
+        assert_eq!(kinds, vec!["uri"]);
+    }
+
+    #[test]
+    fn strip_trailing_nav_tail_drops_a_premature_stop_after_a_launch() {
+        // Same principle for a launch: a launch that also stops can't have verified
+        // the app came up — re-observe instead of trusting the bundled stop.
+        let plan = strip_trailing_nav_tail(ActionPlan::new(vec![
             Action::Launch {
                 target: "spotify".into(),
                 origin: Default::default(),
             },
-            Action::Wait { ms: 5000 },
             Action::Stop,
         ]));
         let kinds: Vec<&str> = plan.actions.iter().map(|a| a.kind()).collect();
-        assert_eq!(kinds, vec!["launch", "stop"]);
+        assert_eq!(kinds, vec!["launch"]);
     }
 
     #[test]
-    fn strip_trailing_nav_waits_keeps_a_wait_that_gates_a_later_step() {
+    fn strip_trailing_nav_tail_keeps_a_wait_that_gates_a_later_step() {
         // `uri, wait, type`: the wait gates the type (which needs the page loaded),
         // so it must NOT be stripped — the tail is not inert.
-        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+        let plan = strip_trailing_nav_tail(ActionPlan::new(vec![
             Action::Uri {
                 uri: "https://example.com".into(),
                 origin: Default::default(),
@@ -2711,8 +2739,10 @@ mod tests {
     }
 
     #[test]
-    fn strip_trailing_nav_waits_is_a_noop_without_navigation() {
-        let plan = strip_trailing_nav_waits(ActionPlan::new(vec![
+    fn strip_trailing_nav_tail_is_a_noop_without_navigation() {
+        // No navigation → nothing is stripped, and in particular a legitimate
+        // click-then-stop is preserved.
+        let plan = strip_trailing_nav_tail(ActionPlan::new(vec![
             Action::Key {
                 combo: "ctrl+a".into(),
             },
