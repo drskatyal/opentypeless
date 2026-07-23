@@ -92,19 +92,17 @@ fn act_gemini_key<V: CredentialSecretReader>(config: &storage::AppConfig, vault:
 
 /// Map the configured planner tier onto a concrete model id.
 ///
-/// `precise` — the default — runs `gemini-3.6-flash`; `fast` runs
-/// `gemini-3.5-flash-lite`. Both are Gemini 3.x "level" models, so their thinking
-/// is pinned to `MINIMAL` (see `llm::thinking_config`) to keep Act's structured
-/// selection/planning calls fast: Gemini 3 Flash DEFAULTS to HIGH thinking, which
-/// blew the 25s selection timeout until the thinking level was set correctly.
-/// (Cerebras `gpt-oss-120b` remains the fastest planner and is preferred with a
-/// Cerebras key.)
-fn model_for_tier(tier: &str) -> &'static str {
-    match tier {
-        "fast" => "gemini-3.5-flash-lite",
-        // "precise" and any unknown value use the flagship flash tier.
-        _ => "gemini-3.6-flash",
-    }
+/// All Act calls run `gemini-3.5-flash-lite`. It is tuned for high-throughput
+/// extraction / routing / classification and DEFAULTS to `MINIMAL` thinking — the
+/// exact profile of Act's selection + planning calls — so it stays fast and
+/// returns clean structured JSON at minimal thinking. `gemini-3.6-flash`, by
+/// contrast, degenerated when forced down to `MINIMAL` (a flood of newline tokens
+/// that inflated latency to ~19s and corrupted the mission list), and its default
+/// HIGH thinking blew the 25s timeout — so it is not used on this latency-critical
+/// path. Thinking is still pinned to `MINIMAL` via `llm::thinking_config`. (Cerebras
+/// `gpt-oss-120b` remains the fastest planner and is preferred with a Cerebras key.)
+fn model_for_tier(_tier: &str) -> &'static str {
+    "gemini-3.5-flash-lite"
 }
 
 /// The Cerebras model used for Act's follow-up calls — a large open model served
