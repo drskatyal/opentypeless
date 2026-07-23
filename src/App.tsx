@@ -190,10 +190,7 @@ function MainApp() {
           return
         } catch (e) {
           if (cancelled) return
-          console.error(
-            `Failed to load initial data (attempt ${attempt}/${MAX_ATTEMPTS}):`,
-            e,
-          )
+          console.error(`Failed to load initial data (attempt ${attempt}/${MAX_ATTEMPTS}):`, e)
           if (attempt === MAX_ATTEMPTS) {
             setLoadError(true)
             return
