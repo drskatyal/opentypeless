@@ -115,8 +115,8 @@ export const STT_PROVIDERS: { value: string; labelKey: string }[] = [
 // Public FlowRad tiers. `value` is the internal engine model id (used for the
 // API call); `label` is the proprietary FlowRad name shown in the UI.
 export const GEMINI_STT_MODELS = [
-  { value: 'gemini-3.1-flash-lite', label: 'FlowRad Fast' },
-  { value: 'gemini-3.5-flash', label: 'FlowRad Precise' },
+  { value: 'gemini-3.5-flash-lite', label: 'FlowRad Fast' },
+  { value: 'gemini-3.6-flash', label: 'FlowRad Precise' },
 ] as const
 
 export const GEMINI_STT_DEFAULT_MODEL = GEMINI_STT_MODELS[0].value
@@ -198,7 +198,7 @@ export const LLM_DEFAULT_CONFIG: Record<string, { baseUrl: string; model: string
   openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   gemini: {
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    model: 'gemini-3.1-flash-lite',
+    model: 'gemini-3.5-flash-lite',
   },
   moonshot: { baseUrl: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
   doubao: {

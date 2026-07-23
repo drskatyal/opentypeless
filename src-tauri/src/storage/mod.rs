@@ -353,7 +353,8 @@ pub struct AppConfig {
     /// Act mode: voice-driven OS automation. Opt-in and off by default; when on,
     /// a final transcript is planned + executed instead of inserted as text.
     pub act_enabled: bool,
-    /// Act planner model tier: "fast" (default) or "precise".
+    /// Act planner model tier: "precise" (default, `gemini-3.6-flash`) or "fast"
+    /// (`gemini-3.5-flash-lite`, opt-in — see `model_for_tier`).
     pub act_model_tier: String,
     /// How Act perceives the screen when planning: "tree" (default, accessibility
     /// tree only), "hybrid" (tree + screenshot with Set-of-Marks), or "vision"
@@ -430,13 +431,13 @@ impl Default for AppConfig {
             stt_volcengine_resource_id: crate::stt::volcengine::VOLCENGINE_SEEDASR_RESOURCE_ID
                 .to_string(),
             act_enabled: false,
-            act_model_tier: "fast".to_string(),
+            act_model_tier: "precise".to_string(),
             act_plan_mode: "hybrid".to_string(),
             act_followup_provider: "gemini".to_string(),
             cerebras_api_key: String::new(),
             llm_provider: "gemini".to_string(),
             llm_api_key: String::new(),
-            llm_model: "gemini-3.1-flash-lite".to_string(),
+            llm_model: "gemini-3.5-flash-lite".to_string(),
             llm_base_url: "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
             polish_enabled: false,
             context_adaptation_enabled: true,

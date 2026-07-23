@@ -8,7 +8,7 @@ const mockStore = {
     llm_provider: 'gemini',
     llm_api_key: '',
     llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    llm_model: 'gemini-3.1-flash-lite',
+    llm_model: 'gemini-3.5-flash-lite',
   },
   updateConfig: vi.fn(),
   llmTestStatus: 'idle',
@@ -40,7 +40,7 @@ beforeEach(() => {
     llm_provider: 'gemini',
     llm_api_key: '',
     llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    llm_model: 'gemini-3.1-flash-lite',
+    llm_model: 'gemini-3.5-flash-lite',
   }
   mockStore.updateConfig = vi.fn()
   mockStore.llmTestStatus = 'idle'
@@ -68,7 +68,7 @@ describe('LlmSetupStep', () => {
     expect(mockStore.updateConfig).toHaveBeenCalledWith({
       llm_provider: 'gemini',
       llm_base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
-      llm_model: 'gemini-3.1-flash-lite',
+      llm_model: 'gemini-3.5-flash-lite',
     })
   })
 
@@ -83,7 +83,7 @@ describe('LlmSetupStep', () => {
         'gemini-secret',
         'gemini',
         'https://generativelanguage.googleapis.com/v1beta/openai',
-        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite',
       ),
     )
   })
