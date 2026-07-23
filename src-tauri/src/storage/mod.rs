@@ -353,8 +353,9 @@ pub struct AppConfig {
     /// Act mode: voice-driven OS automation. Opt-in and off by default; when on,
     /// a final transcript is planned + executed instead of inserted as text.
     pub act_enabled: bool,
-    /// Act planner model tier: "precise" (default, `gemini-3.6-flash`) or "fast"
-    /// (`gemini-3.5-flash-lite`, opt-in — see `model_for_tier`).
+    /// Act planner model tier: "precise" (default) or "fast". Both currently map
+    /// onto `gemini-3.5-flash-lite` — the tier is retained for config compatibility
+    /// and future differentiation; see `model_for_tier`.
     pub act_model_tier: String,
     /// How Act perceives the screen when planning: "tree" (default, accessibility
     /// tree only), "hybrid" (tree + screenshot with Set-of-Marks), or "vision"
