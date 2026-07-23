@@ -403,12 +403,16 @@ fn strip_json_fence(s: &str) -> &str {
 ///   `0` turns thinking off for the lowest latency.
 /// - **gemini-3.6+ and the 3.x `-lite` models** ("level" models): a semantic
 ///   `thinkingLevel`, and they REJECT `thinkingBudget: 0` ("Budget 0 is invalid;
-///   this model only works in thinking mode"). `"minimal"` is the near-zero level
-///   — the closest equivalent to the old budget-off, for the lowest latency on
-///   these extraction/format calls.
+///   this model only works in thinking mode"). We pin the canonical `"MINIMAL"`
+///   level (near-zero thinking, lowest latency) — CRITICAL because Gemini 3 Flash
+///   DEFAULTS to `HIGH` thinking, so an unset/ignored level makes these
+///   extraction/format calls reason for many seconds and blow the 25s timeout.
+///   The value is UPPERCASE: the API accepts the canonical enum name and silently
+///   ignores an unrecognized value (falling back to the HIGH default) rather than
+///   erroring, so lowercase must not be relied on.
 fn thinking_config(model: &str) -> serde_json::Value {
     if uses_thinking_level(model) {
-        serde_json::json!({ "thinkingLevel": "minimal" })
+        serde_json::json!({ "thinkingLevel": "MINIMAL" })
     } else {
         serde_json::json!({ "thinkingBudget": 0 })
     }
@@ -502,9 +506,15 @@ mod schema_tests {
             "gemini-4.0-flash",
         ] {
             assert!(uses_thinking_level(m), "{m} should use thinkingLevel");
-            assert!(
-                thinking_config(m).get("thinkingLevel").is_some(),
-                "{m} config must carry thinkingLevel, not budget"
+            // Must be the canonical UPPERCASE enum — Gemini 3 Flash defaults to
+            // HIGH thinking and silently ignores an unrecognized level, so a
+            // lowercase value would leave it reasoning for many seconds.
+            assert_eq!(
+                thinking_config(m)
+                    .get("thinkingLevel")
+                    .and_then(|v| v.as_str()),
+                Some("MINIMAL"),
+                "{m} config must carry thinkingLevel: MINIMAL (uppercase)"
             );
         }
         // "Budget" models (≤3.5 flash, 2.x) — keep thinkingBudget: 0.
