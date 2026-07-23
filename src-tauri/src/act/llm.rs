@@ -133,10 +133,14 @@ impl GeminiLlmClient {
             "temperature": 0.0,
             "responseMimeType": "application/json",
             // Minimize model "thinking" so flash / flash-lite return the structured
-            // plan with the lowest latency (budget 0 = thinking off). Act selection
-            // and planning are extraction/format tasks, not deep reasoning — the
-            // thinking phase was a large chunk of the slow Gemini round-trips.
-            "thinkingConfig": { "thinkingBudget": 0 },
+            // plan with the lowest latency. Act selection and planning are
+            // extraction/format tasks, not deep reasoning — the thinking phase was a
+            // large chunk of the slow Gemini round-trips. The control differs by
+            // model generation (see `thinking_config`): older flash takes a token
+            // `thinkingBudget`, Gemini 3.6+/flash-lite take a semantic `thinkingLevel`
+            // and REJECT `thinkingBudget: 0` with a 400 ("Budget 0 is invalid; this
+            // model only works in thinking mode").
+            "thinkingConfig": thinking_config(&self.model),
         });
         if let Some(schema) = schema {
             let mut sanitized = schema.clone();
@@ -391,6 +395,42 @@ fn strip_json_fence(s: &str) -> &str {
     t.trim()
 }
 
+/// The `thinkingConfig` for a given Gemini model, minimizing latency.
+///
+/// Gemini changed the thinking control between generations, and they are NOT
+/// interchangeable — sending the wrong one returns HTTP 400 INVALID_ARGUMENT:
+/// - **≤ gemini-3.5-flash and 2.x** ("budget" models): a token `thinkingBudget`;
+///   `0` turns thinking off for the lowest latency.
+/// - **gemini-3.6+ and the 3.x `-lite` models** ("level" models): a semantic
+///   `thinkingLevel`, and they REJECT `thinkingBudget: 0` ("Budget 0 is invalid;
+///   this model only works in thinking mode"). `"minimal"` is the near-zero level
+///   — the closest equivalent to the old budget-off, for the lowest latency on
+///   these extraction/format calls.
+fn thinking_config(model: &str) -> serde_json::Value {
+    if uses_thinking_level(model) {
+        serde_json::json!({ "thinkingLevel": "minimal" })
+    } else {
+        serde_json::json!({ "thinkingBudget": 0 })
+    }
+}
+
+/// Whether `model` is a "level" model (takes `thinkingLevel`, rejects
+/// `thinkingBudget`). The `-lite` 3.x models moved to levels early; plain flash
+/// moved at 3.6. Anything else (older flash, 2.x, unknown) keeps the token budget.
+fn uses_thinking_level(model: &str) -> bool {
+    let ver = model.strip_prefix("gemini-").unwrap_or(model);
+    let mut parts = ver
+        .split(|c: char| !c.is_ascii_digit())
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<u32>().ok());
+    let major = parts.next().unwrap_or(0);
+    let minor = parts.next().unwrap_or(0);
+    if model.contains("flash-lite") {
+        return major >= 3;
+    }
+    major > 3 || (major == 3 && minor >= 6)
+}
+
 /// Gemini's `responseSchema` accepts only a restricted OpenAPI 3.0 subset and
 /// returns HTTP 400 on JSON-Schema keywords it doesn't recognise (most notably
 /// `additionalProperties`, but also `$schema`/`$ref`/`$defs`/`definitions`/
@@ -449,6 +489,36 @@ mod cerebras_tests {
 #[cfg(test)]
 mod schema_tests {
     use super::sanitize_gemini_schema;
+
+    #[test]
+    fn thinking_config_matches_model_generation() {
+        use super::{thinking_config, uses_thinking_level};
+        // "Level" models (3.6+ flash, and 3.x flash-lite) — must NOT send
+        // thinkingBudget (they 400 on budget 0).
+        for m in [
+            "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-4.0-flash",
+        ] {
+            assert!(uses_thinking_level(m), "{m} should use thinkingLevel");
+            assert!(
+                thinking_config(m).get("thinkingLevel").is_some(),
+                "{m} config must carry thinkingLevel, not budget"
+            );
+        }
+        // "Budget" models (≤3.5 flash, 2.x) — keep thinkingBudget: 0.
+        for m in ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"] {
+            assert!(!uses_thinking_level(m), "{m} should use thinkingBudget");
+            assert_eq!(
+                thinking_config(m)
+                    .get("thinkingBudget")
+                    .and_then(|v| v.as_i64()),
+                Some(0),
+                "{m} config must carry thinkingBudget: 0"
+            );
+        }
+    }
 
     #[test]
     fn strip_json_fence_handles_fenced_and_bare() {
