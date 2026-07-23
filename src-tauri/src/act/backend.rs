@@ -50,6 +50,20 @@ pub trait AccessibilityBackend: Send + Sync {
     /// Open a URI (URL or app scheme) via the OS handler.
     async fn open_uri(&self, uri: &str) -> Result<(), AppError>;
 
+    /// Open an existing FILE by its filesystem path in the OS default application
+    /// (e.g. a freshly composed `.docx` opens in Word, a `.txt` in the default
+    /// editor). Distinct from [`launch`](Self::launch) (which starts an app by name)
+    /// and [`open_uri`](Self::open_uri) (URLs / app schemes): this always treats
+    /// `path` as a local document handed to the shell's file-association handler.
+    ///
+    /// The default delegates to `launch`, which is correct on Windows (ShellExecuteW
+    /// resolves the association and opens the document) and for the mock (records the
+    /// call). macOS overrides it to `open <path>`, because its `launch` expects an
+    /// *application* (`open -a`) rather than a document.
+    async fn open_path(&self, path: &str) -> Result<(), AppError> {
+        self.launch(path).await
+    }
+
     /// Run a shell command in `shell`, returning its exit code and captured stdout.
     async fn run_shell(&self, command: &str, shell: &str) -> Result<ShellOutput, AppError>;
 

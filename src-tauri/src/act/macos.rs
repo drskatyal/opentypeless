@@ -236,6 +236,14 @@ impl AccessibilityBackend for MacBackend {
         run_blocking(move || open_uri_mac(&uri)).await
     }
 
+    async fn open_path(&self, path: &str) -> Result<(), AppError> {
+        // A document path, not an app: `open <path>` (no `-a`) hands it to the
+        // file-association handler so a `.docx` opens in Word. The inherited
+        // `launch` uses `open -a`, which expects an application and would fail here.
+        let path = path.to_string();
+        run_blocking(move || open_file_mac(&path)).await
+    }
+
     async fn run_shell(&self, command: &str, shell: &str) -> Result<ShellOutput, AppError> {
         let command = command.to_string();
         let shell = shell.to_string();
@@ -1122,6 +1130,20 @@ fn launch_app(target: &str) -> Result<(), AppError> {
         return Ok(());
     }
     Err(cfg_err(format!("could not launch '{target}'")))
+}
+
+/// Open an existing FILE by path in its default application via `/usr/bin/open`
+/// (no `-a`): a `.docx` opens in Word, a `.txt` in the default editor.
+fn open_file_mac(path: &str) -> Result<(), AppError> {
+    if Command::new("/usr/bin/open")
+        .arg(path)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    Err(cfg_err(format!("could not open '{path}'")))
 }
 
 /// Open a URI via `/usr/bin/open`, normalizing a bare spoken domain
