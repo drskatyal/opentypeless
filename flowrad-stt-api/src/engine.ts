@@ -11,9 +11,9 @@ export type Tier = "fast" | "precise";
 /** Internal tier → upstream model id. Never sent to clients. */
 const MODEL_BY_TIER: Record<Tier, string> = {
   // Primary: fastest, the default for dictation.
-  fast: "gemini-3.1-flash-lite",
+  fast: "gemini-3.5-flash-lite",
   // Secondary: higher accuracy fallback.
-  precise: "gemini-3.5-flash",
+  precise: "gemini-3.6-flash",
 };
 
 const UPSTREAM_BASE =

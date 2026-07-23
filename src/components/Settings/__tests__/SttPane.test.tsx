@@ -73,7 +73,7 @@ const mockAppStore = {
     stt_custom_preset: 'speaches',
     stt_custom_base_url: 'http://localhost:8000/v1',
     stt_custom_model: 'Systran/faster-whisper-large-v3',
-    stt_gemini_model: 'gemini-3.1-flash-lite',
+    stt_gemini_model: 'gemini-3.5-flash-lite',
     stt_mode: 'batch',
     stt_vad_threshold: 0.5,
     stt_vad_min_silence_ms: 700,
@@ -140,7 +140,7 @@ describe('SttPane', () => {
       stt_custom_preset: 'speaches',
       stt_custom_base_url: 'http://localhost:8000/v1',
       stt_custom_model: 'Systran/faster-whisper-large-v3',
-      stt_gemini_model: 'gemini-3.1-flash-lite',
+      stt_gemini_model: 'gemini-3.5-flash-lite',
       stt_mode: 'batch',
       stt_vad_threshold: 0.5,
       stt_vad_min_silence_ms: 700,
@@ -250,10 +250,10 @@ describe('SttPane', () => {
     it('exposes the Gemini model selector', () => {
       render(<SttPane />)
       expect(screen.getByRole('option', { name: 'FlowRad Fast' })).toHaveValue(
-        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite',
       )
       expect(screen.getByRole('option', { name: 'FlowRad Precise' })).toHaveValue(
-        'gemini-3.5-flash',
+        'gemini-3.6-flash',
       )
     })
 

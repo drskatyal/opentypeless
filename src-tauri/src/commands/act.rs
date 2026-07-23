@@ -92,14 +92,20 @@ fn act_gemini_key<V: CredentialSecretReader>(config: &storage::AppConfig, vault:
 
 /// Map the configured planner tier onto a concrete model id.
 ///
-/// Both tiers use `gemini-3.5-flash`: in practice `gemini-3.1-flash-lite`
-/// (the former "fast" model) repeatedly blew past the 25s planner timeout on the
-/// Act path — the whole command failed with "planner timed out" — while
-/// `gemini-3.5-flash` (the same model STT uses) answers in ~3s. Reliability beats
-/// a nominally-cheaper model that doesn't return. (Cerebras `gpt-oss-120b`
-/// remains the fastest planner and is preferred when a Cerebras key is set.)
-fn model_for_tier(_tier: &str) -> &'static str {
-    "gemini-3.5-flash"
+/// The tier is now real (it used to be pinned to one model): `precise` — the
+/// default — runs `gemini-3.6-flash`, the reliable flagship flash successor to
+/// `gemini-3.5-flash` that answers well inside the 25s planner timeout; `fast`
+/// runs `gemini-3.5-flash-lite`, a much newer lite than the `gemini-3.1-flash-lite`
+/// that historically blew the timeout on the Act path. `fast` is opt-in for that
+/// reason — the default stays on the flash tier so a command never fails with
+/// "planner timed out". (Cerebras `gpt-oss-120b` remains the fastest planner and
+/// is preferred when a Cerebras key is set.)
+fn model_for_tier(tier: &str) -> &'static str {
+    match tier {
+        "fast" => "gemini-3.5-flash-lite",
+        // "precise" and any unknown value fall back to the reliable flash tier.
+        _ => "gemini-3.6-flash",
+    }
 }
 
 /// The Cerebras model used for Act's follow-up calls — a large open model served

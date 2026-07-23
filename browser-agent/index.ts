@@ -28,9 +28,9 @@ import { Stagehand } from "@browserbasehq/stagehand";
 // ---------------------------------------------------------------------------
 
 /** Gemini model that plans each act/observe turn. Provider prefix routes it to
- *  Google Generative AI inside Stagehand; the bare `gemini-3.5-flash` also works
+ *  Google Generative AI inside Stagehand; the bare `gemini-3.6-flash` also works
  *  because Stagehand infers the provider from the name. */
-const MODEL_NAME = process.env.FLOWRAD_BROWSER_MODEL ?? "google/gemini-3.5-flash";
+const MODEL_NAME = process.env.FLOWRAD_BROWSER_MODEL ?? "google/gemini-3.6-flash";
 
 /** Google Generative AI key. Required — Stagehand needs it to plan turns. */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";

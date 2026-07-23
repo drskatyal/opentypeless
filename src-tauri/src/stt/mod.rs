@@ -172,7 +172,7 @@ mod tests {
             "gemini",
             None,
             None,
-            Some("gemini-3.1-flash-lite".to_string()),
+            Some("gemini-3.5-flash-lite".to_string()),
             None,
         )
         .unwrap();

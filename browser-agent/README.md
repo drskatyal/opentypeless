@@ -61,7 +61,7 @@ candidate actions) then `act(intent)` (Gemini plans, Stagehand executes over CDP
 | Variable                    | Default                        | Purpose |
 | --------------------------- | ------------------------------ | ------- |
 | `GEMINI_API_KEY`            | — (**required**)               | Google Generative AI key; Stagehand uses it to plan each turn. |
-| `FLOWRAD_BROWSER_MODEL`     | `google/gemini-3.5-flash`      | Planner model. The `google/` prefix routes to Gemini; bare `gemini-3.5-flash` also works. |
+| `FLOWRAD_BROWSER_MODEL`     | `google/gemini-3.6-flash`      | Planner model. The `google/` prefix routes to Gemini; bare `gemini-3.5-flash` also works. |
 | `FLOWRAD_CDP_PORT`          | `9222`                         | DevTools remote-debugging port for the launched Chrome. |
 | `FLOWRAD_CDP_URL`           | — (unset ⇒ launch Chrome)      | If set (e.g. `http://127.0.0.1:9222`), **attach** to an already-running Chrome instead of launching one. |
 | `FLOWRAD_USER_DATA_DIR`     | `~/.flowrad/chrome-profile`    | Dedicated, persistent FlowRad Chrome profile. |
