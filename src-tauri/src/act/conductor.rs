@@ -59,6 +59,14 @@ const NAV_SETTLE_BUDGET_MS: u64 = 1800;
 /// Poll cadence while waiting for the screen to change after a navigation.
 const NAV_SETTLE_POLL_MS: u64 = 120;
 
+/// Larger settle ceiling for a browser navigation. A browser grabs the foreground
+/// with a BLANK, still-loading tab (just the document pane) the instant it opens,
+/// so "the screen changed" fires long before any page links exist. We keep polling
+/// — up to this ceiling — until the page tree exposes interactive content, so the
+/// planner grounds on real links instead of blind-guessing keystrokes. Still
+/// adaptive: a page that paints its links in 800ms proceeds in ~800ms.
+const BROWSER_NAV_SETTLE_BUDGET_MS: u64 = 4000;
+
 /// Where the Conductor is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConductorState {
@@ -1125,15 +1133,30 @@ impl Conductor {
     /// the settled screen.
     async fn settle_after_nav(&mut self, baseline_fp: &str) {
         let start = std::time::Instant::now();
-        let budget = std::time::Duration::from_millis(NAV_SETTLE_BUDGET_MS);
+        let general = std::time::Duration::from_millis(NAV_SETTLE_BUDGET_MS);
+        let browser = std::time::Duration::from_millis(BROWSER_NAV_SETTLE_BUDGET_MS);
+        // Once we've seen a browser take the foreground, use the larger ceiling: its
+        // page may still be loading its links after the window itself appeared.
+        let mut saw_browser = false;
         loop {
             if let Ok(snap) = self.backend.snapshot().await {
-                if snapshot_fingerprint(&snap) != baseline_fp {
+                saw_browser |= foreground_is_browser(&snap.app);
+                if nav_settle_ready(&snap, baseline_fp) {
                     self.board.observe(&snap);
                     return;
                 }
             }
+            let budget = if saw_browser { browser } else { general };
             if start.elapsed() >= budget {
+                if saw_browser {
+                    // Diagnostic: a browser that never exposed interactive content
+                    // within the budget means the page is unusually slow OR the
+                    // browser isn't surfacing its a11y tree to us — the signal that a
+                    // DOM/CDP path would be needed instead of tree grounding.
+                    tracing::debug!(
+                        "act novel: browser page exposed no interactive content within settle budget"
+                    );
+                }
                 return;
             }
             tokio::time::sleep(std::time::Duration::from_millis(NAV_SETTLE_POLL_MS)).await;
@@ -1372,6 +1395,25 @@ fn foreground_is_browser(app: &str) -> bool {
     BROWSER_APP_STEMS
         .iter()
         .any(|stem| normalized.contains(stem))
+}
+
+/// Whether a post-navigation snapshot is "settled enough" to plan against, given
+/// the pre-navigation fingerprint.
+///
+/// The screen must have CHANGED from `baseline_fp` (the new page/app has appeared).
+/// For a browser it must ADDITIONALLY expose interactive page content: a browser
+/// grabs the foreground with a blank, still-loading tab (just the document pane)
+/// the instant it opens, so "changed" alone fires far too early — the planner would
+/// then see zero links and blind-guess keystrokes (the observed play-a-video bug).
+/// Waiting for interactive content means it grounds on the real, loaded page.
+fn nav_settle_ready(snap: &Snapshot, baseline_fp: &str) -> bool {
+    if snapshot_fingerprint(snap) == baseline_fp {
+        return false;
+    }
+    if foreground_is_browser(&snap.app) {
+        return snap.elements.iter().any(|e| e.is_interactive());
+    }
+    true
 }
 
 /// A stable, PHI-free signature of an action for the no-progress guard: its kind
@@ -2163,6 +2205,92 @@ mod tests {
         ] {
             assert!(!foreground_is_browser(a), "{a} should NOT be a browser");
         }
+    }
+
+    #[test]
+    fn nav_settle_waits_for_a_browser_page_to_expose_links() {
+        // Baseline = the pre-navigation screen (Spotify).
+        let baseline = snapshot_fingerprint(&Snapshot {
+            app: "Spotify Premium".into(),
+            window_title: "Spotify Premium".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![],
+        });
+
+        // A browser that just grabbed the foreground with a blank, loading tab — the
+        // screen "changed" but there are no links yet. NOT settled: planning here is
+        // exactly what blind-guessed keystrokes and failed to play the video.
+        let loading = Snapshot {
+            app: "Untitled - Google Chrome".into(),
+            window_title: String::new(),
+            focused: Some("#".into()),
+            pointer: None,
+            selection_text_len: 0,
+            // The real loading-tab pane: no actionable pattern, so NOT interactive
+            // (the test `el` helper would wrongly stamp Invoke onto everything).
+            elements: vec![UiElement {
+                path: "#".into(),
+                role: Role::Pane,
+                name: String::new(),
+                description: String::new(),
+                value_len: 0,
+                states: vec![],
+                bounds: None,
+                patterns: vec![],
+            }],
+        };
+        assert!(
+            !nav_settle_ready(&loading, &baseline),
+            "a blank loading browser tab must NOT be treated as settled"
+        );
+
+        // The same browser once the results page has rendered links → settled.
+        let loaded = Snapshot {
+            app: "ye jo halka - YouTube - Google Chrome".into(),
+            window_title: String::new(),
+            focused: Some("#".into()),
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![
+                el("#/1", Role::Link, "ye jo halka halka suroor hai"),
+                el("#/2", Role::Link, "another result"),
+            ],
+        };
+        assert!(
+            nav_settle_ready(&loaded, &baseline),
+            "a loaded browser page with links must be settled"
+        );
+
+        // A non-browser app only needs the screen to have CHANGED (its content isn't
+        // gated on a page load), so a changed non-browser screen is settled at once.
+        let editor = Snapshot {
+            app: "Notepad".into(),
+            window_title: "Untitled".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![],
+        };
+        assert!(
+            nav_settle_ready(&editor, &baseline),
+            "a changed non-browser screen is settled without waiting for links"
+        );
+
+        // No change at all (still the baseline screen) is never settled.
+        let unchanged = Snapshot {
+            app: "Spotify Premium".into(),
+            window_title: "Spotify Premium".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![],
+        };
+        assert!(
+            !nav_settle_ready(&unchanged, &baseline),
+            "an unchanged screen must keep waiting"
+        );
     }
 
     #[tokio::test]
