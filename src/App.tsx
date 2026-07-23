@@ -139,9 +139,19 @@ function MainApp() {
   const { route } = useRoute()
 
   useEffect(() => {
-    loadOnboardingCompleted().then(async (done) => {
-      setOnboardingCompleted(done)
-      if (done) {
+    let cancelled = false
+
+    // The initial load fires six backend commands at once via Promise.all
+    // (all-or-nothing). On a cold start the webview can mount and call these
+    // BEFORE the Tauri backend has finished its setup — so a single not-yet-ready
+    // command rejected the whole batch and dropped the user on the "Failed to load
+    // application data" screen, which a manual Retry (full reload) then fixed
+    // because the backend was up by then. Retry the batch a few times with a short
+    // backoff so that transient cold-start race self-heals silently; only surface
+    // the error screen if every attempt fails.
+    const loadInitialData = async () => {
+      const MAX_ATTEMPTS = 6
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         try {
           const [
             config,
@@ -158,6 +168,7 @@ function MainApp() {
             getPlatformCapabilities(),
             getHotkeyRegistrationError(),
           ])
+          if (cancelled) return
           setConfig(config)
           setSavedConfig(config)
           setHistory(history)
@@ -176,12 +187,31 @@ function MainApp() {
             i18n.changeLanguage(config.ui_language)
             localStorage.setItem('ui_language', config.ui_language)
           }
+          return
         } catch (e) {
-          console.error('Failed to load initial data:', e)
-          setLoadError(true)
+          if (cancelled) return
+          console.error(
+            `Failed to load initial data (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+            e,
+          )
+          if (attempt === MAX_ATTEMPTS) {
+            setLoadError(true)
+            return
+          }
+          // Linear backoff (250ms, 500ms, …) — the backend is usually ready
+          // within the first retry, so this stays invisibly fast in practice.
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
         }
       }
-      setLoaded(true)
+    }
+
+    loadOnboardingCompleted().then(async (done) => {
+      if (cancelled) return
+      setOnboardingCompleted(done)
+      if (done) {
+        await loadInitialData()
+      }
+      if (!cancelled) setLoaded(true)
     })
 
     // Initialize auth session (non-blocking)
@@ -189,6 +219,10 @@ function MainApp() {
 
     // Initialize deep-link listener
     initDeepLinkListener()
+
+    return () => {
+      cancelled = true
+    }
   }, [
     setOnboardingCompleted,
     setConfig,
