@@ -933,14 +933,26 @@ impl Conductor {
             // snapshot failure (e.g. a wedged UIA provider) degrades to empty
             // grounding rather than sinking the command: untargeted actions
             // (launch, type, key, uri) still run; targeted ones fail validation.
+            // A browser in front is driven by its accessibility tree, never a
+            // screenshot: page links (including ones scrolled off-screen or hidden by
+            // zoom) are already in the tree as interactive elements the planner picks
+            // by TEXT and the executor invokes BY PATH — which works regardless of
+            // viewport. A screenshot, by contrast, only sees what's on screen and acts
+            // by coordinate, so an off-screen / zoomed / Nth result fails. This holds
+            // even when the user set hybrid/vision mode: for a browser the tree is the
+            // stronger grounding, so we skip the capture and keep the full element
+            // budget so no link is trimmed.
+            let mut browser_foreground = false;
             let (packet, fingerprint) = match self.backend.snapshot().await {
                 Ok(snap) => {
                     self.board.observe(&snap);
                     let fp = snapshot_fingerprint(&snap);
+                    browser_foreground = foreground_is_browser(&snap.app);
                     // A screenshot turn (hybrid / vision) leans on the image and
-                    // often acts by coordinate, so serialize a leaner tree; tree
-                    // mode keeps the full budget.
-                    let max_elems = if self.plan_mode.needs_screenshot() {
+                    // often acts by coordinate, so serialize a leaner tree; tree mode
+                    // — and any browser turn — keeps the full budget so every link
+                    // survives.
+                    let max_elems = if self.plan_mode.needs_screenshot() && !browser_foreground {
                         SCREENSHOT_MAX_ELEMENTS
                     } else {
                         DEFAULT_MAX_ELEMENTS
@@ -962,10 +974,12 @@ impl Conductor {
             let prior_context = novel_prior_context(&self.board, &goal, &history);
 
             // (c) Perception: for hybrid / vision modes, capture a screenshot to
-            // hand the planner. A missing platform impl (`Ok(None)`) or a capture
-            // error degrades to tree grounding for this turn rather than failing —
-            // the mode toggle never breaks Act.
-            let perception = if self.plan_mode.needs_screenshot() {
+            // hand the planner — UNLESS a browser is in front, where the tree wins
+            // (above) and a screenshot would only reintroduce the off-screen/zoom
+            // blind spot. A missing platform impl (`Ok(None)`) or a capture error
+            // degrades to tree grounding for this turn rather than failing — the mode
+            // toggle never breaks Act.
+            let perception = if self.plan_mode.needs_screenshot() && !browser_foreground {
                 match self.backend.capture_screen().await {
                     Ok(Some(png)) => Perception {
                         mode: self.plan_mode,
@@ -1330,6 +1344,34 @@ fn flow_decision(decision: &UserDecision, options: &[AskOption]) -> ResumeDecisi
 /// by the no-progress guard to tell whether the screen changed between iterations.
 fn snapshot_fingerprint(snap: &Snapshot) -> String {
     format!("{}|{}|{}", snap.app, snap.window_title, snap.elements.len())
+}
+
+/// Process/app names (or window-title fragments) that identify a Chromium/Gecko/
+/// WebKit browser in the foreground. Matched against a normalized (lowercased,
+/// `.exe`-stripped) app name via `contains`, so `"chrome.exe"`, `"Google Chrome"`
+/// and `"chrome"` all hit. A browser foreground is driven by its accessibility
+/// tree (link text + invoke-by-path), never a screenshot — see `novel_loop`.
+const BROWSER_APP_STEMS: &[&str] = &[
+    "chrome",
+    "chromium",
+    "msedge",
+    "microsoftedge",
+    "brave",
+    "firefox",
+    "opera",
+    "vivaldi",
+    "safari",
+];
+
+/// Whether the foreground app name identifies a web browser.
+fn foreground_is_browser(app: &str) -> bool {
+    let normalized = super::focus_guard::normalize_app_name(app);
+    if normalized.is_empty() {
+        return false;
+    }
+    BROWSER_APP_STEMS
+        .iter()
+        .any(|stem| normalized.contains(stem))
 }
 
 /// A stable, PHI-free signature of an action for the no-progress guard: its kind
@@ -2094,6 +2136,100 @@ mod tests {
             .iter()
             .any(|e| matches!(e, ActEvent::Result { ok: true, .. })));
         assert!(matches!(c.state(), ConductorState::Armed));
+    }
+
+    #[test]
+    fn foreground_is_browser_matches_browsers_only() {
+        for a in [
+            "chrome.exe",
+            "Google Chrome",
+            "Microsoft Edge",
+            "msedge.exe",
+            "Brave Browser",
+            "firefox",
+            "Safari",
+            "Vivaldi",
+            "Opera",
+        ] {
+            assert!(foreground_is_browser(a), "{a} should be a browser");
+        }
+        for a in [
+            "Spotify",
+            "Notepad",
+            "Microsoft Word",
+            "Slack",
+            "Ledger",
+            "",
+        ] {
+            assert!(!foreground_is_browser(a), "{a} should NOT be a browser");
+        }
+    }
+
+    #[tokio::test]
+    async fn browser_foreground_uses_tree_not_screenshot_even_in_vision_mode() {
+        // Vision mode is ON, but a browser is in front: Act must drive it by the
+        // accessibility tree (page links are elements the planner picks by TEXT and
+        // the executor invokes BY PATH — so an off-screen / zoomed / Nth result still
+        // works), NEVER a screenshot. capture_screen must therefore not be called.
+        let chrome = Snapshot {
+            app: "Google Chrome".into(),
+            window_title: "results - Google Search".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![],
+        };
+        let mut backend = MockBackend::new(chrome);
+        backend.set_screenshot(b"\x89PNG-fake".to_vec());
+        let backend = Arc::new(backend);
+        let selection = r#"{"missions":[{"type":"novel","goal":"play the fourth video"}]}"#;
+        let plan = r#"{"actions":[{"op":"stop"}]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(plan.into())],
+            backend.clone(),
+        );
+        c.set_plan_mode(PlanMode::Vision);
+        c.arm();
+        c.on_transcript("play the fourth video".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            backend.screen_captures(),
+            0,
+            "a browser turn must use the tree, never a screenshot"
+        );
+    }
+
+    #[tokio::test]
+    async fn non_browser_foreground_still_captures_a_screenshot_in_vision_mode() {
+        // The override is browser-only: a non-browser app in vision mode keeps the
+        // screenshot path, so the mode toggle still works everywhere else.
+        let editor = Snapshot {
+            app: "Notepad".into(),
+            window_title: "Untitled".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![],
+        };
+        let mut backend = MockBackend::new(editor);
+        backend.set_screenshot(b"\x89PNG-fake".to_vec());
+        let backend = Arc::new(backend);
+        let selection = r#"{"missions":[{"type":"novel","goal":"do the thing"}]}"#;
+        let plan = r#"{"actions":[{"op":"stop"}]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(plan.into())],
+            backend.clone(),
+        );
+        c.set_plan_mode(PlanMode::Vision);
+        c.arm();
+        c.on_transcript("do the thing".into()).await.unwrap();
+        assert!(
+            backend.screen_captures() >= 1,
+            "a non-browser vision turn must still capture a screenshot"
+        );
     }
 
     #[tokio::test]
