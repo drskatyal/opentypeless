@@ -801,24 +801,30 @@ impl Conductor {
         }
     }
 
-    /// Generate substantive document content for an authoring request and SAVE it.
+    /// Generate substantive document content for an authoring request, SAVE it, and
+    /// — when the user named an app — OPEN it in front of them.
     ///
     /// The selection layer routes "write / draft / compose a report / summary /
     /// letter about X" here (NOT to `take_a_note`, which types a short LITERAL
-    /// snippet). This is a single deterministic pass — generate, then save — with NO
-    /// app automation and NO observe/act/re-plan loop: writing a fresh document must
-    /// never launch Word or Notepad. We GENERATE the body with one LLM call
+    /// snippet). We GENERATE the body with one LLM call
     /// ([`super::compose::compose_body`]) and write it as a `.docx` into the user's
-    /// Documents folder ([`super::compose::save_docx`]), reporting the saved path.
+    /// Documents folder ([`super::compose::save_docx`]) — a reliable pass that never
+    /// loses the work.
     ///
-    /// `target_app` is intentionally unused: editing into an app's editor is only
-    /// appropriate when that editor is ALREADY the focused, open document (which is a
-    /// Novel/planner intent, not a fresh compose). Fresh creation always saves a file.
+    /// When the request named a `target_app` ("write an email **in Word**"), we then
+    /// OPEN the saved document in its default handler so it lands in front of the user
+    /// (a `.docx` opens in Word) instead of only sitting on disk — this is what "open
+    /// Microsoft Word" means for a fresh compose. We open the file we just AUTHORED,
+    /// never a screen-derived path, so it is a trusted, deterministic step (no
+    /// capability confirm) with no observe/act/re-plan loop. The body is already saved,
+    /// so if opening fails we still report success with the path. When no app is named,
+    /// the document is saved silently, as before. (To TYPE into an already-open editor,
+    /// the selection prompt routes "open Word and write …" to the Novel/planner path.)
     async fn run_compose(
         &mut self,
         topic: String,
         kind: String,
-        _target_app: Option<String>,
+        target_app: Option<String>,
         events: &mut Vec<ActEvent>,
     ) -> Step {
         let body = super::compose::compose_body(self.llm.as_ref(), &topic, &kind).await;
@@ -830,21 +836,39 @@ impl Conductor {
         }
 
         let dir = self.compose_documents_dir();
-        match super::compose::save_docx(&dir, &topic, &kind, &body) {
-            Ok(path) => {
-                self.board.record(format!("saved a {}", short_kind(&kind)));
-                let summary = format!("Saved the {} to {}", short_kind(&kind), path.display());
-                self.finish_task(true, &summary, events);
-                events.push(ActEvent::Result { ok: true, summary });
-                Step::Next
-            }
+        let path = match super::compose::save_docx(&dir, &topic, &kind, &body) {
+            Ok(path) => path,
             Err(e) => {
                 let message = format!("Couldn't save the {}: {e}", short_kind(&kind));
                 self.finish_task(false, &message, events);
                 events.push(ActEvent::Error { message });
-                Step::Next
+                return Step::Next;
             }
-        }
+        };
+        self.board.record(format!("saved a {}", short_kind(&kind)));
+
+        // The user named an app to write in → open the saved document so it shows up
+        // in front of them (a blank spoken target collapses to None upstream, so a
+        // present value is a real request). Opening is best-effort: the work is saved.
+        let wants_open = target_app
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|a| !a.is_empty());
+        let opened = wants_open
+            && self
+                .backend
+                .open_path(&path.to_string_lossy())
+                .await
+                .is_ok();
+
+        let summary = if opened {
+            format!("Wrote the {} and opened it", short_kind(&kind))
+        } else {
+            format!("Saved the {} to {}", short_kind(&kind), path.display())
+        };
+        self.finish_task(true, &summary, events);
+        events.push(ActEvent::Result { ok: true, summary });
+        Step::Next
     }
 
     /// The directory composed documents are saved to: the test/config override if
@@ -1789,10 +1813,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compose_generates_a_report_and_saves_a_docx_no_app_automation() {
+    async fn compose_with_target_app_saves_and_opens_the_document() {
         // The real bug: "write a detailed report in Notepad on X" typed the LITERAL
-        // instruction. Compose must instead GENERATE a body and SAVE it as a .docx —
-        // no app automation, no clipboard, no keystrokes, in a single pass.
+        // instruction, and a later fix saved a .docx but NEVER opened the app the user
+        // named. Compose must now GENERATE a body, SAVE it as a .docx, and — because
+        // the user named an app — OPEN that saved document in its default handler so it
+        // lands in front of them. It must NOT type the instruction and must NOT drive
+        // the app with keystrokes/clipboard (opening a file is not editor automation).
         let backend = Arc::new(MockBackend::new(snap(vec![])));
         let docs = scratch_docs_dir();
 
@@ -1834,19 +1861,76 @@ mod tests {
             "a real .docx"
         );
 
-        // No app automation at all: nothing launched, focused, typed, or pasted.
-        assert!(backend.launched().is_empty());
+        // The saved document was opened exactly once, by its own path — and NOTHING
+        // was typed, pasted, keyed, or app-focused (opening ≠ editor automation).
+        let launched = backend.launched();
+        assert_eq!(
+            launched.len(),
+            1,
+            "the saved doc should be opened once, got {launched:?}"
+        );
+        assert_eq!(launched[0], saved[0].to_string_lossy());
+        assert!(backend.typed().is_empty());
+        assert!(backend.clipboard_sets().is_empty());
+        assert!(backend.keys().is_empty());
+        assert!(backend.focused_apps().is_empty());
+
+        // The result reports that the document was written AND opened.
+        assert!(events.iter().any(|e| matches!(
+            e,
+            ActEvent::Result { ok: true, summary } if summary.contains("opened")
+        )));
+        assert!(matches!(c.state(), ConductorState::Armed));
+        std::fs::remove_dir_all(&docs).ok();
+    }
+
+    #[tokio::test]
+    async fn compose_without_target_app_saves_silently_and_opens_nothing() {
+        // No app named → save the .docx and report the path; open nothing, automate
+        // nothing. This preserves the quiet "just file it" path for a bare compose.
+        let backend = Arc::new(MockBackend::new(snap(vec![])));
+        let docs = scratch_docs_dir();
+        let note = "A Short Note\n\nJust a body line.";
+        let selection = r#"{"missions":[
+            {"type":"compose","topic":"a short note about nothing","kind":"note"}
+        ]}"#;
+        let compose = format!(r#"{{"body":{note:?}}}"#);
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(compose)],
+            backend.clone(),
+        );
+        c.set_documents_dir(docs.clone());
+        c.arm();
+
+        let events = c
+            .on_transcript("write a note about nothing".into())
+            .await
+            .unwrap();
+
+        let saved: Vec<_> = std::fs::read_dir(&docs)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("docx"))
+            .collect();
+        assert_eq!(saved.len(), 1, "one note should be saved, got {saved:?}");
+
+        // Nothing opened, nothing automated.
+        assert!(
+            backend.launched().is_empty(),
+            "no app opened without a target"
+        );
         assert!(backend.focused_apps().is_empty());
         assert!(backend.typed().is_empty());
         assert!(backend.clipboard_sets().is_empty());
         assert!(backend.keys().is_empty());
 
-        // The result reports the saved path.
+        // The result reports the saved path (not "opened").
         assert!(events.iter().any(|e| matches!(
             e,
             ActEvent::Result { ok: true, summary } if summary.contains(".docx")
         )));
-        assert!(matches!(c.state(), ConductorState::Armed));
         std::fs::remove_dir_all(&docs).ok();
     }
 
