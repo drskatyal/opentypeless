@@ -47,14 +47,34 @@ stdout ->  { "ok": true, "detail": "clicked the first video", "actions": [ ... ]
 - **`intent`** (required) — natural-language goal for this turn.
 - **`url`** (optional) — navigate here before acting.
 - **`timeoutMs`** (optional) — per-task ceiling; falls back to `FLOWRAD_TASK_TIMEOUT_MS`.
+- **`mode`** (optional) — `"act"` (default) or `"links"` (see below).
+- **`select`** (optional, `"links"` mode) — a 1-based position (`2` / `"2"`) for the
+  Nth link, or text (`"lofi hip hop"`) for the best text match.
 
 On failure the result line is `{ "ok": false, "detail": "...", "error": "..." }`.
 The host relies on this **result line**, not the process exit code (we still exit
 non-zero on failure for humans). All logging goes to **stderr**, so **stdout stays
 a clean single-line result channel**.
 
-Internally each run does `observe(intent)` (proves the DOM is grounded and surfaces
-candidate actions) then `act(intent)` (Gemini plans, Stagehand executes over CDP).
+### `act` mode (default, LLM)
+
+Each run does `observe(intent)` (proves the DOM is grounded and surfaces candidate
+actions) then `act(intent)` (Gemini plans, Stagehand executes precise CDP
+clicks/typing). Requires `GEMINI_API_KEY`.
+
+### `links` mode (deterministic, no LLM)
+
+Enumerate the active tab's anchor links from the DOM
+(`document.querySelectorAll('a')`), collect each `{ text, href }` (resolved
+absolute, http/https, in DOM order), pick one via `select` (or the best text match
+against `intent`, falling back to the first link), and **navigate the tab directly
+to that href**. No LLM, no `GEMINI_API_KEY` needed. The result adds the chosen href
+and the extracted candidate list:
+
+```text
+stdin  <-  { "intent": "play the first result", "url": "https://www.youtube.com/results?search_query=lofi", "mode": "links", "select": 1 }
+stdout ->  { "ok": true, "detail": "navigated to ...", "chosenHref": "https://...", "candidates": [ { "index": 1, "text": "...", "href": "..." }, ... ] }
+```
 
 ## Environment variables
 
@@ -85,6 +105,10 @@ echo '{"intent":"play the first result","url":"https://www.youtube.com/results?s
 
 # During development (no build step):
 echo '{"intent":"scroll down"}' | npm run dev
+
+# Deterministic links mode (no GEMINI_API_KEY needed): navigate to the 1st result.
+echo '{"intent":"play the first result","url":"https://www.youtube.com/results?search_query=lofi","mode":"links","select":1}' \
+  | node dist/index.js
 ```
 
 To attach to a Chrome you launched yourself:

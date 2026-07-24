@@ -1417,8 +1417,14 @@ const BROWSER_APP_STEMS: &[&str] = &[
     "safari",
 ];
 
-/// Whether the foreground app name identifies a web browser.
-fn foreground_is_browser(app: &str) -> bool {
+/// Whether an app name identifies a web browser. Normalizes (lowercase,
+/// `.exe`-stripped) then matches against [`BROWSER_APP_STEMS`] via `contains`.
+///
+/// Shared helper: the conductor's live UIA path uses it (via
+/// [`foreground_is_browser`]); the feature-gated CDP router
+/// (`super::browser::is_browser_task`) reuses it so both agree on what counts as
+/// a browser.
+pub(crate) fn app_is_browser(app: &str) -> bool {
     let normalized = super::focus_guard::normalize_app_name(app);
     if normalized.is_empty() {
         return false;
@@ -1437,6 +1443,11 @@ fn foreground_is_browser(app: &str) -> bool {
 /// tree and are handled by the browser-foreground path instead.
 fn snapshot_is_opaque(snap: &Snapshot) -> bool {
     !foreground_is_browser(&snap.app) && !snap.elements.iter().any(|e| e.is_interactive())
+}
+
+/// Whether the foreground app name identifies a web browser.
+fn foreground_is_browser(app: &str) -> bool {
+    app_is_browser(app)
 }
 
 /// Whether a post-navigation snapshot is "settled enough" to plan against, given

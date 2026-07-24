@@ -254,19 +254,140 @@ impl BrowserSession {
 }
 
 // ===========================================================================
+// Router decision (pure, unit-tested).
+// ===========================================================================
+
+/// Goal keywords/verbs that identify **page content** work — the stuff a DOM
+/// path serves best. Matched case-insensitively via `contains`.
+const WEB_CONTENT_KEYWORDS: &[&str] = &[
+    "play",
+    "watch",
+    "video",
+    "result",
+    "link",
+    "click",
+    "search",
+    "scroll",
+    "type",
+    "send",
+    "message",
+    "post",
+    "comment",
+    "reply",
+    "like",
+    "subscribe",
+    "follow",
+    "share",
+    "sign in",
+    "log in",
+    "login",
+    "fill",
+    "submit",
+    "form",
+    "select",
+    "choose",
+    "read",
+    "article",
+    "add to cart",
+    "checkout",
+    "buy",
+    "purchase",
+    "review",
+    "navigate",
+    "go to",
+    "visit",
+    "browse",
+    "first",
+    "second",
+    "third",
+    "top result",
+    "the page",
+];
+
+/// Goal keywords that identify **browser-chrome / OS-window** management rather
+/// than page content. These stay on the UIA path: they work there today, and a
+/// browser-chrome action (new tab, close window) is not DOM content. Matched
+/// before the web keywords so an ambiguous "open a new tab" resolves to `false`.
+const OS_CHROME_KEYWORDS: &[&str] = &[
+    "new tab",
+    "close tab",
+    "close the tab",
+    "new window",
+    "close window",
+    "close the window",
+    "minimize",
+    "maximize",
+    "restore the window",
+    "incognito",
+    "private window",
+    "bookmark",
+    "add to favorites",
+    "downloads",
+    "history",
+    "clear history",
+    "settings",
+    "preferences",
+    "extension",
+    "zoom in",
+    "zoom out",
+    "reset zoom",
+    "full screen",
+    "fullscreen",
+    "print the page",
+    "quit",
+    "restart the browser",
+    "update chrome",
+];
+
+/// Pure router decision: should this mission be driven over the CDP/DOM browser
+/// path instead of the UIA/AX tree?
+///
+/// Returns `true` only when **both** hold (see `docs/act-cdp-browser.md`):
+///
+/// 1. **The surface is a browser** — `foreground_app` normalizes to a known
+///    browser (shared with the live UIA path via
+///    [`super::conductor::app_is_browser`]).
+/// 2. **The goal is web content** — a light verb/keyword heuristic. Browser-chrome
+///    / OS-window goals ("open a new tab", "close the window") and anything with
+///    no clear web signal are treated as **not** browser work.
+///
+/// When the classification is ambiguous the function returns `false`, so the
+/// mission falls back to the existing UIA/AX path. This makes the spike strictly
+/// additive: it can only ever route *more* work to CDP, never regress today's
+/// behavior. On any downstream CDP error the dispatch is expected to fall back to
+/// UIA as well.
+pub fn is_browser_task(foreground_app: &str, goal: &str) -> bool {
+    if !super::conductor::app_is_browser(foreground_app) {
+        return false;
+    }
+    let g = goal.trim().to_ascii_lowercase();
+    if g.is_empty() {
+        return false;
+    }
+    // Browser-chrome / OS-window management wins first: keep it on UIA.
+    if OS_CHROME_KEYWORDS.iter().any(|kw| g.contains(kw)) {
+        return false;
+    }
+    // Otherwise, route to CDP only on a positive web-content signal; ambiguous
+    // goals fall back to UIA.
+    WEB_CONTENT_KEYWORDS.iter().any(|kw| g.contains(kw))
+}
+
+// ===========================================================================
 // ROUTER INTEGRATION POINT (not wired — spike).
 // ===========================================================================
 //
 // When this graduates from a spike, the conductor's router (super::selection /
-// super::conductor) would classify a mission as "browser" (foreground app is a
-// browser AND the goal is web content — see docs/act-cdp-browser.md for the
-// classifier) and dispatch it here instead of onto the UIA planner/executor:
+// super::conductor) would classify a mission as "browser" via the pure
+// `is_browser_task(foreground_app, goal)` decision above (foreground app is a
+// browser AND the goal is web content — see docs/act-cdp-browser.md) and dispatch
+// it here instead of onto the UIA planner/executor:
 //
 // ```ignore
 // // inside the conductor's per-mission dispatch, GATED on cfg(feature = "cdp-browser"):
-// if super::browser::is_browser_task(&mission, &snapshot) {
+// if super::browser::is_browser_task(&snapshot.app, &mission.goal) {
 //     let session = super::browser::BrowserSession::from_env();
-//     let task = super::browser::BrowserTask::new(goal).with_url(target_url);
+//     let task = super::browser::BrowserTask::new(&mission.goal).with_url(target_url);
 //     match session.run(&task) {
 //         Ok(res)  => { /* emit ActEvent::Progress(res.detail); continue the loop */ }
 //         Err(err) => { /* fall back to the UIA path, or surface the error */ }
@@ -321,5 +442,81 @@ mod tests {
         let cfg = BrowserConfig::default();
         assert!(cfg.cdp_port >= 1024);
         assert!(cfg.script_path.to_string_lossy().ends_with("index.js"));
+    }
+
+    // --- router: is_browser_task -------------------------------------------
+
+    #[test]
+    fn router_browser_plus_web_goal_is_true() {
+        // Foreground is a browser AND the goal is clearly page content.
+        for (app, goal) in [
+            ("chrome.exe", "play the first result"),
+            ("Google Chrome", "click the second link"),
+            ("msedge.exe", "send this message to Grok"),
+            ("Brave Browser", "search for lofi and play the top result"),
+            ("firefox", "scroll down and like the video"),
+            ("Vivaldi", "type the prompt into the chat box and submit"),
+        ] {
+            assert!(
+                is_browser_task(app, goal),
+                "{app:?} + {goal:?} should route to CDP"
+            );
+        }
+    }
+
+    #[test]
+    fn router_non_browser_foreground_is_false() {
+        // Even a perfectly web-shaped goal stays on UIA when the surface isn't a
+        // browser.
+        for app in [
+            "Spotify",
+            "Notepad",
+            "Microsoft Word",
+            "Slack",
+            "",
+            "Ledger",
+        ] {
+            assert!(
+                !is_browser_task(app, "play the first result"),
+                "{app:?} is not a browser; must not route to CDP"
+            );
+        }
+    }
+
+    #[test]
+    fn router_browser_plus_os_goal_is_false() {
+        // Browser-chrome / OS-window management belongs on UIA even in a browser.
+        for goal in [
+            "open a new tab",
+            "close the window",
+            "minimize the browser",
+            "open an incognito window",
+            "bookmark this page",
+            "open the downloads folder",
+            "zoom in",
+            "quit chrome",
+        ] {
+            assert!(
+                !is_browser_task("chrome.exe", goal),
+                "OS/chrome goal {goal:?} must stay on UIA"
+            );
+        }
+    }
+
+    #[test]
+    fn router_ambiguous_goal_falls_back_to_uia() {
+        // No clear web signal => ambiguous => false (fall back to UIA).
+        for goal in ["", "   ", "do the thing", "help me", "continue"] {
+            assert!(
+                !is_browser_task("chrome.exe", goal),
+                "ambiguous goal {goal:?} must fall back to UIA"
+            );
+        }
+    }
+
+    #[test]
+    fn router_is_case_insensitive_on_goal() {
+        assert!(is_browser_task("chrome.exe", "PLAY the First Result"));
+        assert!(!is_browser_task("chrome.exe", "Open A New TAB"));
     }
 }

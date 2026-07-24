@@ -76,8 +76,43 @@ alongside the mission. Ambiguity resolves toward the **existing** path so the sp
 can only ever *add* capability, never regress today's behavior. On any CDP error
 the dispatch falls back to the UIA path.
 
-The concrete, commented dispatch stub lives in `act/browser.rs` under
-`ROUTER INTEGRATION POINT`.
+### `is_browser_task` — the concrete decision (feature `cdp-browser`)
+
+The heuristic is implemented as a pure, unit-tested function in
+`act/browser.rs`:
+
+```rust
+pub fn is_browser_task(foreground_app: &str, goal: &str) -> bool
+```
+
+It returns `true` only when **both** conditions hold:
+
+1. **Browser surface.** `foreground_app` normalizes to a known browser. This
+   reuses the exact browser-name matching the live UIA path already uses: the
+   shared helper `conductor::app_is_browser` (which backs `foreground_is_browser`)
+   normalizes the app name (lowercase, `.exe`-stripped) and matches it against
+   `BROWSER_APP_STEMS` (chrome, chromium, msedge, brave, firefox, opera, vivaldi,
+   safari). Both paths therefore agree on what "a browser" is.
+2. **Web-content goal.** A light keyword/verb check on the goal:
+   - **Browser-chrome / OS-window** goals are matched *first* and route to UIA:
+     "open a new tab", "close the window", "minimize", "incognito", "bookmark",
+     "downloads", "zoom in", "quit chrome", … These work on UIA today and are not
+     DOM content.
+   - Otherwise a positive **web-content** signal is required — verbs/nouns like
+     *play, watch, video, result, link, click, search, scroll, type, send,
+     message, post, subscribe, sign in, submit, buy, first/second/third*, … — to
+     return `true`.
+   - **Ambiguous** goals with no clear signal (e.g. "do the thing", "continue")
+     return `false` and fall back to UIA.
+
+The function is exercised by unit tests in the same file: browser + web goal →
+`true`; non-browser foreground → `false`; browser + clearly-OS goal → `false`;
+ambiguous → `false`; and case-insensitivity.
+
+The concrete, commented dispatch stub that would call it lives in
+`act/browser.rs` under `ROUTER INTEGRATION POINT`. It is **not** wired into the
+live conductor; the whole module compiles only under `--features cdp-browser`, so
+default builds and tests are unchanged.
 
 ## Sidecar protocol
 
@@ -93,6 +128,43 @@ stdout ->  { "ok": true|false, "detail": "...", "actions"?: [...], "error"?: "..
 - `GEMINI_API_KEY` and the CDP/profile knobs come from the environment (see
   `browser-agent/README.md` for the full table).
 
+### Two modes: `act` (LLM) and `links` (deterministic)
+
+The task carries an optional `mode` field (default `"act"`):
+
+```text
+stdin <- { "intent": "...", "url"?: "...", "timeoutMs"?: 60000,
+           "mode"?: "act" | "links", "select"?: <number | string> }
+```
+
+- **`act`** (default, unchanged): `observe(intent)` then `act(intent)` — Stagehand
+  plans the intent with the LLM and executes precise CDP clicks/typing on the real
+  DOM node. Requires `GEMINI_API_KEY`.
+
+- **`links`** (new, **deterministic — no LLM**): enumerate the active tab's anchor
+  links from the DOM (`document.querySelectorAll('a')`, equivalent to a CDP
+  `Runtime.evaluate`), collect each `{ text, href }` (resolved absolute, http/https
+  only, in DOM order), pick one, and **navigate the tab directly to its href**.
+  Does **not** require `GEMINI_API_KEY`. The `select` hint chooses the target:
+  - a **1-based position** (`2` or `"2"`) → the Nth extracted link (e.g. "play the
+    first result" → `select: 1`);
+  - **text** (`"lofi hip hop"`) → the best text match among the links;
+  - **omitted** → best text match against the `intent`, falling back to the first
+    link.
+
+  The result adds the chosen href and the full candidate list for auditing:
+
+  ```text
+  stdout -> { "ok": true, "detail": "navigated to <text>",
+              "chosenHref": "https://…", "candidates": [ { "index": 1, "text": "…", "href": "…" }, … ] }
+  ```
+
+  This is the robust path for "play the Nth result / click the link that says X":
+  no screenshot, no LLM planning, no coordinate math — just DOM anchor text/href
+  and a direct navigation. The `act` path remains available for interactions that
+  are not a plain link navigation (typing into a box, clicking a non-anchor
+  control, sending a chat message).
+
 ## Whose Chrome / dedicated profile
 
 FlowRad drives a **dedicated, persistent Chrome profile**
@@ -101,6 +173,17 @@ FlowRad drives a **dedicated, persistent Chrome profile**
 session (tabs, cookies, extensions), lets a one-time login (Google, Grok/X) persist
 across runs, and gives us a predictable debugging port. See the README for the
 full rationale.
+
+> **Caveat — attaching to the user's own Chrome.** CDP can only talk to a Chrome
+> that was **started with `--remote-debugging-port`**. A normally-launched Chrome
+> exposes no CDP endpoint, so there is no way to attach to the user's existing
+> everyday browser after the fact. To attach (via `FLOWRAD_CDP_URL`) that Chrome
+> must have been launched with the flag (and, in practice, a distinct
+> `--user-data-dir`, since Chrome refuses a second debugging session on a profile
+> already open in a running instance). This is the other reason FlowRad launches
+> its **own** Chrome with the flag set rather than reaching into the user's — the
+> default path (no `FLOWRAD_CDP_URL`, sidecar launches the FlowRad Chrome itself)
+> is the one that "just works".
 
 ## Cross-platform (works on Mac too)
 

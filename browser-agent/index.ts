@@ -63,6 +63,16 @@ const DEFAULT_TIMEOUT_MS = Number.parseInt(process.env.FLOWRAD_TASK_TIMEOUT_MS ?
 // Wire types.
 // ---------------------------------------------------------------------------
 
+/**
+ * How to drive the task:
+ *  - `"act"`   (default) — Stagehand plans the intent with the LLM and executes
+ *                precise CDP clicks/typing on the real DOM node.
+ *  - `"links"` — DETERMINISTIC, no LLM: enumerate the active tab's anchor links
+ *                (text + resolved href) from the DOM, pick one (the Nth result or
+ *                the best text match), and navigate the tab straight to its href.
+ */
+type TaskMode = "act" | "links";
+
 interface Task {
   /** Natural-language goal for this browser turn. */
   intent: string;
@@ -70,13 +80,37 @@ interface Task {
   url?: string;
   /** Optional per-task timeout override, milliseconds. */
   timeoutMs?: number;
+  /** Which driver to use. Defaults to `"act"`. */
+  mode?: TaskMode;
+  /**
+   * `"links"`-mode selection hint. Either:
+   *  - a 1-based position (`2` or `"2"`) → the Nth extracted link, or
+   *  - text (`"lofi hip hop"`) → the best text match among the links.
+   * When omitted, the task `intent` is used for a best-text match, falling back
+   * to the first link.
+   */
+  select?: string | number;
+}
+
+/** One anchor extracted from the active tab, in DOM order. */
+interface LinkCandidate {
+  /** 1-based position among the extracted (http/https) anchors. */
+  index: number;
+  /** Collapsed visible link text. */
+  text: string;
+  /** Resolved absolute URL. */
+  href: string;
 }
 
 interface TaskResult {
   ok: boolean;
   detail: string;
-  /** Stagehand's structured actions, when the turn produced any. */
+  /** Stagehand's structured actions, when the turn produced any (`act` mode). */
   actions?: unknown[];
+  /** The href the tab was navigated to (`links` mode). */
+  chosenHref?: string;
+  /** The extracted anchor candidates (`links` mode), for auditing/observability. */
+  candidates?: LinkCandidate[];
   /** Present only on failure. */
   error?: string;
 }
@@ -129,6 +163,127 @@ function log(...args: unknown[]): void {
 }
 
 // ---------------------------------------------------------------------------
+// Deterministic link mode: DOM anchor extraction + navigate-by-href (no LLM).
+// ---------------------------------------------------------------------------
+
+/** Tokens ignored when scoring a text match so the query's content words drive it. */
+const MATCH_STOPWORDS = new Set([
+  "the", "a", "an", "to", "and", "of", "on", "in", "for", "with", "this",
+  "that", "please", "click", "open", "play", "go", "goto", "result", "results",
+  "link", "links", "first", "second", "third", "top", "select", "choose",
+]);
+
+/**
+ * Enumerate the active tab's anchor links via the DOM. Runs in page context
+ * (equivalent to CDP `Runtime.evaluate` over `document.querySelectorAll('a')`),
+ * returning only http/https anchors with a resolved absolute href, in DOM order.
+ */
+async function extractLinks(page: {
+  evaluate: <T>(fn: () => T) => Promise<T>;
+}): Promise<LinkCandidate[]> {
+  const raw = await page.evaluate<Array<{ text: string; href: string }>>(() => {
+    const anchors = Array.from(document.querySelectorAll("a")) as HTMLAnchorElement[];
+    return anchors
+      .map((a) => ({
+        // `a.href` is the browser-resolved absolute URL; `textContent` is the
+        // visible label, whitespace-collapsed.
+        text: (a.textContent ?? "").replace(/\s+/g, " ").trim(),
+        href: a.href,
+      }))
+      .filter((l) => /^https?:/i.test(l.href));
+  });
+  return raw.map((l, i) => ({ index: i + 1, text: l.text, href: l.href }));
+}
+
+/** Best text match: the candidate whose text contains the most query content
+ *  words. Returns `undefined` when nothing overlaps. */
+function bestTextMatch(
+  candidates: LinkCandidate[],
+  query: string,
+): LinkCandidate | undefined {
+  const tokens = (query.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter(
+    (t) => t.length > 1 && !MATCH_STOPWORDS.has(t),
+  );
+  if (tokens.length === 0) return undefined;
+  let best: LinkCandidate | undefined;
+  let bestScore = 0;
+  for (const c of candidates) {
+    const text = c.text.toLowerCase();
+    let score = 0;
+    for (const t of tokens) if (text.includes(t)) score += 1;
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return bestScore > 0 ? best : undefined;
+}
+
+/** Resolve the task's `select` hint (or its intent) to one link candidate. */
+function chooseLink(
+  candidates: LinkCandidate[],
+  task: Task,
+): LinkCandidate | undefined {
+  if (candidates.length === 0) return undefined;
+  const sel = task.select;
+
+  // Numeric select => Nth (1-based). `candidates[N-1]` is `undefined` when N is
+  // out of range, which the caller reports as "no link at that position".
+  if (typeof sel === "number" && Number.isFinite(sel)) {
+    return candidates[Math.trunc(sel) - 1];
+  }
+  if (typeof sel === "string" && sel.trim() !== "") {
+    const trimmed = sel.trim();
+    if (/^\d+$/.test(trimmed)) {
+      return candidates[Number.parseInt(trimmed, 10) - 1];
+    }
+    return bestTextMatch(candidates, trimmed);
+  }
+
+  // No usable select => best match against the intent, else the first link.
+  return bestTextMatch(candidates, task.intent) ?? candidates[0];
+}
+
+/**
+ * DETERMINISTIC path: extract the active tab's links and navigate directly to
+ * the chosen href. No LLM, no Stagehand planning — the grounding is the DOM.
+ */
+async function runLinksMode(
+  stagehand: Stagehand,
+  task: Task,
+): Promise<TaskResult> {
+  const page = stagehand.context.activePage() ?? (await stagehand.context.newPage());
+
+  if (task.url) {
+    log(`goto ${task.url}`);
+    await page.goto(task.url);
+  }
+
+  const candidates = await extractLinks(page);
+  log(`extracted ${candidates.length} anchor link(s)`);
+
+  const chosen = chooseLink(candidates, task);
+  if (!chosen || !chosen.href) {
+    return {
+      ok: false,
+      detail: `no matching link among ${candidates.length} candidate(s)`,
+      error: "no_link_match",
+      candidates,
+    };
+  }
+
+  log(`navigate by href -> ${chosen.href}`);
+  await page.goto(chosen.href);
+
+  return {
+    ok: true,
+    detail: `navigated to ${chosen.text || chosen.href}`,
+    chosenHref: chosen.href,
+    candidates,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main: one task per process.
 // ---------------------------------------------------------------------------
 
@@ -150,7 +305,9 @@ async function main(): Promise<number> {
     emitResult({ ok: false, detail: "task.intent (string) is required", error: "missing_intent" });
     return 1;
   }
-  if (!GEMINI_API_KEY) {
+  const mode: TaskMode = task.mode === "links" ? "links" : "act";
+  // Only the LLM-planned `act` path needs the key; `links` mode is deterministic.
+  if (mode === "act" && !GEMINI_API_KEY) {
     emitResult({ ok: false, detail: "GEMINI_API_KEY is not set", error: "missing_api_key" });
     return 1;
   }
@@ -181,8 +338,15 @@ async function main(): Promise<number> {
   const timeout = task.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   try {
-    log(`init: env=LOCAL model=${MODEL_NAME} cdp=${CDP_URL || `port ${CDP_PORT}`} profile=${USER_DATA_DIR}`);
+    log(`init: mode=${mode} env=LOCAL model=${MODEL_NAME} cdp=${CDP_URL || `port ${CDP_PORT}`} profile=${USER_DATA_DIR}`);
     await stagehand.init();
+
+    // DETERMINISTIC path: extract links + navigate by href. No LLM planning.
+    if (mode === "links") {
+      const linkResult = await runLinksMode(stagehand, task);
+      emitResult(linkResult);
+      return linkResult.ok ? 0 : 1;
+    }
 
     if (task.url) {
       log(`goto ${task.url}`);
