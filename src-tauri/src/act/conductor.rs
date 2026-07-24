@@ -569,8 +569,26 @@ impl Conductor {
                 tracing::info!(flow = %id, slots = ?slots, "Act running flow");
                 self.run_flow(&id, slots, events).await
             }
-            Mission::Novel { goal, .. } => {
+            Mission::Novel { goal, target_app } => {
                 tracing::info!(goal = %goal, "Act running novel goal (planner)");
+                // CDP/DOM browser path (feature `cdp-browser`, OFF by default):
+                // when the foreground is a browser AND the goal is web content,
+                // drive it through the Node DOM sidecar instead of the UIA planner,
+                // with a fallback to the UIA loop on any CDP failure. This whole
+                // branch is compiled OUT of a default build, so the default path is
+                // byte-for-byte today's `self.run_novel(goal, events)`.
+                #[cfg(feature = "cdp-browser")]
+                {
+                    let foreground = match self.backend.snapshot().await {
+                        Ok(snap) => snap.app,
+                        Err(_) => self.board.focus_app.clone().unwrap_or_default(),
+                    };
+                    if super::browser::is_browser_task(&foreground, &goal) {
+                        return self.run_browser_task(goal, target_app, events).await;
+                    }
+                }
+                #[cfg(not(feature = "cdp-browser"))]
+                let _ = &target_app;
                 self.run_novel(goal, events).await
             }
             Mission::Compose {
@@ -887,6 +905,50 @@ impl Conductor {
             .clone()
             .or_else(dirs::document_dir)
             .unwrap_or_else(|| PathBuf::from("."))
+    }
+
+    /// Drive a browser page-content goal through the CDP/DOM sidecar (feature
+    /// `cdp-browser`), falling back to the UIA `novel_loop` on any failure.
+    ///
+    /// The sidecar call ([`super::browser::BrowserSession::run`]) is synchronous +
+    /// blocking (it spawns a Node child and does line I/O), so it runs on the
+    /// blocking pool via [`tokio::task::spawn_blocking`]; the per-task timeout inside
+    /// the sidecar bounds it. On a clean success we emit a terminal
+    /// [`ActEvent::Result`] and finish the mission. On a reported failure, a
+    /// [`super::browser::BrowserError`], or a join error, we log and fall back to
+    /// `run_novel` so a CDP hiccup never dead-ends a command — the key safety
+    /// property of this wiring.
+    #[cfg(feature = "cdp-browser")]
+    async fn run_browser_task(
+        &mut self,
+        goal: String,
+        target_app: Option<String>,
+        events: &mut Vec<ActEvent>,
+    ) -> Step {
+        let task = super::browser::browser_task_for(&goal, target_app.as_deref());
+        tracing::info!(goal = %short_goal(&goal), "act: dispatching to CDP/DOM browser path");
+        let outcome = tokio::task::spawn_blocking(move || {
+            super::browser::BrowserSession::from_env().run(&task)
+        })
+        .await;
+        match outcome {
+            Ok(Ok(result)) => {
+                let summary = super::browser::browser_summary(&result);
+                tracing::info!(summary = %summary, "act: CDP browser task succeeded");
+                self.board.record(short_goal(&goal));
+                self.finish_task(true, &summary, events);
+                events.push(ActEvent::Result { ok: true, summary });
+                Step::Next
+            }
+            Ok(Err(err)) => {
+                tracing::warn!(error = %err, "act: CDP browser task failed; falling back to UIA planner");
+                self.run_novel(goal, events).await
+            }
+            Err(join_err) => {
+                tracing::warn!(error = %join_err, "act: CDP browser task panicked; falling back to UIA planner");
+                self.run_novel(goal, events).await
+            }
+        }
     }
 
     /// Plan a novel goal from primitives and execute it.
