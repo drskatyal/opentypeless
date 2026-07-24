@@ -210,13 +210,6 @@ fn is_continuation(req: &PlanRequest) -> bool {
         .is_some_and(|c| c.contains(CONTINUATION_MARKER))
 }
 
-// Words that mark a destructive / irreversible intent for the defense-in-depth
-// policy check (the CapabilityGate is the real boundary; this is belt-and-braces).
-// Shared verbatim with the executor's runtime classifier via
-// `destructive::DESTRUCTIVE_WORDS` so the planner-time and execution-time lists
-// can never drift apart.
-use super::destructive::DESTRUCTIVE_WORDS;
-
 /// Where a plan came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlanSource {
@@ -572,33 +565,19 @@ fn parse_and_validate(raw: &str, req: &PlanRequest) -> Result<ActionPlan, PlanEr
         }
     }
 
-    // Defense in depth: a destructive invoke/key with no confirming ask_user step
-    // is denied here so a prompt-injection can't slip one through. The capability
-    // gate downstream is the authoritative boundary.
-    let has_ask_user = plan
-        .actions
-        .iter()
-        .any(|a| matches!(a, Action::AskUser { .. }));
-    if !has_ask_user {
-        let transcript_destructive = looks_destructive(&req.transcript);
-        for action in &plan.actions {
-            if !matches!(action, Action::Invoke { .. } | Action::Key { .. }) {
-                continue;
-            }
-            let target_name = action
-                .target()
-                .and_then(|t| req.packet.elements.iter().find(|e| e.path == t))
-                .map(|e| e.name.as_str())
-                .unwrap_or("");
-            if transcript_destructive || looks_destructive(target_name) {
-                return Err(PlanError::DeniedByPolicy(format!(
-                    "destructive {} without a confirming ask_user",
-                    action.kind()
-                )));
-            }
-        }
-    }
-
+    // Destructive actions are NOT gated at plan time. The old planner-level deny
+    // fired on ANY key/invoke whenever the transcript merely CONTAINED a destructive
+    // word — including a negation ("do NOT send") or a wholly benign key (Gmail's "r"
+    // reply shortcut) — and it DENIED the entire plan instead of confirming it,
+    // silently killing legitimate reply / message / draft commands and forcing extra
+    // validation-retry round trips.
+    //
+    // The authoritative destructive gate is the in-executor runtime classifier
+    // (`destructive::classify`), which runs AFTER the target is re-resolved, so it
+    // sees the real control name and the focused element, and PAUSES for a resumable
+    // on-screen confirmation rather than failing. That is both safer (context-aware;
+    // a screen-injected destructive control still surfaces a confirm) and leaner —
+    // one authoritative check, no plan-time deny + retry loop.
     Ok(plan)
 }
 
@@ -679,15 +658,6 @@ fn shell_launders_screen_text(command: &str, packet: &GroundingPacket) -> bool {
         }
     }
     false
-}
-
-/// True if `text` reads as a destructive / irreversible intent. Deliberately
-/// simple substring matching — the real gate is the capability layer downstream.
-fn looks_destructive(text: &str) -> bool {
-    let t = text.to_lowercase();
-    DESTRUCTIVE_WORDS.iter().any(|w| t.contains(w))
-        // "close" counts only when it isn't paired with a save intent.
-        || (t.contains("close") && !t.contains("save"))
 }
 
 /// Map a transport-level [`AppError`] onto a [`PlanError`].
@@ -918,21 +888,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn destructive_intent_without_ask_user_is_denied() {
+    async fn destructive_intent_is_allowed_at_planning_and_gated_in_the_executor() {
+        // The planner no longer denies a destructive plan: the blunt plan-time check
+        // over-fired (any key/invoke + a destructive word anywhere, incl. negations
+        // and benign keys) and DENIED instead of confirming. The authoritative gate is
+        // now the in-executor runtime classifier, which pauses for an on-screen
+        // confirm. So a "delete the file" -> invoke Delete plan validates cleanly here.
         let llm = Arc::new(FixtureLlmClient::new(vec![Ok(
             r##"{"actions":[{"op":"invoke","target":"#/3"}]}"##.into(),
         )]));
         let planner = Planner::new(llm.clone(), "m".into());
-        let err = planner
+        let result = planner
             .plan(PlanRequest {
                 transcript: "delete the file".into(),
                 packet: packet_with(vec![el("#/3", "Delete")]),
                 prior_context: None,
             })
             .await
-            .unwrap_err();
-        assert!(matches!(err, PlanError::DeniedByPolicy(_)), "got {err:?}");
-        // Policy denials are terminal — no repair retry.
+            .expect("destructive plan should validate; the executor confirms it");
+        assert_eq!(result.plan.actions.len(), 1);
         assert_eq!(llm.call_count(), 1);
     }
 

@@ -104,6 +104,17 @@ pub fn classify(
         return Destructive::Confirm("confirm_activator_with_destructive_intent".into());
     }
 
+    // 3. A bare Enter / Space press in a command whose spoken intent is itself
+    //    destructive ("send the message", "submit the form", "delete it") is the
+    //    irreversible activation it usually is — pressing Enter in a chat / compose
+    //    box SENDS. Confirm even when the focused control has a benign name (a plain
+    //    message box), gating on the spoken intent so an ordinary Enter (opening a
+    //    search result, a newline) OUTSIDE a destructive command is unaffected. (We
+    //    reach here only for an activation key — Invoke was handled in branch 1.)
+    if matches!(action, Action::Key { .. }) && contains_destructive(transcript_hint) {
+        return Destructive::Confirm("activation_key_with_destructive_intent".into());
+    }
+
     Destructive::Allow
 }
 
@@ -243,6 +254,24 @@ mod tests {
     fn enter_on_benign_focus_is_allowed() {
         assert_eq!(
             classify(&key("Enter"), "Message", "", ""),
+            Destructive::Allow
+        );
+    }
+
+    #[test]
+    fn enter_with_destructive_intent_confirms_even_on_a_benign_box() {
+        // "send the message" -> pressing Enter in a plain message box SENDS. Even
+        // though the focused control ("Message") is benign, the destructive spoken
+        // intent makes the activation irreversible → confirm (branch 3). This is the
+        // WhatsApp / email "send" case the on-screen confirm is for.
+        assert_eq!(
+            classify(&key("Enter"), "Message", "", "send the message hi everyone"),
+            Destructive::Confirm("activation_key_with_destructive_intent".into())
+        );
+        // A non-destructive spoken intent (opening a chat, a newline) stays allowed —
+        // "open the chat" / "reply" carry no destructive word, so Enter is not gated.
+        assert_eq!(
+            classify(&key("Enter"), "Search", "", "open the chat with srishti"),
             Destructive::Allow
         );
     }
