@@ -1419,7 +1419,17 @@ fn nav_settle_ready(snap: &Snapshot, baseline_fp: &str) -> bool {
 /// A stable, PHI-free signature of an action for the no-progress guard: its kind
 /// plus any target path (never the typed text).
 fn action_signature(action: &Action) -> String {
-    format!("{}:{}", action.kind(), action.target().unwrap_or(""))
+    match action {
+        // A vision-mode click carries no element path, so its identity IS its
+        // coordinates: two clicks at different points are different actions. Without
+        // this, the no-progress guard treats every click as the same "click:" — and
+        // on an app whose a11y fingerprint never changes (e.g. WhatsApp exposes only
+        // an empty pane, so the screen-changed signal is always false) it wrongly
+        // concludes "stuck" and aborts the very step (click the box, then type+send)
+        // that would have acted. Coordinates keep distinct clicks distinct.
+        Action::Click { x, y } => format!("click:{x},{y}"),
+        _ => format!("{}:{}", action.kind(), action.target().unwrap_or("")),
+    }
 }
 
 /// Append a trusted progress note, keeping only the most recent [`NOVEL_HISTORY_CAP`].
@@ -2683,6 +2693,19 @@ mod tests {
             },
             Action::Wait { ms: 500 },
         ])));
+    }
+
+    #[test]
+    fn action_signature_distinguishes_clicks_by_coordinate() {
+        // Two clicks at different points must have DIFFERENT signatures, so the
+        // no-progress guard doesn't abort a vision flow (e.g. WhatsApp, whose a11y
+        // fingerprint never changes) after two legitimately different clicks.
+        let a = action_signature(&Action::Click { x: 181, y: 257 });
+        let b = action_signature(&Action::Click { x: 443, y: 907 });
+        assert_ne!(a, b, "distinct click coordinates must be distinct actions");
+        // The same coordinate twice IS the same action (a genuine stuck-loop signal).
+        let c = action_signature(&Action::Click { x: 181, y: 257 });
+        assert_eq!(a, c);
     }
 
     #[test]
