@@ -12,8 +12,9 @@ pub mod answer;
 pub mod audit;
 pub mod backend;
 pub mod blackboard;
-// CDP-controlled-Chrome browser automation (SPIKE). Gated OFF by default; not
-// wired into the live conductor. See docs/act-cdp-browser.md and browser-agent/.
+// CDP-controlled-Chrome browser automation. Gated OFF by default; when the
+// `cdp-browser` feature is enabled it is wired into the conductor's Novel-mission
+// dispatch (with UIA fallback). See docs/act-cdp-browser.md and browser-agent/.
 #[cfg(feature = "cdp-browser")]
 pub mod browser;
 pub mod capability;

@@ -6,9 +6,12 @@
 //! (`browser-agent/`) that drives a dedicated Chrome over the DevTools Protocol
 //! via Stagehand v3. Real DOM, precise clicks, a persistent FlowRad profile.
 //!
-//! **Status: scaffold only.** It is gated behind the `cdp-browser` Cargo feature
-//! (default OFF) and is NOT called from the live conductor / executor / planner.
-//! The intended wiring point is marked below (see `ROUTER INTEGRATION POINT`).
+//! **Status: wired behind the `cdp-browser` Cargo feature (default OFF).** When a
+//! build enables the feature, the conductor's Novel-mission dispatch
+//! ([`super::conductor::Conductor`]) routes a browser page-content goal here —
+//! via the pure [`is_browser_task`] decision and the [`browser_task_for`] mapping —
+//! and falls back to the UIA planner on any CDP failure. A DEFAULT build never
+//! compiles this module, so today's behavior is unchanged.
 //! Design notes and the router classification rules live in
 //! `docs/act-cdp-browser.md`; the sidecar protocol lives in
 //! `browser-agent/README.md`.
@@ -35,6 +38,10 @@ const DEFAULT_CDP_PORT: u16 = 9222;
 const DEFAULT_TASK_TIMEOUT_MS: u64 = 60_000;
 
 /// One browser task, serialized to the sidecar's stdin as a single JSON line.
+///
+/// The field names/casing here are the wire contract the Node sidecar
+/// (`browser-agent/index.ts`) reads: `intent`, `url`, `timeoutMs`, `mode`
+/// (`"act"` | `"links"`), and `select` (a 1-based number or a text hint).
 #[derive(Debug, Clone, Serialize)]
 pub struct BrowserTask {
     /// Natural-language goal for this turn ("play the first result", "type the
@@ -46,6 +53,14 @@ pub struct BrowserTask {
     /// Optional per-task timeout override (milliseconds).
     #[serde(rename = "timeoutMs", skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<u64>,
+    /// Which sidecar driver to use: `"act"` (LLM-planned CDP acting, the default
+    /// when omitted) or `"links"` (deterministic DOM anchor extract + navigate).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// `"links"`-mode selection hint: a 1-based position (a JSON number) or a text
+    /// match (a JSON string). Ignored by the sidecar in `"act"` mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub select: Option<serde_json::Value>,
 }
 
 impl BrowserTask {
@@ -55,12 +70,33 @@ impl BrowserTask {
             intent: intent.into(),
             url: None,
             timeout_ms: None,
+            mode: None,
+            select: None,
         }
     }
 
     /// Navigate to `url` first, then act.
     pub fn with_url(mut self, url: impl Into<String>) -> Self {
         self.url = Some(url.into());
+        self
+    }
+
+    /// Switch this task to the deterministic `"links"` driver (DOM anchor
+    /// extraction + navigate-by-href, no LLM).
+    pub fn links_mode(mut self) -> Self {
+        self.mode = Some("links".to_string());
+        self
+    }
+
+    /// `"links"`-mode: pick the Nth extracted anchor (1-based).
+    pub fn with_select_index(mut self, n: u32) -> Self {
+        self.select = Some(serde_json::Value::from(n));
+        self
+    }
+
+    /// `"links"`-mode: pick the best text match among the extracted anchors.
+    pub fn with_select_text(mut self, text: impl Into<String>) -> Self {
+        self.select = Some(serde_json::Value::from(text.into()));
         self
     }
 }
@@ -76,6 +112,10 @@ pub struct BrowserResult {
     /// Stagehand's structured actions, when the turn produced any.
     #[serde(default)]
     pub actions: Vec<serde_json::Value>,
+    /// The href the tab was navigated to (`"links"` mode); used to enrich the
+    /// success summary. Absent in `"act"` mode.
+    #[serde(default, rename = "chosenHref")]
+    pub chosen_href: Option<String>,
     /// Present only on failure.
     #[serde(default)]
     pub error: Option<String>,
@@ -374,30 +414,172 @@ pub fn is_browser_task(foreground_app: &str, goal: &str) -> bool {
 }
 
 // ===========================================================================
-// ROUTER INTEGRATION POINT (not wired — spike).
+// Mission -> BrowserTask mapping (pure, unit-tested).
+// ===========================================================================
+
+/// Known site name -> canonical URL, for a goal/target that NAMES a site without
+/// spelling out its URL ("play the first result on YouTube").
+const KNOWN_SITES: &[(&str, &str)] = &[
+    ("youtube", "https://www.youtube.com"),
+    ("google", "https://www.google.com"),
+    ("gmail", "https://mail.google.com"),
+    ("grok", "https://grok.com"),
+    ("chatgpt", "https://chatgpt.com"),
+    ("reddit", "https://www.reddit.com"),
+    ("twitter", "https://twitter.com"),
+    ("amazon", "https://www.amazon.com"),
+    ("wikipedia", "https://www.wikipedia.org"),
+    ("github", "https://github.com"),
+];
+
+/// Nouns that mark an ordinal selection as picking a RESULT/link rather than a
+/// stray number in the goal text.
+const RESULT_NOUNS: &[&str] = &[
+    "result", "link", "video", "item", "option", "song", "track", "one", "hit",
+];
+
+/// Map a Novel mission (a natural-language `goal`, plus an optional `target_app`
+/// hint) onto a concrete [`BrowserTask`] for the CDP sidecar. PURE — no I/O — so
+/// the decision is unit-tested in isolation. Rules, in order:
+///
+/// 1. **URL** — an explicit `http(s)://` or bare domain in the goal wins; else a
+///    known site NAMED by the goal or the target app supplies one. If found, the
+///    task navigates there first (`with_url`).
+/// 2. **"Nth result" → deterministic links mode** — a "play/open/click the
+///    FIRST/second/top … result/link/video" style goal maps to `mode: "links"`
+///    with a 1-based numeric `select`, so the sidecar extracts anchors and
+///    navigates by href with NO LLM.
+/// 3. **Otherwise** — an `"act"` task (mode omitted) with `intent = goal`, letting
+///    the sidecar plan the turn.
+pub fn browser_task_for(goal: &str, target_app: Option<&str>) -> BrowserTask {
+    let g = goal.trim();
+    let lower = g.to_ascii_lowercase();
+
+    let mut task = BrowserTask::new(g);
+    if let Some(url) = extract_url(g).or_else(|| site_url(&lower, target_app)) {
+        task = task.with_url(url);
+    }
+
+    // "play/open/click the FIRST/Nth result|link|video" → deterministic links mode.
+    if let Some(n) = ordinal_result(&lower) {
+        return task.links_mode().with_select_index(n);
+    }
+    task
+}
+
+/// A human-readable summary of a successful browser result, folding in the
+/// navigated href (links mode) when the sidecar reported one.
+pub fn browser_summary(result: &BrowserResult) -> String {
+    let base = result.detail.trim();
+    let base = if base.is_empty() { "Done" } else { base };
+    match result.chosen_href.as_deref() {
+        Some(href) if !href.is_empty() => format!("{base} ({href})"),
+        _ => base.to_string(),
+    }
+}
+
+/// Pull the first explicit URL / bare domain out of a goal string, preserving the
+/// original case (paths can be case-sensitive). A bare domain gains an `https://`.
+fn extract_url(goal: &str) -> Option<String> {
+    for raw in goal.split_whitespace() {
+        // Trim surrounding punctuation ("visit example.com." / "(https://x.io)").
+        let tok = raw.trim_matches(|c: char| {
+            !(c.is_ascii_alphanumeric()
+                || matches!(c, ':' | '/' | '.' | '-' | '_' | '?' | '=' | '&' | '#' | '%'))
+        });
+        if tok.starts_with("http://") || tok.starts_with("https://") {
+            return Some(tok.to_string());
+        }
+        if looks_like_domain(tok) {
+            return Some(format!("https://{tok}"));
+        }
+    }
+    None
+}
+
+/// Whether a token looks like a bare host/domain (`youtube.com`, `foo.co.uk/x`).
+fn looks_like_domain(tok: &str) -> bool {
+    if tok.is_empty() || tok.contains(' ') {
+        return false;
+    }
+    // Consider only the host portion for the TLD check.
+    let host = tok
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(tok)
+        .trim_end_matches('.');
+    let labels: Vec<&str> = host.split('.').collect();
+    if labels.len() < 2 {
+        return false;
+    }
+    let tld = *labels.last().unwrap();
+    if !(2..=6).contains(&tld.len()) || !tld.chars().all(|c| c.is_ascii_alphabetic()) {
+        return false;
+    }
+    labels
+        .iter()
+        .all(|l| !l.is_empty() && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+}
+
+/// A known site's URL when the (lowercased) goal or the target app names it.
+fn site_url(lower: &str, target_app: Option<&str>) -> Option<String> {
+    let app = target_app.unwrap_or("").to_ascii_lowercase();
+    KNOWN_SITES
+        .iter()
+        .find(|(name, _)| lower.contains(name) || app.contains(name))
+        .map(|(_, url)| (*url).to_string())
+}
+
+/// The 1-based ordinal of a "play the FIRST/Nth result" style goal, or `None`
+/// when the goal isn't selecting an ordinal result/link.
+fn ordinal_result(lower: &str) -> Option<u32> {
+    let n = ordinal_number(lower)?;
+    RESULT_NOUNS
+        .iter()
+        .any(|noun| lower.contains(noun))
+        .then_some(n)
+}
+
+/// Parse a leading ordinal ("first", "2nd", "top") to a 1-based number.
+fn ordinal_number(lower: &str) -> Option<u32> {
+    const WORDS: &[(&str, u32)] = &[
+        ("first", 1),
+        ("second", 2),
+        ("third", 3),
+        ("fourth", 4),
+        ("fifth", 5),
+        ("1st", 1),
+        ("2nd", 2),
+        ("3rd", 3),
+        ("4th", 4),
+        ("5th", 5),
+    ];
+    if lower.contains("top ") || lower.ends_with("top") {
+        return Some(1);
+    }
+    WORDS
+        .iter()
+        .find(|(w, _)| lower.contains(w))
+        .map(|(_, n)| *n)
+}
+
+// ===========================================================================
+// ROUTER INTEGRATION POINT (wired, feature-gated).
 // ===========================================================================
 //
-// When this graduates from a spike, the conductor's router (super::selection /
-// super::conductor) would classify a mission as "browser" via the pure
-// `is_browser_task(foreground_app, goal)` decision above (foreground app is a
-// browser AND the goal is web content — see docs/act-cdp-browser.md) and dispatch
-// it here instead of onto the UIA planner/executor:
+// The conductor's Novel-mission dispatch (`super::conductor::Conductor::run_mission`,
+// GATED on `cfg(feature = "cdp-browser")`) reads the foreground app from a snapshot
+// and, when `is_browser_task(foreground, goal)` holds (foreground is a browser AND
+// the goal is web content — see docs/act-cdp-browser.md), calls
+// `Conductor::run_browser_task`, which:
 //
-// ```ignore
-// // inside the conductor's per-mission dispatch, GATED on cfg(feature = "cdp-browser"):
-// if super::browser::is_browser_task(&snapshot.app, &mission.goal) {
-//     let session = super::browser::BrowserSession::from_env();
-//     let task = super::browser::BrowserTask::new(&mission.goal).with_url(target_url);
-//     match session.run(&task) {
-//         Ok(res)  => { /* emit ActEvent::Progress(res.detail); continue the loop */ }
-//         Err(err) => { /* fall back to the UIA path, or surface the error */ }
-//     }
-//     return; // handled by CDP; skip the UIA planner/executor for this mission
-// }
-// ```
+//   1. maps the goal to a `BrowserTask` via the pure `browser_task_for` helper,
+//   2. runs `BrowserSession::from_env().run(&task)` on the blocking pool, and
+//   3. on success emits `ActEvent::Result`, or on ANY failure falls back to the
+//      UIA `novel_loop` so a CDP hiccup never dead-ends a command.
 //
-// Nothing above calls `run` today. The live path (executor.rs, planner.rs,
-// selection.rs, conductor.rs) is untouched by this module.
+// A DEFAULT build (feature off) does not compile this module or that branch, so the
+// live UIA path (executor.rs, planner.rs, selection.rs, conductor.rs) is unchanged.
 
 #[cfg(test)]
 mod tests {
@@ -518,5 +700,105 @@ mod tests {
     fn router_is_case_insensitive_on_goal() {
         assert!(is_browser_task("chrome.exe", "PLAY the First Result"));
         assert!(!is_browser_task("chrome.exe", "Open A New TAB"));
+    }
+
+    // --- mapping: browser_task_for -----------------------------------------
+
+    #[test]
+    fn map_play_first_result_on_youtube_is_links_mode() {
+        let task = browser_task_for("play the first result on youtube", None);
+        assert_eq!(task.mode.as_deref(), Some("links"));
+        assert_eq!(task.select, Some(serde_json::Value::from(1u32)));
+        assert_eq!(task.url.as_deref(), Some("https://www.youtube.com"));
+        let json = serde_json::to_string(&task).unwrap();
+        // The exact wire shape the sidecar reads: links driver + numeric select.
+        assert!(json.contains("\"mode\":\"links\""), "json: {json}");
+        assert!(json.contains("\"select\":1"), "json: {json}");
+    }
+
+    #[test]
+    fn map_nth_result_picks_that_index() {
+        let task = browser_task_for("click the second link", None);
+        assert_eq!(task.mode.as_deref(), Some("links"));
+        assert_eq!(task.select, Some(serde_json::Value::from(2u32)));
+        // No site named → no navigation, just act on the current tab's links.
+        assert!(task.url.is_none(), "url: {:?}", task.url);
+    }
+
+    #[test]
+    fn map_top_result_is_index_one() {
+        let task = browser_task_for("open the top result", None);
+        assert_eq!(task.mode.as_deref(), Some("links"));
+        assert_eq!(task.select, Some(serde_json::Value::from(1u32)));
+    }
+
+    #[test]
+    fn map_open_bare_domain_is_a_url_act_task() {
+        let task = browser_task_for("open example.com", None);
+        assert_eq!(task.url.as_deref(), Some("https://example.com"));
+        assert!(task.mode.is_none(), "plain open must not be links mode");
+        assert!(task.select.is_none());
+        // Serialized: url present, no mode/select/timeout.
+        let json = serde_json::to_string(&task).unwrap();
+        assert!(
+            json.contains("\"url\":\"https://example.com\""),
+            "json: {json}"
+        );
+        assert!(!json.contains("mode"), "json: {json}");
+        assert!(!json.contains("select"), "json: {json}");
+    }
+
+    #[test]
+    fn map_explicit_https_url_is_preserved_with_case() {
+        let task = browser_task_for("go to https://YouTube.com/watch?v=AbCdEf", None);
+        assert_eq!(
+            task.url.as_deref(),
+            Some("https://YouTube.com/watch?v=AbCdEf")
+        );
+    }
+
+    #[test]
+    fn map_target_app_supplies_the_site_url() {
+        // The goal names no site, but the target-app hint does.
+        let task = browser_task_for("send this message", Some("Grok"));
+        assert_eq!(task.url.as_deref(), Some("https://grok.com"));
+        assert!(task.mode.is_none(), "no ordinal → act mode");
+    }
+
+    #[test]
+    fn map_plain_act_goal_keeps_intent_and_no_mode() {
+        let task = browser_task_for("type the prompt into the chat box and send it", None);
+        assert_eq!(task.intent, "type the prompt into the chat box and send it");
+        assert!(task.mode.is_none());
+        assert!(task.select.is_none());
+        assert!(task.url.is_none());
+    }
+
+    #[test]
+    fn map_ordinal_without_result_noun_is_not_links() {
+        // "first" with no result/link/video noun is not a result selection.
+        let task = browser_task_for("say hello first", None);
+        assert!(task.mode.is_none(), "no result noun → not links mode");
+    }
+
+    // --- summary: browser_summary ------------------------------------------
+
+    #[test]
+    fn summary_includes_chosen_href_when_present() {
+        let line = r#"{"ok":true,"detail":"navigated to Lofi","chosenHref":"https://youtu.be/x"}"#;
+        let r: BrowserResult = serde_json::from_str(line).unwrap();
+        assert_eq!(
+            browser_summary(&r),
+            "navigated to Lofi (https://youtu.be/x)"
+        );
+    }
+
+    #[test]
+    fn summary_falls_back_to_detail_or_done() {
+        let r: BrowserResult =
+            serde_json::from_str(r#"{"ok":true,"detail":"clicked play"}"#).unwrap();
+        assert_eq!(browser_summary(&r), "clicked play");
+        let empty: BrowserResult = serde_json::from_str(r#"{"ok":true,"detail":""}"#).unwrap();
+        assert_eq!(browser_summary(&empty), "Done");
     }
 }
