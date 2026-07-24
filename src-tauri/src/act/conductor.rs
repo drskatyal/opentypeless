@@ -951,16 +951,23 @@ impl Conductor {
             // stronger grounding, so we skip the capture and keep the full element
             // budget so no link is trimmed.
             let mut browser_foreground = false;
+            // Set when the foreground is an OPAQUE app (not a browser, no usable
+            // interactive a11y elements): this turn auto-upgrades to a vision
+            // screenshot even under the Tree default — see the perception block below.
+            let mut auto_vision = false;
             let (packet, fingerprint) = match self.backend.snapshot().await {
                 Ok(snap) => {
                     self.board.observe(&snap);
                     let fp = snapshot_fingerprint(&snap);
                     browser_foreground = foreground_is_browser(&snap.app);
-                    // A screenshot turn (hybrid / vision) leans on the image and
-                    // often acts by coordinate, so serialize a leaner tree; tree mode
-                    // — and any browser turn — keeps the full budget so every link
-                    // survives.
-                    let max_elems = if self.plan_mode.needs_screenshot() && !browser_foreground {
+                    auto_vision = snapshot_is_opaque(&snap);
+                    // A screenshot turn (hybrid / vision, OR an auto-upgraded opaque
+                    // app) leans on the image and often acts by coordinate, so
+                    // serialize a leaner tree; tree mode — and any browser turn —
+                    // keeps the full budget so every link survives.
+                    let screenshot_turn =
+                        (self.plan_mode.needs_screenshot() && !browser_foreground) || auto_vision;
+                    let max_elems = if screenshot_turn {
                         SCREENSHOT_MAX_ELEMENTS
                     } else {
                         DEFAULT_MAX_ELEMENTS
@@ -981,30 +988,29 @@ impl Conductor {
             // the goal — never raw untrusted screen text.
             let prior_context = novel_prior_context(&self.board, &goal, &history);
 
-            // (c) Perception: for hybrid / vision modes, capture a screenshot to
-            // hand the planner — UNLESS a browser is in front, where the tree wins
-            // (above) and a screenshot would only reintroduce the off-screen/zoom
-            // blind spot. A missing platform impl (`Ok(None)`) or a capture error
-            // degrades to tree grounding for this turn rather than failing — the mode
-            // toggle never breaks Act.
-            let perception = if self.plan_mode.needs_screenshot() && !browser_foreground {
-                match self.backend.capture_screen().await {
-                    Ok(Some(png)) => Perception {
-                        mode: self.plan_mode,
-                        screenshot_png: Some(png),
-                    },
-                    Ok(None) => {
-                        tracing::debug!(
-                            mode = self.plan_mode.as_str(),
-                            "act novel: no screen capture available; using tree grounding"
-                        );
-                        Perception::tree()
-                    }
-                    Err(e) => {
-                        tracing::warn!(mode = self.plan_mode.as_str(), error = %e, "act novel: screen capture failed; using tree grounding");
-                        Perception::tree()
-                    }
-                }
+            // (c) Perception — the adaptive router picks per turn from the snapshot:
+            //   * Browser foreground → tree (decided above; a screenshot would only
+            //     reintroduce the off-screen/zoom blind spot).
+            //   * Configured hybrid / vision on a non-browser → capture a screenshot
+            //     and hand it to the planner (the mode toggle).
+            //   * OPAQUE non-browser app (no usable interactive a11y elements, e.g. an
+            //     Electron/WhatsApp window that surfaces only an empty root pane) →
+            //     AUTO-UPGRADE this turn to vision even under the Tree default: a
+            //     coordinate engine is the only thing that can drive a UI whose tree
+            //     exposes nothing, so we do it automatically instead of making the
+            //     user switch modes by hand.
+            //   * Otherwise (rich a11y, not a browser) → tree.
+            // A missing platform impl (`Ok(None)`) or a capture error degrades to tree
+            // grounding for this turn rather than failing — the router never breaks Act.
+            let perception = if browser_foreground {
+                Perception::tree()
+            } else if self.plan_mode.needs_screenshot() {
+                self.capture_or_tree(self.plan_mode).await
+            } else if auto_vision {
+                tracing::debug!(
+                    "act novel: opaque app exposes no interactive elements; auto-upgrading this turn to vision"
+                );
+                self.capture_or_tree(PlanMode::Vision).await
             } else {
                 Perception::tree()
             };
@@ -1121,6 +1127,31 @@ impl Conductor {
         self.finish_task(false, &summary, events);
         events.push(ActEvent::Result { ok: false, summary });
         Step::Next
+    }
+
+    /// Capture a screenshot for a screenshot-based perception `mode`, degrading to
+    /// tree grounding when the platform has no capture impl (`Ok(None)`) or the
+    /// capture errors. Shared by the configured hybrid/vision path and the opaque-app
+    /// auto-upgrade, so neither the mode toggle nor the adaptive router ever breaks
+    /// Act when a screenshot can't be taken.
+    async fn capture_or_tree(&self, mode: PlanMode) -> Perception {
+        match self.backend.capture_screen().await {
+            Ok(Some(png)) => Perception {
+                mode,
+                screenshot_png: Some(png),
+            },
+            Ok(None) => {
+                tracing::debug!(
+                    mode = mode.as_str(),
+                    "act novel: no screen capture available; using tree grounding"
+                );
+                Perception::tree()
+            }
+            Err(e) => {
+                tracing::warn!(mode = mode.as_str(), error = %e, "act novel: screen capture failed; using tree grounding");
+                Perception::tree()
+            }
+        }
     }
 
     /// Adaptive post-navigation settle: after a batch that opened a URL or launched
@@ -1395,6 +1426,17 @@ fn foreground_is_browser(app: &str) -> bool {
     BROWSER_APP_STEMS
         .iter()
         .any(|stem| normalized.contains(stem))
+}
+
+/// Whether the foreground is an OPAQUE app: not a browser, and exposing NO usable
+/// interactive elements in its accessibility snapshot. Some apps (Electron shells
+/// such as WhatsApp) surface only an empty root pane, so the a11y tree gives the
+/// planner nothing to target. For those the adaptive router auto-upgrades the turn
+/// to a vision screenshot — a coordinate engine is the only thing that can drive a
+/// UI whose tree is blank. A browser is never "opaque" here: its links live in the
+/// tree and are handled by the browser-foreground path instead.
+fn snapshot_is_opaque(snap: &Snapshot) -> bool {
+    !foreground_is_browser(&snap.app) && !snap.elements.iter().any(|e| e.is_interactive())
 }
 
 /// Whether a post-navigation snapshot is "settled enough" to plan against, given
@@ -2378,6 +2420,78 @@ mod tests {
         assert!(
             backend.screen_captures() >= 1,
             "a non-browser vision turn must still capture a screenshot"
+        );
+    }
+
+    #[tokio::test]
+    async fn opaque_non_browser_app_auto_upgrades_to_vision_even_in_tree_mode() {
+        // An Electron-style app (WhatsApp) whose a11y snapshot exposes only a
+        // non-interactive root pane can't be driven by the tree. Even with the global
+        // plan mode left at the Tree default, the adaptive router must auto-upgrade
+        // THIS turn to a vision screenshot — so capture_screen is called.
+        let whatsapp = Snapshot {
+            app: "WhatsApp (whatsapp.root)".into(),
+            window_title: "WhatsApp".into(),
+            focused: None,
+            pointer: None,
+            selection_text_len: 0,
+            elements: vec![UiElement {
+                path: "whatsapp.root".into(),
+                role: Role::Pane,
+                name: String::new(),
+                description: String::new(),
+                value_len: 0,
+                states: vec![],
+                bounds: Some(Bounds {
+                    x: 0,
+                    y: 0,
+                    w: 800,
+                    h: 600,
+                }),
+                patterns: vec![],
+            }],
+        };
+        let mut backend = MockBackend::new(whatsapp);
+        backend.set_screenshot(b"\x89PNG-fake".to_vec());
+        let backend = Arc::new(backend);
+        let selection = r#"{"missions":[{"type":"novel","goal":"message mom"}]}"#;
+        let plan = r#"{"actions":[{"op":"stop"}]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(plan.into())],
+            backend.clone(),
+        );
+        c.set_plan_mode(PlanMode::Tree);
+        c.arm();
+        c.on_transcript("message mom".into()).await.unwrap();
+        assert!(
+            backend.screen_captures() >= 1,
+            "an opaque non-browser app must auto-upgrade to a vision screenshot"
+        );
+    }
+
+    #[tokio::test]
+    async fn rich_a11y_app_stays_on_tree_in_tree_mode() {
+        // A non-browser app WITH interactive elements has a usable tree, so the Tree
+        // default is honored: no auto-upgrade, no screenshot captured.
+        let editor = snap(vec![el("btn.send", Role::Button, "Send")]);
+        let mut backend = MockBackend::new(editor);
+        backend.set_screenshot(b"\x89PNG-fake".to_vec());
+        let backend = Arc::new(backend);
+        let selection = r#"{"missions":[{"type":"novel","goal":"click send"}]}"#;
+        let plan = r#"{"actions":[{"op":"stop"}]}"#;
+        let mut c = conductor(
+            FlowRegistry::new(),
+            vec![Ok(selection.into()), Ok(plan.into())],
+            backend.clone(),
+        );
+        c.set_plan_mode(PlanMode::Tree);
+        c.arm();
+        c.on_transcript("click send".into()).await.unwrap();
+        assert_eq!(
+            backend.screen_captures(),
+            0,
+            "a rich-a11y app in tree mode must stay on the tree, never a screenshot"
         );
     }
 
