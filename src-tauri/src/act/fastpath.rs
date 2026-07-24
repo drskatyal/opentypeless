@@ -2,9 +2,10 @@
 //! WITHOUT a model round-trip, so only open-ended intents pay the Gemini cost.
 //!
 //! This is the Talon lesson: a tiny keyword grammar for the highest-frequency
-//! commands (copy/paste/cut/undo/redo/select-all/save/new-tab/close-tab/
-//! next-field/submit/stop) resolves deterministically in microseconds and never
-//! touches the planner. A miss returns `None` and escalates to Gemini.
+//! commands (copy/paste/cut/undo/redo/select-all/save/find/print/new-tab/
+//! close-tab/reopen-tab/new-window/reload/next-field/submit/stop) resolves
+//! deterministically in microseconds and never touches the planner. A miss
+//! returns `None` and escalates to Gemini.
 
 use super::action::{Action, ActionPlan};
 
@@ -42,8 +43,14 @@ pub fn resolve(transcript: &str) -> Option<ActionPlan> {
         "redo" => key_plan("ctrl+y"),
         "select all" => key_plan("ctrl+a"),
         "save" => key_plan("ctrl+s"),
+        "find" => key_plan("ctrl+f"),
+        "print" => key_plan("ctrl+p"),
         "new tab" => key_plan("ctrl+t"),
         "close tab" => key_plan("ctrl+w"),
+        "reopen tab" => key_plan("ctrl+shift+t"),
+        "new window" => key_plan("ctrl+n"),
+        // "reload"/"refresh" both resolve to F5, the universal reload key.
+        "reload" | "refresh" => key_plan("f5"),
         "next field" => key_plan("Tab"),
         // `submit` / `press enter` resolve to a bare Enter press. This intentionally
         // does NOT go through the planner's destructive heuristic, so the executor's
@@ -100,8 +107,14 @@ mod tests {
             ("redo", "ctrl+y"),
             ("select all", "ctrl+a"),
             ("save", "ctrl+s"),
+            ("find", "ctrl+f"),
+            ("print", "ctrl+p"),
             ("new tab", "ctrl+t"),
             ("close tab", "ctrl+w"),
+            ("reopen tab", "ctrl+shift+t"),
+            ("new window", "ctrl+n"),
+            ("reload", "f5"),
+            ("refresh", "f5"),
             ("next field", "Tab"),
             ("submit", "Enter"),
             ("press enter", "Enter"),
@@ -142,6 +155,33 @@ mod tests {
         assert!(resolve("reply saying i'll be late").is_none());
         assert!(resolve("").is_none());
         assert!(resolve("copier").is_none());
+    }
+
+    #[test]
+    fn added_single_shot_verbs_resolve() {
+        // "reload" and "refresh" are aliases for the same universal reload key.
+        assert_eq!(combo_of(&resolve("reload").unwrap()), "f5");
+        assert_eq!(combo_of(&resolve("refresh").unwrap()), "f5");
+        assert_eq!(combo_of(&resolve("reopen tab").unwrap()), "ctrl+shift+t");
+        assert_eq!(combo_of(&resolve("new window").unwrap()), "ctrl+n");
+        assert_eq!(combo_of(&resolve("find").unwrap()), "ctrl+f");
+        assert_eq!(combo_of(&resolve("print").unwrap()), "ctrl+p");
+        // Filler variants still collapse onto the canonical verb.
+        assert_eq!(combo_of(&resolve("reload please").unwrap()), "f5");
+        assert_eq!(combo_of(&resolve("refresh now").unwrap()), "f5");
+    }
+
+    #[test]
+    fn longer_sentences_do_not_spuriously_match_new_verbs() {
+        // The grammar matches the WHOLE normalized+stripped phrase, so a verb word
+        // embedded in a longer request must escalate to the planner, never fire a
+        // bare shortcut.
+        assert!(resolve("find my flight to paris").is_none());
+        assert!(resolve("print the quarterly report").is_none());
+        assert!(resolve("reload the page in five minutes").is_none());
+        assert!(resolve("open a new window in chrome").is_none());
+        assert!(resolve("reopen the tab i just closed").is_none());
+        assert!(resolve("refresh my memory on this").is_none());
     }
 
     #[test]
